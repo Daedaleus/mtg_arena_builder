@@ -18,6 +18,10 @@ serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.154"
 ureq = "2"
 
+# Bettet Logo und Versionsinfos in die Windows-Exe ein (siehe build.rs).
+[target.'cfg(windows)'.build-dependencies]
+winresource = "0.1"
+
 # Optimierte Auslieferungsversion: maximale Optimierung über alle Crates hinweg,
 # ohne Debug-Symbole. "panic = abort" bewusst NICHT gesetzt – der Speicherleser
 # darf paniken, ohne die App mitzureißen.

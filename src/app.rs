@@ -8,6 +8,7 @@ use eframe::egui::{self, Color32, RichText};
 use egui_extras::{Column, TableBuilder};
 use serde::{Deserialize, Serialize};
 
+use crate::builder::{self, Built};
 use crate::carddb::{CardDb, RARITY_COMMON, rarity_label};
 use crate::collection::{self, Collection};
 use crate::deck::{self, Deck, DeckEval, LineEval, Summary};
@@ -21,6 +22,9 @@ const RED: Color32 = Color32::from_rgb(235, 115, 105);
 const RARITY_NAMES: [&str; 4] = ["Common", "Uncommon", "Rare", "Mythic"];
 /// Schlüssel der selbst eingefügten Liste in den Deck-Tabellen.
 const PASTED: u32 = 0;
+/// Schlüsselbereich der aus der Sammlung gebauten Decks (MTGTop8-IDs sind viel größer).
+const BUILT_BASE: u32 = 1;
+const BUILT_MAX: u32 = 99;
 
 fn rarity_color(r: u8) -> Color32 {
     match r {
@@ -72,7 +76,8 @@ struct Settings {
     include_side: bool,
     with_sets: bool,
     sort_by_fit: bool,
-    paste_tab: bool,
+    /// Aktiver Reiter: 0 = Turnierdecks, 1 = eigene Liste, 2 = aus Sammlung.
+    tab: u8,
     paste_text: String,
     sel_arch: Option<u32>,
     sel_deck: Option<u32>,
@@ -88,7 +93,7 @@ impl Default for Settings {
             include_side: true,
             with_sets: true,
             sort_by_fit: false,
-            paste_tab: false,
+            tab: 0,
             paste_text: String::new(),
             sel_arch: None,
             sel_deck: None,
@@ -206,6 +211,7 @@ fn worker(rx: Receiver<Job>, tx: Sender<Msg>, ctx: egui::Context, cache: PathBuf
 enum Tab {
     Meta,
     Paste,
+    Built,
 }
 
 pub struct App {
@@ -239,6 +245,9 @@ pub struct App {
     sort_by_fit: bool,
     /// Zuletzt geschriebener Stand von `settings.json`.
     saved_json: Vec<u8>,
+    /// Aus der Sammlung gebaute Deckvorschläge (None = noch nicht berechnet).
+    built: Option<Vec<Built>>,
+    sel_built: usize,
 }
 
 impl App {
@@ -264,10 +273,10 @@ impl App {
             .collect();
         let mut app = App {
             sort_by_fit: settings.sort_by_fit,
-            tab: if settings.paste_tab {
-                Tab::Paste
-            } else {
-                Tab::Meta
+            tab: match settings.tab {
+                1 => Tab::Paste,
+                2 => Tab::Built,
+                _ => Tab::Meta,
             },
             paste_text: settings.paste_text.clone(),
             repl,
@@ -294,6 +303,8 @@ impl App {
             pending: 0,
             syncing: false,
             saved_json: Vec::new(),
+            built: None,
+            sel_built: 0,
         };
         app.settings.format = app.settings.format.min(FORMATS.len() - 1);
         app.load_db();
@@ -311,7 +322,11 @@ impl App {
     /// (nur wenn sich etwas geändert hat).
     fn save_settings(&mut self) {
         self.settings.sort_by_fit = self.sort_by_fit;
-        self.settings.paste_tab = self.tab == Tab::Paste;
+        self.settings.tab = match self.tab {
+            Tab::Meta => 0,
+            Tab::Paste => 1,
+            Tab::Built => 2,
+        };
         self.settings.paste_text = self.paste_text.clone();
         self.settings.sel_arch = self.sel_arch;
         self.settings.sel_deck = self.sel_deck;
@@ -357,6 +372,7 @@ impl App {
             _ => HashMap::new(),
         };
         self.subs.clear();
+        self.built = None;
         self.evals.clear();
         if let Some(db) = &self.db {
             for (id, list) in &self.lists {
@@ -376,6 +392,7 @@ impl App {
         self.sel_arch = None;
         self.sel_deck = None;
         self.subs.clear();
+        self.built = None;
         self.status = format!("Lade {}-Metagame von MTGTop8 …", FORMATS[format].1);
         if self.legal_requested.insert(format) {
             let (tx, cache) = (self.tx_msg.clone(), self.data_dir.join("cache"));
@@ -458,6 +475,7 @@ impl App {
                     Ok(names) => {
                         self.legal.insert(format, names);
                         self.subs.clear();
+                        self.built = None;
                     }
                     Err(e) => {
                         self.status = format!(
@@ -851,6 +869,80 @@ impl App {
         }
     }
 
+    /// Baut Deckvorschläge aus der Sammlung und legt sie unter eigenen Schlüsseln ab.
+    fn compute_built(&mut self) {
+        let Some(db) = &self.db else { return };
+        // Turnier-Präsenz: in wie vielen geladenen Turnierlisten kommt eine Karte vor?
+        let mut meta_use: HashMap<String, u32> = HashMap::new();
+        for (_, eval) in self.evals.iter().filter(|(id, _)| **id > BUILT_MAX) {
+            let keys: HashSet<&String> = eval.lines.iter().filter_map(|l| l.key.as_ref()).collect();
+            for key in keys {
+                *meta_use.entry(key.clone()).or_insert(0) += 1;
+            }
+        }
+        let legal = self.legal.get(&self.settings.format);
+        let built = builder::build_all(db, &self.owned, legal, &meta_use);
+        self.repl
+            .retain(|k, _| !(BUILT_BASE..=BUILT_MAX).contains(&k.0));
+        self.subs
+            .retain(|k, _| !(BUILT_BASE..=BUILT_MAX).contains(&k.0));
+        for (i, b) in built.iter().enumerate() {
+            self.set_list(BUILT_BASE + i as u32, b.deck.clone());
+        }
+        self.sel_built = self.sel_built.min(built.len().saturating_sub(1));
+        self.built = Some(built);
+    }
+
+    fn built_tab(&mut self, ui: &mut egui::Ui) {
+        if self.collection.is_none() || self.db.is_none() {
+            ui.label("Dafür muss zuerst die Sammlung gelesen werden (oben rechts).");
+            return;
+        }
+        if self.built.is_none() {
+            self.compute_built();
+        }
+        ui.label(format!(
+            "Decks, die du sofort und ohne Wildcards bauen kannst – zusammengestellt aus deinen stärksten {}-legalen Karten je Farbkombination.",
+            FORMATS[self.settings.format].1
+        ));
+        ui.label(
+            RichText::new("Die Kartenstärke ist geschätzt (Seltenheit, Vorkommen in Turnierdecks, Werte, Removal). Je mehr Turnierdecks links geladen sind, desto besser die Schätzung.")
+                .weak(),
+        );
+        let built = self.built.clone().unwrap_or_default();
+        if built.is_empty() {
+            ui.label(RichText::new("Aus deiner Sammlung lässt sich in diesem Format noch kein vollständiges Deck bauen.").color(YELLOW));
+            return;
+        }
+        ui.add_space(4.0);
+        ui.horizontal_wrapped(|ui| {
+            for (i, b) in built.iter().enumerate() {
+                let text = format!("{}  {:.1}", b.label, b.score);
+                if ui
+                    .selectable_label(self.sel_built == i, text)
+                    .on_hover_text(
+                        "Geschätzte Stärke (höher = besser), nur untereinander vergleichbar",
+                    )
+                    .clicked()
+                {
+                    self.sel_built = i;
+                }
+            }
+            if ui.button("Neu berechnen").clicked() {
+                self.built = None;
+            }
+        });
+        let Some(b) = built.get(self.sel_built) else {
+            return;
+        };
+        ui.label(format!(
+            "{}: {} Kreaturen · {} Removal · Ø {:.1} Mana · {} Rares/Mythics · {} Karten, die auch in Turnierdecks gespielt werden",
+            b.label, b.creatures, b.removal, b.avg_cmc, b.rares, b.meta_cards
+        ));
+        ui.separator();
+        self.deck_view(ui, BUILT_BASE + self.sel_built as u32);
+    }
+
     fn paste_tab(&mut self, ui: &mut egui::Ui) {
         ui.label("Deckliste im Arena- oder MTGO-Textformat einfügen (z. B. von MTGGoldfish, Untapped oder aus Arena exportiert):");
         egui::ScrollArea::vertical()
@@ -1149,12 +1241,14 @@ impl eframe::App for App {
             }
             ui.horizontal(|ui| {
                 ui.selectable_value(&mut self.tab, Tab::Meta, "Turnierdecks");
+                ui.selectable_value(&mut self.tab, Tab::Built, "Aus meiner Sammlung");
                 ui.selectable_value(&mut self.tab, Tab::Paste, "Eigene Liste prüfen");
             });
             ui.separator();
             match self.tab {
                 Tab::Meta => self.meta_tab(ui),
                 Tab::Paste => self.paste_tab(ui),
+                Tab::Built => self.built_tab(ui),
             }
         });
     }

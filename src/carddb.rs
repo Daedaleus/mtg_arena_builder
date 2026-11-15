@@ -34,9 +34,66 @@ pub struct Card {
     /// Druck aus einem regulären Set (keine Sonder-/Bonusveröffentlichung).
     pub regular: bool,
     pub back_face: bool,
+    /// Grobe Rolle laut Kartentext (siehe `ROLE_*`).
+    pub roles: u8,
+}
+
+/// Entfernt oder neutralisiert gegnerische Karten (Zerstören, Schaden, Verbannen …).
+pub const ROLE_REMOVAL: u8 = 1;
+/// Neutralisiert Zaubersprüche.
+pub const ROLE_COUNTER: u8 = 2;
+/// Zieht Karten.
+pub const ROLE_DRAW: u8 = 4;
+
+/// Leitet aus einem (englischen) Fähigkeitstext grobe Rollen ab.
+fn roles_of(text: &str) -> u8 {
+    let t = strip_tags(text).to_lowercase();
+    let has = |needles: &[&str]| needles.iter().any(|n| t.contains(n));
+    let mut roles = 0;
+    let exile =
+        t.contains("exile target") && !has(&["card from", "exile target card", "you control"]);
+    if exile
+        || (t.contains("destroy target") && !t.contains("destroy target land"))
+        || has(&[
+            "destroy all",
+            "exile all creatures",
+            "damage to any target",
+            "damage to target creature",
+            "damage to target permanent",
+            "damage to up to",
+            "damage to each creature",
+            "damage divided",
+            "target creature gets -",
+            "creatures get -",
+            "fights target",
+            "fights up to",
+            "fights another target",
+            "damage equal to its power to target",
+            "sacrifices a creature",
+        ])
+    {
+        roles |= ROLE_REMOVAL;
+    }
+    if t.contains("counter target") {
+        roles |= ROLE_COUNTER;
+    }
+    if has(&[
+        "draw a card",
+        "draw two cards",
+        "draw three cards",
+        "draws two cards",
+        "draw cards",
+    ]) {
+        roles |= ROLE_DRAW;
+    }
+    roles
 }
 
 impl Card {
+    pub fn has_role(&self, role: u8) -> bool {
+        self.roles & role != 0
+    }
+
     pub fn is_land(&self) -> bool {
         self.types.contains(&TYPE_LAND)
     }
@@ -191,16 +248,42 @@ impl CardDb {
                 power: text(r, 14),
                 toughness: text(r, 15),
                 regular: text(r, 16).is_empty(),
+                roles: 0,
             })
         })?;
+
+        // Fähigkeitstexte -> Rollen (Removal, Counter, Kartenziehen)
+        let mut ability_roles: HashMap<u32, u8> = HashMap::new();
+        if let Ok(mut stmt) = conn.prepare(
+            "SELECT a.Id, l.Loc FROM Abilities a
+             JOIN Localizations_enUS l ON l.LocId = a.TextId AND l.Formatted = 1",
+        ) {
+            let found = stmt.query_map([], |r| {
+                Ok((
+                    r.get::<_, i64>(0)? as u32,
+                    r.get::<_, Option<String>>(1)?.unwrap_or_default(),
+                ))
+            })?;
+            for (id, text) in found.flatten() {
+                let roles = roles_of(&text);
+                if roles != 0 {
+                    ability_roles.insert(id, roles);
+                }
+            }
+        }
 
         let mut cards = HashMap::new();
         let mut by_name: HashMap<String, Vec<u32>> = HashMap::new();
         for card in rows {
-            let card = card?;
+            let mut card = card?;
             if card.name.is_empty() {
                 continue;
             }
+            card.roles = card
+                .abilities
+                .iter()
+                .filter_map(|a| ability_roles.get(a))
+                .fold(0, |m, r| m | r);
             by_name
                 .entry(name_key(&card.name))
                 .or_default()

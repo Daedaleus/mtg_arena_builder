@@ -1,6 +1,7 @@
 #![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]
 
 mod app;
+mod builder;
 mod carddb;
 mod collection;
 mod deck;
@@ -226,6 +227,69 @@ fn variants(format: &str, name: &str) -> anyhow::Result<()> {
     Ok(())
 }
 
+/// `--build [FORMAT]`: Deckvorschläge aus der gespeicherten Sammlung.
+fn build(format: &str) -> anyhow::Result<()> {
+    let db = carddb::CardDb::load(&paths::find_card_db(None)?)?;
+    let col = collection::Collection::load(&paths::data_dir().join("collection.json"))
+        .ok_or_else(|| anyhow::anyhow!("Keine gespeicherte Sammlung"))?;
+    let owned = col.owned_by_name(&db);
+    let mut fetcher = meta::Fetcher::new(paths::data_dir().join("cache"));
+    let scry = meta::FORMATS
+        .iter()
+        .find(|f| f.0 == format)
+        .map(|f| f.2)
+        .unwrap_or("standard");
+    let legal = fetcher.legal_names(scry).ok();
+    // Turnier-Präsenz aus allen bereits heruntergeladenen Listen
+    let mut meta_use = std::collections::HashMap::new();
+    for arch in fetcher.archetypes(format, false)? {
+        for d in fetcher.cached_decks(format, &arch).unwrap_or_default() {
+            let Some(text) = fetcher.cached_decklist(d.id) else {
+                continue;
+            };
+            let list = deck::parse(&text);
+            let keys: std::collections::HashSet<String> = list
+                .main
+                .iter()
+                .chain(&list.side)
+                .filter_map(|e| db.resolve(&e.name))
+                .collect();
+            for k in keys {
+                *meta_use.entry(k).or_insert(0u32) += 1;
+            }
+        }
+    }
+    let built = builder::build_all(&db, &owned, legal.as_ref(), &meta_use);
+    for b in &built {
+        println!(
+            "{:<16} Stärke {:.2}  {} Kreaturen, {} Removal, Ø {:.1} Mana, {} Rares/Mythics, {} Turnierkarten",
+            b.label, b.score, b.creatures, b.removal, b.avg_cmc, b.rares, b.meta_cards
+        );
+    }
+    for b in built.iter().take(2) {
+        println!(
+            "
+=== {} ===",
+            b.label
+        );
+        for e in &b.deck.main {
+            let c = db
+                .resolve(&e.name)
+                .and_then(|k| db.representative(&k).cloned());
+            println!(
+                "  {} {:<34} {:<10} {}",
+                e.qty,
+                e.name,
+                c.as_ref().map(|c| c.mana_cost.clone()).unwrap_or_default(),
+                c.as_ref()
+                    .map(|c| carddb::rarity_label(c.rarity))
+                    .unwrap_or("")
+            );
+        }
+    }
+    Ok(())
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     match args.get(1).map(String::as_str) {
@@ -246,6 +310,14 @@ fn main() {
             }
             return;
         }
+        Some("--build") => {
+            let format = args.get(2).map(String::as_str).unwrap_or("ST");
+            if let Err(e) = build(format) {
+                println!("FEHLER: {e:#}");
+                std::process::exit(1);
+            }
+            return;
+        }
         Some("--report") => {
             let format = args.get(2).map(String::as_str).unwrap_or("ST");
             if let Err(e) = report(format) {
@@ -261,7 +333,11 @@ fn main() {
         viewport: eframe::egui::ViewportBuilder::default()
             .with_inner_size([1280.0, 840.0])
             .with_min_inner_size([900.0, 560.0])
-            .with_title("MTG Arena Builder"),
+            .with_title("MTG Arena Builder")
+            .with_icon(
+                eframe::icon_data::from_png_bytes(include_bytes!("../assets/icon.png"))
+                    .expect("eingebettetes Logo ist ein gültiges PNG"),
+            ),
         ..Default::default()
     };
     let result = eframe::run_native(
