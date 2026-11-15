@@ -1,0 +1,7 @@
+# Unter Windows die C-Laufzeit statisch einbinden: Die fertige .exe läuft dann
+# auch auf Rechnern ohne installiertes "Visual C++ Redistributable".
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static"]
+
+[target.aarch64-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static"]
