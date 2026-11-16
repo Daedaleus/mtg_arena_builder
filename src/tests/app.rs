@@ -52,3 +52,26 @@ fn sim_page_renders() {
         egui::CentralPanel::default().show(ctx, |ui| super::deck_view::sim_view(ui, &report));
     });
 }
+
+#[test]
+fn wildcard_plan_renders() {
+    let db = std_db();
+    let deck = crate::deck::parse("4 Serra Angel\n4 Hill Ogre\n1 Unbekannt\n");
+    let eval = crate::deck::evaluate(&deck, &db, &HashMap::new());
+    let plan = budget::wildcard_plan(&eval, &db, [4, 0, 0, 0], true);
+    let ctx = egui::Context::default();
+    let _ = ctx.run(egui::RawInput::default(), |ctx| {
+        egui::CentralPanel::default().show(ctx, |ui| {
+            // Zugeklappt und aufgeklappt zeichnen.
+            egui::CollapsingHeader::new("x")
+                .default_open(true)
+                .show(ui, |_| {});
+            super::deck_view::wildcard_plan_view(ui, &plan)
+        });
+    });
+    assert_eq!(
+        super::deck_view::wildcards_text(&[0, 0, 2, 1]),
+        "2 Rare, 1 Mythic"
+    );
+    assert_eq!(super::deck_view::wildcards_text(&[0; 4]), "keine");
+}

@@ -547,6 +547,17 @@ fn main() {
                     };
                     println!("   {} -> {}", n(k), n(r));
                 }
+                let wp = budget::wildcard_plan(&eval, &db, wc, false);
+                println!("Wildcard-Plan ({:.0} % vorhanden):", wp.complete);
+                for s in &wp.now {
+                    println!("   jetzt  {}× {} -> {:.0} %", s.qty, s.name, s.complete);
+                }
+                for s in &wp.later {
+                    println!(
+                        "   später {}× {} (fehlen dann {:?}) -> {:.0} %",
+                        s.qty, s.name, s.short, s.complete
+                    );
+                }
                 Ok(())
             };
             if let Err(e) = run() {

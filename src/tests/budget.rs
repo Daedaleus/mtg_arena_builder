@@ -101,3 +101,48 @@ fn replacement_quantities() {
     assert_eq!(replaced_qty(&db, &mine, "hill ogre", 1), 1);
     assert_eq!(replaced_qty(&db, &mine, "shock", 4), 0);
 }
+
+#[test]
+fn wildcard_plan_in_stages() {
+    let db = std_db();
+    // 4 Engel (Rare), 2 Drachen (Mythic), 4 Riesen (Uncommon), 4 Oger (Common) fehlen.
+    let deck = parse(
+        "4 Serra Angel\n2 Shivan Dragon\n4 Stone Giant\n4 Hill Ogre\n16 Plains\nSideboard\n2 Shock\n",
+    );
+    let eval = evaluate(&deck, &db, &HashMap::new());
+    let p = wildcard_plan(&eval, &db, [4, 4, 2, 0], false);
+    assert!((p.complete - 16.0 / 30.0 * 100.0).abs() < 0.01);
+    // Jetzt: Riesen (U) und Oger (C); Engel brauchen 4 Rare, nur 2 da.
+    let now: Vec<(&str, u32)> = p.now.iter().map(|s| (s.name.as_str(), s.qty)).collect();
+    assert_eq!(now, vec![("Hill Ogre", 4), ("Stone Giant", 4)]);
+    assert!(p.now.iter().all(|s| s.short == [0; 4]));
+    assert!((p.now[1].complete - 24.0 / 30.0 * 100.0).abs() < 0.01);
+    // Danach: Engel (2 Rare fehlen, 2 aus dem Bestand), dann Drachen (2 Mythic).
+    let later: Vec<(&str, usize, [u32; 4])> = p
+        .later
+        .iter()
+        .map(|s| (s.name.as_str(), s.slot, s.short))
+        .collect();
+    assert_eq!(
+        later,
+        vec![
+            ("Serra Angel", 2, [0, 0, 2, 0]),
+            ("Shivan Dragon", 3, [0, 0, 2, 2])
+        ]
+    );
+    assert_eq!(p.later.last().unwrap().complete, 100.0);
+    assert!(p.unavailable.is_empty());
+
+    // Mit Nebendeck und unbekannter Karte
+    let deck = parse("4 Hill Ogre\n1 Unbekannt\nSideboard\n2 Shock\n");
+    let eval = evaluate(&deck, &db, &HashMap::new());
+    let p = wildcard_plan(&eval, &db, [0; 4], true);
+    assert_eq!(p.unavailable, vec!["Unbekannt".to_string()]);
+    assert_eq!(p.now.len(), 0);
+    assert_eq!(p.later.len(), 2);
+    assert_eq!(p.later.last().unwrap().short, [6, 0, 0, 0]);
+    assert!(
+        p.later.last().unwrap().complete < 100.0,
+        "Unbekannte Karte fehlt immer"
+    );
+}

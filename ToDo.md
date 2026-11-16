@@ -15,13 +15,16 @@ Stand: 16.11.2026. Erledigtes steht in der Git-Historie.
 
 ## Ideen
 
-- [ ] **Probehände testen:** tausende Starthände und erste Züge eines Decks
-      simulieren und zeigen, wie oft Länder oder Farben fehlen.
-- [ ] **Wildcard-Plan:** Ziel-Deck in Etappen – welche Karte zuerst herstellen.
-- [ ] Schlüsselmomente auch in der Detailansicht einer Partie (je Zug) zeigen.
-- [ ] Rangverlauf auch für Limited (`limitedLevel` steht schon im Log).
-- [ ] Zugvorschlag: Mana aus Kreaturen und Schätzen berücksichtigen.
-- [ ] Blockvorschlag: Bedrohlich mit zwei Blockern einplanen.
+- [ ] Probehände mit Gegner-Druck: wie viel Schaden bis Zug 6 (Aggro-Check).
+- [ ] Wildcard-Plan: geschätzte Spielzeit/Packs bis zum nächsten Schritt.
+
+- [x] Probehände: Deck 1000-mal bis Zug 6 simulieren (`sim.rs`).
+- [x] Wildcard-Plan in der Deckansicht (`budget::wildcard_plan`).
+- [x] Schlüsselmomente erscheinen auch in der Detailansicht einer Partie.
+- [x] Rangverlauf auch für Limited.
+- [x] Zugvorschlag: Mana aus Kreaturen. Offen: Schätze und andere Token
+      (stehen nicht in der Kartendatenbank).
+- [x] Blockvorschlag: Bedrohlich mit zwei Blockern.
 
 ## Technik
 

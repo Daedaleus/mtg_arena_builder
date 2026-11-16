@@ -14,16 +14,21 @@ echten Einsatz ausprobiert (siehe [ToDo.md](ToDo.md)).
 
 | Reiter | Was er tut |
 |---|---|
-| **Turnierdecks** | Archetypen und Decklisten von MTGTop8 je Format. Zeigt, was mit der eigenen Sammlung fehlt und ob die Wildcards reichen; Ersatzkarten aus der Sammlung, „Budget-Version bauen“, Export für den Arena-Import. |
+| **Turnierdecks** | Archetypen und Decklisten von MTGTop8 je Format. Zeigt, was mit der eigenen Sammlung fehlt und ob die Wildcards reichen; Ersatzkarten aus der Sammlung, „Budget-Version bauen“, **Wildcard-Plan** (was jetzt herstellbar ist und in welcher Reihenfolge der Rest folgt), **Probehände** und Export für den Arena-Import. |
 | **Aus meiner Sammlung** | Baut 60-Karten-Decks je Farbe/Farbpaar nur aus eigenen Karten (Manakurve, Kreaturen, Removal, passende Länder). |
 | **Eigene Liste** | Eine beliebige Deckliste einfügen und gegen die Sammlung prüfen. |
-| **Meine Partien** | Auswertung aus dem Arena-Log: typische Fehler mit Beispielen („Land nicht gespielt“, „Besserer Zug möglich“, „Gefahrlosen Angriff ausgelassen“ …), Gegner-Analyse, Partienliste und **Verlauf** (Rang und Siegquote je Deck als Diagramm). |
-| **Deck verbessern** | Kartennutzung je Deck, Länder-Check, Vergleich mit dem passenden Turnier-Archetyp und Tauschvorschläge. |
+| **Meine Partien** | Auswertung aus dem Arena-Log: typische Fehler mit Beispielen („Land nicht gespielt“, „Besserer Zug möglich“, „Gefahrlosen Angriff ausgelassen“ …), Gegner-Analyse, Partienliste und **Verlauf** (Constructed- und Limited-Rang, Siegquote je Deck als Diagramm). |
+| **Deck verbessern** | Kartennutzung je Deck, Länder-Check, Probehände, Vergleich mit dem passenden Turnier-Archetyp und Tauschvorschläge. |
+
+**Probehände:** spielt ein Deck 1000-mal bis Zug 6 durch (Mulligan, Land legen,
+Zauber nach dem Zugvorschlag) und zeigt, wie oft Länder oder Farben fehlen,
+wie oft Länder zu viel sind und wie viel Mana genutzt wird – mit Empfehlungen.
 
 **Begleitfenster** (oben rechts einschalten): liest das Arena-Log live mit und
-zeigt Mulligan-Rat, Zugvorschlag (Land und Zauber mit Farbprüfung),
-gefahrlose Angriffe, tödlichen Schaden, Blockvorschläge und Warnungen vor
-typischen Tricks des Gegners. Es greift nicht ins Spiel ein.
+zeigt Mulligan-Rat, Zugvorschlag (Land und Zauber mit Farbprüfung, auch Mana
+aus Kreaturen), gefahrlose Angriffe, tödlichen Schaden, Blockvorschläge (auch
+gegen Bedrohlich) und Warnungen vor typischen Tricks des Gegners. Es greift
+nicht ins Spiel ein.
 
 ## Voraussetzungen
 
@@ -82,7 +87,8 @@ gebauten Programme liegen als Artefakte am jeweiligen Lauf.
 | `--report [FORMAT]` | alle Archetypen gegen die gespeicherte Sammlung bewerten |
 | `--variants FORMAT NAME` | alle Listen eines Archetyps bewerten |
 | `--build [FORMAT]` | Deckvorschläge aus der Sammlung |
-| `--budget FORMAT NAME` | Budget-Version eines Archetyps |
+| `--budget FORMAT NAME` | Budget-Version und Wildcard-Plan eines Archetyps |
+| `--sim` | Probehände für alle gespielten Decks |
 | `--games` | Partien einlesen und auswerten |
 | `--decks [FORMAT]` | „Deck verbessern“ und Gegner-Analyse |
 | `--parse LOG…` | Logdatei einlesen, ohne gespeicherte Partien zu ändern |

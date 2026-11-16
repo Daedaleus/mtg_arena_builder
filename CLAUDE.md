@@ -22,7 +22,8 @@ Logik gehört in die Fachmodule, damit sie testbar bleibt.
 | `carddb` | Arena-Kartendatenbank (SQLite), Rollen aus Kartentext |
 | `collection` | Sammlung aus dem Arena-Speicher (mtga-reader, Adminrechte) |
 | `meta` | MTGTop8-Abruf und -Parser, Scryfall-Legalität |
-| `deck`, `similar`, `budget` | Listen prüfen, Ersatzkarten, Budget-Version |
+| `deck`, `similar`, `budget` | Listen prüfen, Ersatzkarten, Budget-Version, Wildcard-Plan |
+| `sim` | Probehände (Deck 1000-mal bis Zug 6 durchspielen) |
 | `builder` | Decks nur aus eigenen Karten |
 | `games` | Log-Parser (`LogParser`, `Tracker`), Partie-Auswertung, Rang |
 | `deckcheck`, `opponents`, `progress` | Deck verbessern, Gegner, Verlauf |

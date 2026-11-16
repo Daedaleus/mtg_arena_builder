@@ -160,6 +160,14 @@ impl App {
         if let Some(report) = self.sims.get(&deck_id) {
             sim_view(ui, report);
         }
+        if self.collection.is_some()
+            && summary.missing > 0
+            && let Some(db) = &self.db
+        {
+            let plan =
+                budget::wildcard_plan(&eval, db, self.wildcards(), self.settings.include_side);
+            wildcard_plan_view(ui, &plan);
+        }
         if reset_clicked || budget_clicked {
             self.sims.remove(&deck_id);
         }
@@ -389,5 +397,63 @@ pub(super) fn sim_view(ui: &mut egui::Ui, r: &sim::SimReport) {
                 .map(|t| format!("Z{} {:.1}/{:.1}", t + 1, r.mana_used[t], r.mana_avail[t]))
                 .collect();
             ui.label(RichText::new(format!("Mana genutzt/verfügbar: {}", mana.join(" · "))).weak());
+        });
+}
+
+/// Fehlende Wildcards als Text, z. B. „2 Rare, 1 Mythic“.
+pub(super) fn wildcards_text(short: &[u32; 4]) -> String {
+    let parts: Vec<String> = short
+        .iter()
+        .enumerate()
+        .filter(|(_, n)| **n > 0)
+        .map(|(i, n)| format!("{n} {}", RARITY_NAMES[i]))
+        .collect();
+    if parts.is_empty() {
+        "keine".into()
+    } else {
+        parts.join(", ")
+    }
+}
+
+/// Wildcard-Plan: jetzt herstellbar und die Reihenfolge für den Rest.
+pub(super) fn wildcard_plan_view(ui: &mut egui::Ui, plan: &budget::WildcardPlan) {
+    egui::CollapsingHeader::new(RichText::new("Wildcard-Plan").strong())
+        .id_salt("wildcard_plan")
+        .default_open(false)
+        .show(ui, |ui| {
+            ui.label(format!("Schon vorhanden: {:.0} % des Decks.", plan.complete));
+            if !plan.now.is_empty() {
+                ui.label(RichText::new("Jetzt mit deinen Wildcards herstellen:").color(GREEN).strong());
+                for s in &plan.now {
+                    ui.label(format!("• {}× {} ({})", s.qty, s.name, RARITY_NAMES[s.slot]));
+                }
+                if let Some(last) = plan.now.last() {
+                    ui.label(RichText::new(format!("Danach ist das Deck zu {:.0} % komplett.", last.complete)).weak());
+                }
+            }
+            if !plan.later.is_empty() {
+                ui.label(RichText::new("Danach, in dieser Reihenfolge:").strong());
+                for s in &plan.later {
+                    ui.label(format!(
+                        "• {}× {} ({}) – dafür fehlen insgesamt noch: {} → {:.0} %",
+                        s.qty,
+                        s.name,
+                        RARITY_NAMES[s.slot],
+                        wildcards_text(&s.short),
+                        s.complete
+                    ));
+                }
+                ui.label(
+                    RichText::new(
+                        "Bis dahin ersetzt „Budget-Version bauen“ die fehlenden Karten durch ähnliche aus deiner Sammlung.",
+                    )
+                    .weak(),
+                );
+            }
+            if !plan.unavailable.is_empty() {
+                ui.label(
+                    RichText::new(format!("Gibt es in Arena nicht: {}", plan.unavailable.join(", "))).color(YELLOW),
+                );
+            }
         });
 }
