@@ -15,7 +15,7 @@ fn blocks() {
     // 3/3 blockt 2/2 und gewinnt; 1/1 bleibt zurück.
     let p = plan_blocks(&[cr(1, 2, 2)], &[cr(10, 1, 1), cr(11, 3, 3)], 20);
     assert_eq!(p.blocks.len(), 1);
-    assert_eq!(p.blocks[0].blocker, 11);
+    assert_eq!(p.blocks[0].blockers, vec![11]);
     assert_eq!(p.blocks[0].kind, BlockKind::Win);
     assert_eq!(p.damage, 0);
 
@@ -75,8 +75,9 @@ fn safe_blocks_and_trample() {
     // Trampel: Blocken lohnt nur, wenn Schaden abgefangen wird.
     let mut tr = cr(1, 5, 5);
     tr.trample = true;
-    assert_eq!(through(&tr, Some(&cr(10, 0, 3))), 2);
-    assert_eq!(through(&tr, None), 5);
+    assert_eq!(through(&tr, &[&cr(10, 0, 3)]), 2);
+    assert_eq!(through(&tr, &[&cr(10, 0, 2), &cr(11, 0, 2)]), 1);
+    assert_eq!(through(&tr, &[]), 5);
     let p = plan_blocks(&[tr.clone()], &[cr(10, 0, 6)], 20);
     assert_eq!(p.blocks[0].kind, BlockKind::Safe);
     assert_eq!(p.damage, 0);
@@ -89,12 +90,37 @@ fn safe_blocks_and_trample() {
 
 #[test]
 fn menace_and_chumps() {
-    // Bedrohlich wird nicht eingeplant und zählt als ungeblockt.
     let mut m = cr(1, 3, 3);
     m.menace = true;
-    let p = plan_blocks(&[m], &[cr(10, 5, 5), cr(11, 5, 5)], 2);
+    // Zwei Blocker, die den Angreifer gemeinsam töten und überleben: gewinnen.
+    let p = plan_blocks(
+        &[m.clone()],
+        &[cr(10, 2, 4), cr(11, 1, 4), cr(12, 0, 1)],
+        20,
+    );
+    assert_eq!(p.blocks.len(), 1);
+    assert_eq!(p.blocks[0].kind, BlockKind::Win);
+    assert_eq!(p.blocks[0].blockers, vec![11, 10]);
+    assert_eq!(p.damage, 0);
+    // Ein einzelner Blocker reicht nicht, ohne Not wird nicht geopfert.
+    let p = plan_blocks(&[m.clone()], &[cr(10, 5, 5)], 20);
     assert!(p.blocks.is_empty());
-    assert!(p.lethal);
+    // Würde ein Blocker sterben, kein „Gewinnen“ – bei tödlichem Schaden aber opfern.
+    let p = plan_blocks(&[m.clone()], &[cr(10, 1, 1), cr(11, 1, 1)], 20);
+    assert!(p.blocks.is_empty());
+    let p = plan_blocks(&[m.clone()], &[cr(10, 1, 1), cr(11, 1, 1)], 3);
+    assert_eq!(p.blocks[0].kind, BlockKind::Chump);
+    assert_eq!(p.blocks[0].blockers.len(), 2);
+    assert!(!p.lethal);
+    // Unzerstörbar: gemeinsam blocken bringt nichts.
+    let mut ind = m.clone();
+    ind.indestructible = true;
+    assert!(menace_pair(&ind, &[cr(10, 5, 5), cr(11, 5, 5)], &[0, 1]).is_none());
+    // Todesberührung reicht auch mit wenig Kraft.
+    let mut dt = cr(10, 1, 4);
+    dt.deathtouch = true;
+    assert!(menace_pair(&m, &[dt, cr(11, 0, 4)], &[0, 1]).is_some());
+
     // Mehrere Angreifer: nur so viele opfern wie nötig, größte zuerst.
     let p = plan_blocks(
         &[cr(1, 4, 4), cr(2, 3, 3), cr(3, 1, 1)],

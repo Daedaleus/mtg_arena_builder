@@ -120,3 +120,21 @@ fn trend_compares_recent_games() {
     assert_eq!(trend(&games, 3), None, "zu wenige Partien");
     assert_eq!(trend(&games, 0), None);
 }
+
+#[test]
+fn limited_queue() {
+    let r = Rank {
+        class: "Silver".into(),
+        level: 2,
+        limited_class: "Gold".into(),
+        limited_level: 3,
+        limited_step: 3,
+        ..Default::default()
+    };
+    assert_eq!(queue_label(&r, Queue::Limited), "Gold 3, Schritt 3");
+    assert_eq!(queue_label(&r, Queue::Constructed), "Silber 2, Schritt 0");
+    assert_eq!(queue_points(&r, Queue::Limited), 9.5);
+    assert_eq!(queue_points(&r, Queue::Constructed), 6.0);
+    let games = vec![game(1, Some(true), Some(r))];
+    assert_eq!(queue_series(&games, Queue::Limited), vec![[1.0, 9.5]]);
+}

@@ -26,7 +26,8 @@ pub enum BlockKind {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Block {
-    pub blocker: u32,
+    /// Ein Blocker, bei Bedrohlichkeit zwei.
+    pub blockers: Vec<u32>,
     pub attacker: u32,
     pub kind: BlockKind,
 }
@@ -68,57 +69,76 @@ fn worth(c: &LiveCreature) -> i32 {
 }
 
 /// Schaden, den ein Angreifer trotz Block (oder ohne) anrichtet.
-fn through(attacker: &LiveCreature, blocker: Option<&LiveCreature>) -> i32 {
-    match blocker {
-        None => attacker.power,
-        Some(b) if attacker.trample => (attacker.power - b.toughness.max(0)).max(0),
-        Some(_) => 0,
+fn through(attacker: &LiveCreature, blockers: &[&LiveCreature]) -> i32 {
+    if blockers.is_empty() {
+        attacker.power
+    } else if attacker.trample {
+        let toughness: i32 = blockers.iter().map(|b| b.toughness.max(0)).sum();
+        (attacker.power - toughness).max(0)
+    } else {
+        0
     }
 }
 
-/// Berechnet einen Blockvorschlag. Angreifer mit Bedrohlichkeit werden nur
-/// im Notfall (mit zwei Blockern) aufgehalten – das übernimmt hier niemand,
-/// sie zählen einfach als ungeblockt.
+/// Berechnet einen Blockvorschlag. Angreifer mit Bedrohlichkeit brauchen zwei
+/// Blocker: Sie werden nur aufgehalten, wenn zwei Blocker sie gemeinsam töten
+/// und dabei keiner stirbt, oder als Opfer, wenn der Schaden sonst tödlich wäre.
 pub fn plan_blocks(attackers: &[LiveCreature], blockers: &[LiveCreature], life: i32) -> BlockPlan {
     let mut atk: Vec<usize> = (0..attackers.len()).collect();
     atk.sort_by_key(|i| std::cmp::Reverse(attackers[*i].power));
     let mut free: Vec<usize> = (0..blockers.len()).collect();
     // Bevorzugt die „billigsten“ Blocker einsetzen.
     free.sort_by_key(|i| worth(&blockers[*i]));
-    let mut assigned: Vec<Option<(usize, BlockKind)>> = vec![None; attackers.len()];
+    let mut assigned: Vec<Option<(Vec<usize>, BlockKind)>> = vec![None; attackers.len()];
 
-    let pass =
-        |wanted: BlockKind, free: &mut Vec<usize>, assigned: &mut [Option<(usize, BlockKind)>]| {
-            for &a in &atk {
-                let att = &attackers[a];
-                if assigned[a].is_some() || att.menace {
-                    continue;
-                }
-                let pick = free.iter().position(|&b| {
-                    let bl = &blockers[b];
-                    if !can_block(bl, att) {
-                        return false;
-                    }
-                    let (b_dies, a_dies) = outcome(bl, att);
-                    match wanted {
-                        BlockKind::Win => !b_dies && a_dies,
-                        BlockKind::Safe => !b_dies && !a_dies && through(att, Some(bl)) < att.power,
-                        BlockKind::Trade => b_dies && a_dies && worth(bl) <= worth(att),
-                        BlockKind::Chump => true,
-                    }
-                });
-                if let Some(p) = pick {
-                    assigned[a] = Some((free.remove(p), wanted));
-                }
+    let pass = |wanted: BlockKind,
+                free: &mut Vec<usize>,
+                assigned: &mut [Option<(Vec<usize>, BlockKind)>]| {
+        for &a in &atk {
+            let att = &attackers[a];
+            if assigned[a].is_some() {
+                continue;
             }
-        };
+            if att.menace {
+                if wanted == BlockKind::Win
+                    && let Some(pair) = menace_pair(att, blockers, free)
+                {
+                    free.retain(|b| !pair.contains(b));
+                    assigned[a] = Some((pair, wanted));
+                }
+                continue;
+            }
+            let pick = free.iter().position(|&b| {
+                let bl = &blockers[b];
+                if !can_block(bl, att) {
+                    return false;
+                }
+                let (b_dies, a_dies) = outcome(bl, att);
+                match wanted {
+                    BlockKind::Win => !b_dies && a_dies,
+                    BlockKind::Safe => !b_dies && !a_dies && through(att, &[bl]) < att.power,
+                    BlockKind::Trade => b_dies && a_dies && worth(bl) <= worth(att),
+                    BlockKind::Chump => true,
+                }
+            });
+            if let Some(p) = pick {
+                assigned[a] = Some((vec![free.remove(p)], wanted));
+            }
+        }
+    };
     pass(BlockKind::Win, &mut free, &mut assigned);
     pass(BlockKind::Safe, &mut free, &mut assigned);
     pass(BlockKind::Trade, &mut free, &mut assigned);
 
-    let damage = |assigned: &[Option<(usize, BlockKind)>]| -> i32 {
+    let damage = |assigned: &[Option<(Vec<usize>, BlockKind)>]| -> i32 {
         (0..attackers.len())
-            .map(|a| through(&attackers[a], assigned[a].map(|(b, _)| &blockers[b])))
+            .map(|a| {
+                let by: Vec<&LiveCreature> = assigned[a]
+                    .iter()
+                    .flat_map(|(bs, _)| bs.iter().map(|b| &blockers[*b]))
+                    .collect();
+                through(&attackers[a], &by)
+            })
             .sum()
     };
     // Nur wenn es sonst tödlich wäre: Kreaturen opfern, größte Angreifer zuerst.
@@ -128,11 +148,18 @@ pub fn plan_blocks(attackers: &[LiveCreature], blockers: &[LiveCreature], life: 
                 break;
             }
             let att = &attackers[a];
-            if assigned[a].is_some() || att.menace {
+            if assigned[a].is_some() {
                 continue;
             }
-            if let Some(p) = free.iter().position(|&b| can_block(&blockers[b], att)) {
-                assigned[a] = Some((free.remove(p), BlockKind::Chump));
+            let able: Vec<usize> = free
+                .iter()
+                .copied()
+                .filter(|b| can_block(&blockers[*b], att))
+                .take(if att.menace { 2 } else { 1 })
+                .collect();
+            if able.len() == if att.menace { 2 } else { 1 } {
+                free.retain(|b| !able.contains(b));
+                assigned[a] = Some((able, BlockKind::Chump));
             }
         }
     }
@@ -142,10 +169,10 @@ pub fn plan_blocks(attackers: &[LiveCreature], blockers: &[LiveCreature], life: 
         blocks: atk
             .iter()
             .filter_map(|&a| {
-                assigned[a].map(|(b, kind)| Block {
-                    blocker: blockers[b].grp_id,
+                assigned[a].as_ref().map(|(bs, kind)| Block {
+                    blockers: bs.iter().map(|b| blockers[*b].grp_id).collect(),
                     attacker: attackers[a].grp_id,
-                    kind,
+                    kind: *kind,
                 })
             })
             .collect(),
@@ -153,6 +180,32 @@ pub fn plan_blocks(attackers: &[LiveCreature], blockers: &[LiveCreature], life: 
         damage_unblocked: attackers.iter().map(|a| a.power).sum(),
         lethal: total >= life,
     }
+}
+
+/// Zwei Blocker, die einen Angreifer mit Bedrohlichkeit gemeinsam töten, ohne
+/// dass einer von ihnen stirbt (die billigsten passenden zuerst).
+fn menace_pair(
+    att: &LiveCreature,
+    blockers: &[LiveCreature],
+    free: &[usize],
+) -> Option<Vec<usize>> {
+    if att.indestructible {
+        return None;
+    }
+    let able: Vec<usize> = free
+        .iter()
+        .copied()
+        .filter(|b| can_block(&blockers[*b], att) && !kills(att, &blockers[*b]))
+        .collect();
+    for (n, &x) in able.iter().enumerate() {
+        for &y in &able[n + 1..] {
+            let (bx, by) = (&blockers[x], &blockers[y]);
+            if bx.deathtouch || by.deathtouch || bx.power + by.power >= att.toughness {
+                return Some(vec![x, y]);
+            }
+        }
+    }
+    None
 }
 
 fn is_trick(c: &Card) -> bool {

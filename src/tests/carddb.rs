@@ -137,24 +137,43 @@ fn lookup_and_printings() {
 }
 
 #[test]
-fn abilities_set_roles_burn_and_tapped() {
-    let mut roles = HashMap::new();
-    roles.insert(100, ROLE_REMOVAL);
-    roles.insert(101, ROLE_DRAW);
-    let mut burn = HashMap::new();
-    burn.insert(100, 3);
-    let tapped: HashSet<u32> = [200].into();
+fn abilities_set_roles_burn_tapped_and_mana() {
+    let mut info = AbilityInfo::default();
+    info.add(100, "CARDNAME deals 3 damage to any target.");
+    info.add(101, "Draw a card.");
+    info.add(200, "CARDNAME enters tapped.");
+    info.add(300, "{oT}: Add {oG}.");
+    info.add(301, "{oT}: Add {oC}.");
     let mut spell = card(1, "Bolt").instant().abilities(&[100, 101]).build();
-    apply_abilities(&mut spell, &roles, &burn, &tapped);
+    apply_abilities(&mut spell, &info);
     assert_eq!(spell.roles, ROLE_REMOVAL | ROLE_DRAW);
     assert_eq!(spell.burn, 3);
-    // Kreaturen bekommen keinen Brandschaden.
-    let mut guy = card(2, "Guy").creature(1, 1).abilities(&[100]).build();
-    apply_abilities(&mut guy, &roles, &burn, &tapped);
+    assert_eq!(spell.mana, None);
+    // Kreaturen bekommen keinen Brandschaden, aber ihre Manafähigkeit.
+    let mut guy = card(2, "Guy")
+        .creature(1, 1)
+        .abilities(&[100, 300, 301])
+        .build();
+    apply_abilities(&mut guy, &info);
     assert_eq!(guy.burn, 0);
-    let mut land = card(3, "Gate").land("UG").abilities(&[200]).build();
-    apply_abilities(&mut land, &roles, &burn, &tapped);
+    assert_eq!(guy.mana, Some(1 << 4));
+    let mut land = card(3, "Gate").land("UG").abilities(&[200, 300]).build();
+    apply_abilities(&mut land, &info);
     assert!(land.enters_tapped);
+    assert_eq!(land.mana, None, "Länder liefern Farben über colors");
+}
+
+#[test]
+fn mana_abilities_from_text() {
+    assert_eq!(mana_of("{oT}: Add {oG}."), Some(1 << 4));
+    assert_eq!(
+        mana_of("{oT}: Add {oB} or {oG}."),
+        Some((1 << 2) | (1 << 4))
+    );
+    assert_eq!(mana_of("{oT}: Add one mana of any color."), Some(0x1F));
+    assert_eq!(mana_of("{oT}: Add {oC}."), Some(0));
+    assert_eq!(mana_of("{o2}, {oT}: Draw a card."), None);
+    assert_eq!(mana_of("Flying"), None);
 }
 
 /// Legt eine kleine Datenbank im Format von Arena an.

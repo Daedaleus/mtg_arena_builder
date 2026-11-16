@@ -148,6 +148,10 @@ fn play_first_game(p: &mut LogParser) {
     assert_eq!(live.opp_attackers, 1);
     assert_eq!(live.opp_attacking.len(), 1);
     assert_eq!(live.life_me, 18);
+    assert!(
+        live.mana_permanents.is_empty(),
+        "Oger hat Einsatzverzögerung"
+    );
 
     // Zug 3 (ich): Oger liegt bereit, kein Land gelegt, Shock gewirkt
     let mut m100_tapped = mountain(100).tapped();
@@ -177,6 +181,11 @@ fn play_first_game(p: &mut LogParser) {
     assert_eq!(live.opp_creatures, vec![(BEAR, 2)]);
     assert_eq!(live.opp_untapped_lands, 1);
     assert_eq!(live.creatures_me, 1);
+    assert_eq!(
+        live.mana_permanents,
+        vec![OGRE],
+        "einsatzbereit, nicht getappt"
+    );
     assert!(!live.land_played);
     state_msg(
         p,
@@ -291,13 +300,25 @@ fn rank_snapshots() {
     let r = Rank::parse(RANK_LINE).unwrap();
     assert_eq!(r.season, 95);
     assert_eq!(r.class, "Bronze", "fehlende Klasse = Bronze");
+    assert_eq!(
+        (r.limited_class.as_str(), r.limited_level, r.limited_step),
+        ("Bronze", 4, 0)
+    );
     let silver = Rank::parse(
-        r#"{"constructedSeasonOrdinal":96,"constructedClass":"Silver","constructedLevel":2}"#,
+        r#"{"constructedSeasonOrdinal":96,"constructedClass":"Silver","constructedLevel":2,"limitedClass":"Gold","limitedLevel":1,"limitedStep":3}"#,
     )
     .unwrap();
     assert_eq!(
         (silver.class.as_str(), silver.level, silver.step),
         ("Silver", 2, 0)
+    );
+    assert_eq!(
+        (
+            silver.limited_class.as_str(),
+            silver.limited_level,
+            silver.limited_step
+        ),
+        ("Gold", 1, 3)
     );
     assert!(Rank::parse(r#"{"limitedLevel":4}"#).is_none());
     assert!(Rank::parse("kaputt").is_none());

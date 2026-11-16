@@ -262,6 +262,19 @@ fn opponent_turn_blocks_and_tricks() {
     ls.my_blockers = vec![creature_at(ELF, 1, 1)];
     let v = build_view(Some(&ls), None, &db, &[]);
     assert_eq!(level_of(&v, "opfern, sonst tödlich"), Level::Warn);
+    // Bedrohlich: zwei Blocker gemeinsam
+    let mut menace = creature_at(OGRE, 3, 3);
+    menace.menace = true;
+    ls.opp_attacking = vec![menace];
+    ls.my_blockers = vec![creature_at(BEAR, 2, 4), creature_at(ELF, 2, 4)];
+    ls.life_me = 20;
+    let v = build_view(Some(&ls), None, &db, &[]);
+    assert!(
+        hints(&v).contains("Grizzly Bears und Llanowar Elves blocken Hill Ogre (gewinnt)"),
+        "{}",
+        hints(&v)
+    );
+    ls.opp_attacking = vec![creature_at(OGRE, 3, 3), creature_at(BEAR, 2, 2)];
     // Gegner greift nicht an: nichts zu tun
     ls.opp_attackers = 0;
     ls.opp_attacking.clear();

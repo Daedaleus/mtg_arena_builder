@@ -101,6 +101,10 @@ pub struct Rank {
     pub step: u32,
     pub won: u32,
     pub lost: u32,
+    /// Limited-Rang (Draft, Sealed) – gleiche Einteilung wie oben.
+    pub limited_class: String,
+    pub limited_level: u32,
+    pub limited_step: u32,
 }
 
 impl Rank {
@@ -119,6 +123,9 @@ impl Rank {
             step: v["constructedStep"].as_u64().unwrap_or(0) as u32,
             won: v["constructedMatchesWon"].as_u64().unwrap_or(0) as u32,
             lost: v["constructedMatchesLost"].as_u64().unwrap_or(0) as u32,
+            limited_class: v["limitedClass"].as_str().unwrap_or("Bronze").to_string(),
+            limited_level: v["limitedLevel"].as_u64().unwrap_or(4) as u32,
+            limited_step: v["limitedStep"].as_u64().unwrap_or(0) as u32,
         })
     }
 }
@@ -618,6 +625,17 @@ impl Tracker {
                 .filter(|o| o.controller == opp && o.creature)
                 .map(|o| (o.grp_id, o.power.max(0)))
                 .collect(),
+            mana_permanents: self
+                .battlefield()
+                .map(|(_, o)| o)
+                .filter(|o| {
+                    o.controller == me
+                        && !o.land
+                        && !o.tapped
+                        && !(o.creature && o.sick && !o.has(KW_HASTE))
+                })
+                .map(|o| o.grp_id)
+                .collect(),
             land_played: self.cur.land_played,
             creatures_me: self.count(me, |o| o.creature),
             creatures_opp: self.count(opp, |o| o.creature),
@@ -718,6 +736,9 @@ pub struct LiveState {
     pub untapped_lands: Vec<u32>,
     /// Kreaturen des Gegners: (grpId, Kraft).
     pub opp_creatures: Vec<(u32, i32)>,
+    /// Eigene ungetappte Nichtländer, die jetzt Mana erzeugen könnten
+    /// (Kreaturen ohne Einsatzverzögerung); ob sie es können, weiß die Kartendatenbank.
+    pub mana_permanents: Vec<u32>,
     pub land_played: bool,
     pub creatures_me: u32,
     pub creatures_opp: u32,
@@ -1366,6 +1387,7 @@ pub fn key_moment(t: &TurnStat, db: &CardDb) -> Option<String> {
         db,
         &hand,
         &t.lands,
+        &[],
         true,
         &t.opp_creatures,
         t.creatures_at_start,

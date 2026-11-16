@@ -22,19 +22,46 @@ pub fn class_name(class: &str) -> &str {
     }
 }
 
-pub fn rank_label(r: &Rank) -> String {
-    if r.class == "Mythic" {
-        return class_name(&r.class).to_string();
+/// Spielweise, deren Rang gemeint ist.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum Queue {
+    Constructed,
+    Limited,
+}
+
+/// (Klasse, Stufe, Schritt) der gewählten Spielweise.
+fn parts(r: &Rank, q: Queue) -> (&str, u32, u32) {
+    match q {
+        Queue::Constructed => (&r.class, r.level, r.step),
+        Queue::Limited => (&r.limited_class, r.limited_level, r.limited_step),
     }
-    format!("{} {}, Schritt {}", class_name(&r.class), r.level, r.step)
+}
+
+/// Constructed-Rang als Text, z. B. „Bronze 4, Schritt 2“.
+pub fn rank_label(r: &Rank) -> String {
+    queue_label(r, Queue::Constructed)
+}
+
+pub fn queue_label(r: &Rank, q: Queue) -> String {
+    let (class, level, step) = parts(r, q);
+    if class == "Mythic" {
+        return class_name(class).to_string();
+    }
+    format!("{} {level}, Schritt {step}", class_name(class))
+}
+
+/// Constructed-Rang als Zahl (siehe [`queue_points`]).
+pub fn rank_points(r: &Rank) -> f64 {
+    queue_points(r, Queue::Constructed)
 }
 
 /// Rang als Zahl für das Diagramm: je Klasse 4 Punkte (eine je Stufe),
 /// Bronze 4 = 0, Silber 4 = 4 …; Schritte als Bruchteil.
-pub fn rank_points(r: &Rank) -> f64 {
-    let class = CLASSES.iter().position(|c| *c == r.class).unwrap_or(0) as f64;
-    let level = 4.0 - f64::from(r.level.clamp(1, 4));
-    let step = (f64::from(r.step) / STEPS_PER_LEVEL).min(0.99);
+pub fn queue_points(r: &Rank, q: Queue) -> f64 {
+    let (class, level, step) = parts(r, q);
+    let class = CLASSES.iter().position(|c| *c == class).unwrap_or(0) as f64;
+    let level = 4.0 - f64::from(level.clamp(1, 4));
+    let step = (f64::from(step) / STEPS_PER_LEVEL).min(0.99);
     class * 4.0 + level + step
 }
 
@@ -56,14 +83,19 @@ fn chronological(games: &[GameRecord]) -> Vec<usize> {
     idx
 }
 
-/// Rang nach jeder Partie: (laufende Nummer, Rangpunkte).
+/// Constructed-Rang nach jeder Partie: (laufende Nummer, Rangpunkte).
 pub fn rank_series(games: &[GameRecord]) -> Vec<[f64; 2]> {
+    queue_series(games, Queue::Constructed)
+}
+
+/// Rang der Spielweise nach jeder Partie: (laufende Nummer, Rangpunkte).
+pub fn queue_series(games: &[GameRecord], q: Queue) -> Vec<[f64; 2]> {
     chronological(games)
         .iter()
         .enumerate()
         .filter_map(|(n, i)| {
             let r = games[*i].rank_after.as_ref()?;
-            Some([(n + 1) as f64, rank_points(r)])
+            Some([(n + 1) as f64, queue_points(r, q)])
         })
         .collect()
 }

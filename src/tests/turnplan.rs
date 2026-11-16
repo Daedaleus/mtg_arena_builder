@@ -27,7 +27,7 @@ fn pay_with_colors() {
 }
 
 fn plan_for(hand: &[u32], lands: &[u32], played: bool, opp: &[(u32, i32)]) -> Plan {
-    plan(&std_db(), hand, lands, played, opp, 0)
+    plan(&std_db(), hand, lands, &[], played, opp, 0)
 }
 
 #[test]
@@ -108,9 +108,9 @@ fn removal_targets_and_holding() {
 fn wipes_only_when_behind() {
     let lands = [PLAINS, PLAINS, PLAINS, PLAINS];
     let db = std_db();
-    let behind = plan(&db, &[WRATH], &lands, true, &[(BEAR, 2), (OGRE, 3)], 0);
+    let behind = plan(&db, &[WRATH], &lands, &[], true, &[(BEAR, 2), (OGRE, 3)], 0);
     assert_eq!(behind.spells, vec![WRATH]);
-    let ahead = plan(&db, &[WRATH], &lands, true, &[(BEAR, 2)], 2);
+    let ahead = plan(&db, &[WRATH], &lands, &[], true, &[(BEAR, 2)], 2);
     assert!(ahead.spells.is_empty());
 }
 
@@ -166,12 +166,26 @@ fn creatures_after_combat_rule() {
 fn instant_removal_in_opponents_turn() {
     let db = std_db();
     assert_eq!(
-        instant_removal(&db, &[SHOCK, MURDER, BEAR], &[MOUNTAIN]),
+        instant_removal(&db, &[SHOCK, MURDER, BEAR], &[MOUNTAIN], &[]),
         vec![SHOCK]
     );
     assert!(
-        instant_removal(&db, &[SPIKE], &[MOUNTAIN]).is_empty(),
+        instant_removal(&db, &[SPIKE], &[MOUNTAIN], &[]).is_empty(),
         "Hexerei"
     );
-    assert!(instant_removal(&db, &[SHOCK], &[]).is_empty());
+    assert!(instant_removal(&db, &[SHOCK], &[], &[]).is_empty());
+}
+
+#[test]
+fn mana_creatures_count_as_sources() {
+    let db = std_db();
+    // Elf (G) und ein Wald: Bär bezahlbar; Oger nicht (kein Rot).
+    assert_eq!(sources(&db, &[FOREST], &[ELF, BEAR]), vec![1 << 4, 1 << 4]);
+    let p = plan(&db, &[BEAR, OGRE], &[FOREST], &[ELF], true, &[], 0);
+    assert_eq!(p.spells, vec![BEAR]);
+    assert_eq!(p.mana_total, 2);
+    assert!(
+        instant_removal(&db, &[SHOCK], &[], &[ELF]).is_empty(),
+        "Elf liefert kein Rot"
+    );
 }

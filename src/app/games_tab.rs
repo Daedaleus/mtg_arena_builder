@@ -444,7 +444,7 @@ pub(super) fn progress_view(ui: &mut egui::Ui, games: &[GameRecord], db: &CardDb
         .auto_shrink([false, false])
         .show(ui, |ui| {
             // --- Rang ---
-            ui.heading("Rang (Constructed)");
+            ui.heading("Rang");
             let latest = games
                 .iter()
                 .filter(|g| g.rank_after.is_some())
@@ -454,7 +454,7 @@ pub(super) fn progress_view(ui: &mut egui::Ui, games: &[GameRecord], db: &CardDb
                 Some(r) => {
                     ui.label(
                         RichText::new(format!(
-                            "Aktuell: {} · Saison {}: {} Siege, {} Niederlagen in der Rangliste",
+                            "Constructed: {} · Saison {}: {} Siege, {} Niederlagen in der Rangliste",
                             progress::rank_label(r),
                             r.season,
                             r.won,
@@ -462,6 +462,10 @@ pub(super) fn progress_view(ui: &mut egui::Ui, games: &[GameRecord], db: &CardDb
                         ))
                         .strong(),
                     );
+                    ui.label(format!(
+                        "Limited: {}",
+                        progress::queue_label(r, progress::Queue::Limited)
+                    ));
                 }
                 None => {
                     ui.label("Noch kein Rang bekannt – Arena meldet ihn nach jeder Partie im Log.");
@@ -476,8 +480,17 @@ pub(super) fn progress_view(ui: &mut egui::Ui, games: &[GameRecord], db: &CardDb
                     .allow_scroll(false)
                     .y_axis_formatter(|mark, _| progress::points_label(mark.value))
                     .x_axis_label("Partie")
+                    .legend(Legend::default())
                     .show(ui, |plot| {
-                        plot.line(Line::new(PlotPoints::from(ranks)).name("Rang").color(GREEN));
+                        plot.line(Line::new(PlotPoints::from(ranks)).name("Constructed").color(GREEN));
+                        plot.line(
+                            Line::new(PlotPoints::from(progress::queue_series(
+                                games,
+                                progress::Queue::Limited,
+                            )))
+                            .name("Limited")
+                            .color(YELLOW),
+                        );
                     });
             }
 

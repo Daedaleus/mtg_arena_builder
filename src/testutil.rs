@@ -94,6 +94,12 @@ impl CardBuilder {
         self.0.enters_tapped = true;
         self
     }
+    /// Manafähigkeit eines Nichtlands, z. B. „G“ (leer = farblos).
+    pub fn mana(mut self, colors: &str) -> Self {
+        let symbols: String = colors.chars().map(|c| format!("{{{c}}}")).collect();
+        self.0.mana = Some(colors_of(&symbols));
+        self
+    }
     pub fn abilities(mut self, ids: &[u32]) -> Self {
         self.0.abilities = ids.to_vec();
         self
@@ -163,6 +169,7 @@ pub fn std_cards() -> Vec<Card> {
         card(ELF, "Llanowar Elves")
             .cost("{G}")
             .creature(1, 1)
+            .mana("G")
             .build(),
         card(GIANT, "Stone Giant")
             .cost("{4}{G}{G}")

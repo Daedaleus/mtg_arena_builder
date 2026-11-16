@@ -40,6 +40,8 @@ pub struct Card {
     pub burn: u32,
     /// Land kommt immer getappt ins Spiel („enters tapped“ ohne „unless“).
     pub enters_tapped: bool,
+    /// Nichtland mit Manafähigkeit („{T}: Add …“): erzeugte Farben, 0 = farblos.
+    pub mana: Option<u8>,
 }
 
 /// Entfernt oder neutralisiert gegnerische Karten (Zerstören, Schaden, Verbannen …).
@@ -235,19 +237,43 @@ fn pretty_mana(mana: &str) -> String {
         .collect()
 }
 
-/// Leitet Rollen, Brandschaden und „kommt getappt“ aus den Fähigkeiten ab.
-fn apply_abilities(
-    card: &mut Card,
-    roles: &HashMap<u32, u8>,
-    burn: &HashMap<u32, u32>,
-    tapped: &HashSet<u32>,
-) {
+/// Aus den Fähigkeitstexten gewonnene Eigenschaften je Fähigkeits-Kennung.
+#[derive(Default)]
+struct AbilityInfo {
+    roles: HashMap<u32, u8>,
+    burn: HashMap<u32, u32>,
+    tapped: HashSet<u32>,
+    /// Manafähigkeiten: erzeugte Farben (0 = farblos).
+    mana: HashMap<u32, u8>,
+}
+
+impl AbilityInfo {
+    fn add(&mut self, id: u32, text: &str) {
+        let roles = roles_of(text);
+        if roles != 0 {
+            self.roles.insert(id, roles);
+        }
+        if enters_tapped_of(text) {
+            self.tapped.insert(id);
+        }
+        let burn = burn_of(text);
+        if burn > 0 {
+            self.burn.insert(id, burn);
+        }
+        if let Some(colors) = mana_of(text) {
+            self.mana.insert(id, colors);
+        }
+    }
+}
+
+/// Leitet Rollen, Brandschaden, „kommt getappt“ und Manafähigkeiten ab.
+fn apply_abilities(card: &mut Card, info: &AbilityInfo) {
     card.roles = card
         .abilities
         .iter()
-        .filter_map(|a| roles.get(a))
+        .filter_map(|a| info.roles.get(a))
         .fold(0, |m, r| m | r);
-    card.enters_tapped = card.abilities.iter().any(|a| tapped.contains(a));
+    card.enters_tapped = card.abilities.iter().any(|a| info.tapped.contains(a));
     // Brandschaden zählt nur bei Spontanzaubern und Hexereien – bei Kreaturen
     // steckt er oft in Fähigkeiten, die nicht sofort wirken.
     if card
@@ -258,11 +284,34 @@ fn apply_abilities(
         card.burn = card
             .abilities
             .iter()
-            .filter_map(|a| burn.get(a))
+            .filter_map(|a| info.burn.get(a))
             .copied()
             .max()
             .unwrap_or(0);
     }
+    // Länder liefern ihre Farben über `colors`; hier nur andere Manaquellen.
+    if !card.is_land() {
+        card.mana = card
+            .abilities
+            .iter()
+            .filter_map(|a| info.mana.get(a))
+            .fold(None, |m: Option<u8>, c| Some(m.unwrap_or(0) | c));
+    }
+}
+
+/// Farben einer Manafähigkeit wie „{oT}: Add {oG}.“ (0 = farblos), sonst `None`.
+fn mana_of(text: &str) -> Option<u8> {
+    let t = strip_tags(text).to_lowercase();
+    let (_, add) = t.split_once("{ot}: add ")?;
+    if add.contains("any color") {
+        return Some(0x1F);
+    }
+    let colors = ['w', 'u', 'b', 'r', 'g']
+        .iter()
+        .enumerate()
+        .filter(|(_, c)| add.contains(&format!("{{o{c}}}")))
+        .fold(0u8, |m, (i, _)| m | (1 << i));
+    (colors != 0 || add.contains("{oc}")).then_some(colors)
 }
 
 /// Kommt ein Land laut Fähigkeitstext immer getappt ins Spiel?
@@ -358,13 +407,12 @@ impl CardDb {
                 roles: 0,
                 burn: 0,
                 enters_tapped: false,
+                mana: None,
             })
         })?;
 
         // Fähigkeitstexte -> Rollen (Removal, Counter, Kartenziehen)
-        let mut ability_roles: HashMap<u32, u8> = HashMap::new();
-        let mut ability_burn: HashMap<u32, u32> = HashMap::new();
-        let mut ability_tapped: HashSet<u32> = HashSet::new();
+        let mut info = AbilityInfo::default();
         if let Ok(mut stmt) = conn.prepare(
             "SELECT a.Id, l.Loc FROM Abilities a
              JOIN Localizations_enUS l ON l.LocId = a.TextId AND l.Formatted = 1",
@@ -376,17 +424,7 @@ impl CardDb {
                 ))
             })?;
             for (id, text) in found.flatten() {
-                let roles = roles_of(&text);
-                if roles != 0 {
-                    ability_roles.insert(id, roles);
-                }
-                if enters_tapped_of(&text) {
-                    ability_tapped.insert(id);
-                }
-                let burn = burn_of(&text);
-                if burn > 0 {
-                    ability_burn.insert(id, burn);
-                }
+                info.add(id, &text);
             }
         }
 
@@ -396,7 +434,7 @@ impl CardDb {
             if card.name.is_empty() {
                 continue;
             }
-            apply_abilities(&mut card, &ability_roles, &ability_burn, &ability_tapped);
+            apply_abilities(&mut card, &info);
             cards.push(card);
         }
         Ok(CardDb::from_cards(cards, version))

@@ -35,6 +35,20 @@ fn land_colors(db: &CardDb, grp: u32) -> u8 {
     db.cards.get(&grp).map(|c| c.colors).unwrap_or(0x1F)
 }
 
+/// Manaquellen (Farbmasken) aus ungetappten Ländern und weiteren Permanents
+/// mit Manafähigkeit (z. B. Llanowar Elves); Permanents ohne sie zählen nicht.
+pub fn sources(db: &CardDb, lands: &[u32], permanents: &[u32]) -> Vec<u8> {
+    lands
+        .iter()
+        .map(|g| land_colors(db, *g))
+        .chain(
+            permanents
+                .iter()
+                .filter_map(|g| db.cards.get(g).and_then(|c| c.mana)),
+        )
+        .collect()
+}
+
 /// Lässt sich die Summe der Kosten mit diesen Manaquellen (Farbmasken) bezahlen?
 pub fn can_pay(cards: &[&Card], sources: &[u8]) -> bool {
     let mut generic = 0u32;
@@ -136,6 +150,7 @@ pub fn plan(
     db: &CardDb,
     hand: &[u32],
     untapped_lands: &[u32],
+    mana_permanents: &[u32],
     land_played: bool,
     opp_creatures: &[(u32, i32)],
     my_creatures: u32,
@@ -167,7 +182,7 @@ pub fn plan(
     cands.sort_by_key(|c| std::cmp::Reverse(c.cmc));
     cands.truncate(MAX_CANDIDATES);
 
-    let base: Vec<u8> = untapped_lands.iter().map(|g| land_colors(db, *g)).collect();
+    let base = sources(db, untapped_lands, mana_permanents);
     let mut land_options: Vec<Option<&Card>> = vec![None];
     if !land_played {
         let mut lands: Vec<&Card> = cards.iter().filter(|c| c.is_land()).copied().collect();
@@ -238,8 +253,13 @@ pub fn creatures_after_combat(db: &CardDb, plan: &Plan) -> bool {
 }
 
 /// Spontane Entfernung, die jetzt (im Zug des Gegners) bezahlbar ist.
-pub fn instant_removal(db: &CardDb, hand: &[u32], untapped_lands: &[u32]) -> Vec<u32> {
-    let sources: Vec<u8> = untapped_lands.iter().map(|g| land_colors(db, *g)).collect();
+pub fn instant_removal(
+    db: &CardDb,
+    hand: &[u32],
+    untapped_lands: &[u32],
+    mana_permanents: &[u32],
+) -> Vec<u32> {
+    let sources = sources(db, untapped_lands, mana_permanents);
     hand.iter()
         .filter_map(|g| db.cards.get(g))
         .filter(|c| c.is_instant() && c.has_role(ROLE_REMOVAL) && can_pay(&[c], &sources))

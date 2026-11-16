@@ -178,7 +178,9 @@ pub fn build_view(
         // --- Siegchancen: Kann ich den Gegner jetzt besiegen? ---
         let mut lethal = false;
         if ls.my_turn && ls.phase != "Phase_Ending" && ls.life_opp > 0 {
-            let mana = ls.lands_untapped + (!ls.land_played && !lands_in_hand.is_empty()) as u32;
+            let extra = crate::turnplan::sources(db, &[], &ls.mana_permanents).len() as u32;
+            let mana =
+                ls.lands_untapped + extra + (!ls.land_played && !lands_in_hand.is_empty()) as u32;
             let combat = unblocked_damage(&ls.attackers, &ls.blockers);
             let (burn, burn_cards) = best_burn(&hand, mana);
             let total = combat + burn as i32;
@@ -230,7 +232,12 @@ pub fn build_view(
                 turn_hints(&mut v, ls, db);
             }
         } else if ls.opp_attackers > 0 {
-            let removal = crate::turnplan::instant_removal(db, &ls.hand, &ls.untapped_lands);
+            let removal = crate::turnplan::instant_removal(
+                db,
+                &ls.hand,
+                &ls.untapped_lands,
+                &ls.mana_permanents,
+            );
             if !removal.is_empty() {
                 v.hints.push((
                     Level::Good,
@@ -302,9 +309,11 @@ fn block_hints(v: &mut CompanionView, ls: &LiveState, db: &CardDb) {
             BlockKind::Trade => "Tausch",
             BlockKind::Chump => "opfern, sonst tödlich",
         };
+        let who: Vec<String> = b.blockers.iter().map(|g| card_name(db, *g)).collect();
         parts.push(format!(
-            "{} blockt {} ({how})",
-            card_name(db, b.blocker),
+            "{} {} {} ({how})",
+            who.join(" und "),
+            if who.len() > 1 { "blocken" } else { "blockt" },
             card_name(db, b.attacker)
         ));
     }
@@ -354,6 +363,7 @@ fn turn_hints(v: &mut CompanionView, ls: &LiveState, db: &CardDb) {
         db,
         &ls.hand,
         &ls.untapped_lands,
+        &ls.mana_permanents,
         ls.land_played,
         &ls.opp_creatures,
         ls.creatures_me,
