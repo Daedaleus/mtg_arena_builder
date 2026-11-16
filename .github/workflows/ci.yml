@@ -1,0 +1,94 @@
+# Prüft und baut die App auf Windows, Linux und macOS.
+# Formatierung und Testabdeckung laufen einmal (Linux), Clippy, Tests und
+# Release-Build auf allen drei Systemen. Die fertigen Programme stehen als
+# Artefakte am Lauf zum Herunterladen bereit.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  fmt:
+    name: Formatierung
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - run: cargo fmt --all -- --check
+
+  build:
+    name: ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows
+            os: windows-latest
+            artifact: mtg_arena_builder-windows-x64
+            binary: target/release/mtg_arena_builder.exe
+          - name: Linux
+            os: ubuntu-latest
+            artifact: mtg_arena_builder-linux-x64
+            binary: target/release/mtg_arena_builder
+          - name: macOS
+            os: macos-latest
+            artifact: mtg_arena_builder-macos-arm64
+            binary: target/release/mtg_arena_builder
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: Linux-Pakete für die Oberfläche
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev \
+            libxkbcommon-dev libwayland-dev libgl1-mesa-dev
+      - name: Clippy
+        run: cargo clippy --all-targets --locked -- -D warnings
+      - name: Tests
+        run: cargo test --locked
+      - name: Release-Build
+        run: cargo build --release --locked
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.binary }}
+          if-no-files-found: error
+
+  coverage:
+    name: Testabdeckung
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: llvm-tools-preview
+      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@cargo-llvm-cov
+      - name: Linux-Pakete für die Oberfläche
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev \
+            libxkbcommon-dev libwayland-dev libgl1-mesa-dev
+      # Wie coverage.ps1: Oberfläche, Programmstart und Testhilfen zählen nicht mit.
+      - name: Abdeckung messen (mindestens 90 %)
+        run: >
+          cargo llvm-cov --lib --locked
+          --ignore-filename-regex '(app|testutil|main)\.rs$|[\\/]tests[\\/]'
+          --fail-under-lines 90

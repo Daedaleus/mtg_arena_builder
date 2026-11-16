@@ -43,7 +43,9 @@ Logik gehört in die Fachmodule, damit sie testbar bleibt.
   Logs neu berechnet. Bessere Aufzeichnungen ersetzen schlechtere, nie
   umgekehrt (`quality`).
 - MTGTop8: höchstens eine Anfrage alle 5 Sekunden (robots.txt), alles cachen.
-- Commits nur auf Wunsch des Nutzers; kein Remote eingerichtet, nicht pushen.
+- Commits und Pushes nur auf Wunsch des Nutzers. Remote `origin` ist das
+  private Repository `Daedaleus/mtg_checker` auf GitHub, Branch `main`.
+  GitHub CLI: `C:\Program Files\GitHub CLI\gh.exe` (angemeldet).
 
 ## Fallstricke
 

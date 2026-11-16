@@ -25,8 +25,9 @@ Stand: 16.11.2026. Erledigtes steht in der Git-Historie.
 
 ## Technik
 
-- [ ] Sicherung: privates Remote-Repository einrichten (bisher nur lokal).
-- [ ] Automatische Prüfung (CI) bei jedem Push: fmt, Clippy, Tests, Abdeckung.
+- [x] Sicherung: privates Repository `Daedaleus/mtg_checker` auf GitHub.
+- [ ] Automatische Prüfung (CI) bei jedem Push mit GitHub Actions: fmt,
+      Clippy, Tests, Abdeckung (Windows-Runner wegen MSVC und mtga-reader).
 - [ ] Linux- und macOS-Builds erstellen und testen (Speicherlesen braucht dort
       root; Pfade sind vorbereitet).
 - [ ] Oberfläche (`app.rs`, ~2400 Zeilen) weiter in kleinere Ansichten
