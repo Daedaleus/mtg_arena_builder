@@ -989,7 +989,12 @@ impl App {
                     .on_hover_text("Empfohlen, wenn Arena nicht auf Englisch läuft.");
                 ui.separator();
                 ui.strong("Während der Partie");
-                ui.checkbox(&mut self.settings.companion, "Begleitfenster anzeigen");
+                if ui
+                    .checkbox(&mut self.settings.companion, "Begleitfenster anzeigen")
+                    .changed()
+                {
+                    self.save_settings();
+                }
                 if self.logs_disabled {
                     ui.label(
                         RichText::new("„Detaillierte Logs“ sind in Arena aus – ohne sie bleiben Begleitfenster und Partien leer.")
@@ -1039,7 +1044,7 @@ impl App {
             (
                 logs_known && !self.logs_disabled,
                 "„Detaillierte Logs“ in Arena aktiv",
-                "In Arena: Zahnrad → Konto → „Detaillierte Logs (Plugin-Unterstützung)“, dann Arena neu starten.",
+                "In Arena: Zahnrad > Konto > „Detaillierte Logs (Plugin-Unterstützung)“, dann Arena neu starten.",
             ),
             (
                 !self.archetypes.is_empty(),
@@ -1407,7 +1412,7 @@ impl App {
             if has_repl {
                 reset_clicked = ui.button("Ersetzungen zurücksetzen").clicked();
             }
-            if ui.button("Für Arena kopieren").on_hover_text("In Arena: Decks → Importieren").clicked()
+            if ui.button("Für Arena kopieren").on_hover_text("In Arena: Decks > Importieren").clicked()
                 && let Some(db) = &self.db {
                     let text = deck::export_arena(
                         &eval,
@@ -1421,7 +1426,7 @@ impl App {
                         },
                     );
                     ui.ctx().copy_text(text);
-                    self.status = "Deck in die Zwischenablage kopiert – in Arena unter Decks → Importieren einfügen.".into();
+                    self.status = "Deck in die Zwischenablage kopiert – in Arena unter Decks > Importieren einfügen.".into();
                 }
             let mut changed = ui.checkbox(&mut self.settings.include_side, "Sideboard einbeziehen").changed();
             changed |= ui
@@ -1715,7 +1720,7 @@ impl App {
             ui.label(
                 RichText::new(
                     "In Arena sind „Detaillierte Logs“ ausgeschaltet – neue Partien werden nicht mitgeschrieben. \
-                     Einschalten: Zahnrad → Konto → „Detaillierte Logs (Plugin-Unterstützung)“, danach Arena neu starten.",
+                     Einschalten: Zahnrad > Konto > „Detaillierte Logs (Plugin-Unterstützung)“, danach Arena neu starten.",
                 )
                 .color(YELLOW),
             );

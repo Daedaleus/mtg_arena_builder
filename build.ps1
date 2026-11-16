@@ -43,9 +43,11 @@ $version = (cargo metadata --no-deps --format-version 1 | ConvertFrom-Json).pack
 $dist = Join-Path $PSScriptRoot "dist"
 New-Item -ItemType Directory -Force $dist | Out-Null
 
-# Laufende App aus dist\ beenden, sonst ist die Datei gesperrt.
+# Laufende App aus dist\ beenden, sonst ist die Datei gesperrt (und danach neu starten).
+$wasRunning = $false
 Get-Process | Where-Object { $_.Path -and $_.Path.StartsWith($dist, [StringComparison]::OrdinalIgnoreCase) } | ForEach-Object {
     Write-Host "Beende laufende App (PID $($_.Id))" -ForegroundColor Yellow
+    $script:wasRunning = $true
     # Nur das Hauptfenster regulär schließen (speichert den Zustand). Hält Windows das
     # Begleitfenster für das Hauptfenster, würde sonst nur dieses geschlossen und
     # dauerhaft abgeschaltet – dann lieber direkt beenden.
@@ -75,3 +77,7 @@ if (-not $NoShortcut) {
 
 $sizeMb = [math]::Round((Get-Item $current).Length / 1MB, 1)
 Write-Host "Fertig: $current (Version $version, $sizeMb MB)" -ForegroundColor Green
+if ($wasRunning) {
+    Start-Process $current -WorkingDirectory $dist
+    Write-Host "App neu gestartet" -ForegroundColor Green
+}

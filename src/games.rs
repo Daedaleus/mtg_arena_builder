@@ -770,7 +770,13 @@ impl LogParser {
             // das Log mitten in einer Partie, steht sie erst am Ende fest.
             let new_game = match (&self.cur, &known) {
                 (None, _) => true,
-                (Some(t), Some(id)) => !t.rec.id.is_empty() && &t.rec.id != id,
+                (Some(t), Some(id)) if t.rec.id.is_empty() => {
+                    // Nach Spielende schickt Arena noch Nachrichten ohne Kennung; der
+                    // daraus entstandene Tracker trägt den hohen Zählerstand der alten
+                    // Partie. Springt der Zähler zurück, beginnt eine neue Partie.
+                    g["gameStateId"].as_u64().unwrap_or(0) < t.last_state_id
+                }
+                (Some(t), Some(id)) => &t.rec.id != id,
                 (Some(t), None) => t.seat() != seat,
             };
             if new_game {

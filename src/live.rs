@@ -216,7 +216,7 @@ pub fn build_view(
                 v.hints.push((
                     Level::Good,
                     format!(
-                        "Tödlich möglich! Angriff mit allem {combat}{burn_text} ≥ {} Leben des Gegners – sofern er keinen Trick hat.",
+                        "Tödlich möglich! Angriff mit allem {combat}{burn_text} reicht für die {} Leben des Gegners – sofern er keinen Trick hat.",
                         ls.life_opp
                     ),
                 ));
@@ -422,7 +422,7 @@ fn turn_hints(v: &mut CompanionView, ls: &LiveState, db: &CardDb) {
     let late = ls.phase == "Phase_Main2" && plan.land.is_some();
     v.hints.push((
         if late { Level::Warn } else { Level::Good },
-        format!("Vorschlag: {}{mana}", steps.join(" → ")),
+        format!("Vorschlag: {}{mana}", steps.join(", dann ")),
     ));
     if !plan.hold.is_empty() {
         v.hints.push((
