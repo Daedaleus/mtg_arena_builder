@@ -6,8 +6,9 @@ eigenen Sammlung ab, baut Decks aus vorhandenen Karten, wertet die eigenen
 Partien aus und gibt während einer Partie Hinweise in einem kleinen
 Begleitfenster.
 
-Die Oberfläche ist deutsch. Gebaut und getestet ist bisher nur Windows; der
-Code ist für Linux und macOS vorbereitet (siehe [ToDo.md](ToDo.md)).
+Die Oberfläche ist deutsch. Im Alltag genutzt wird die Windows-Version; Linux
+und macOS werden in der CI gebaut und getestet, sind aber noch nicht im
+echten Einsatz ausprobiert (siehe [ToDo.md](ToDo.md)).
 
 ## Funktionen
 
@@ -65,6 +66,13 @@ Internet: Kartendatenbanken, Arena-Lognachrichten und Turnierseiten werden in
 rustup component add llvm-tools-preview
 cargo install cargo-llvm-cov --locked
 ```
+
+## CI
+
+Bei jedem Push auf `main` und bei Pull Requests prüft GitHub Actions
+([.github/workflows/ci.yml](.github/workflows/ci.yml)) auf Windows, Linux und
+macOS: Formatierung, Clippy, Tests, Release-Build und Testabdeckung. Die
+gebauten Programme liegen als Artefakte am jeweiligen Lauf.
 
 ## Kommandozeile (Diagnose)
 

@@ -26,9 +26,11 @@ Stand: 16.11.2026. Erledigtes steht in der Git-Historie.
 ## Technik
 
 - [x] Sicherung: privates Repository `Daedaleus/mtg_checker` auf GitHub.
-- [ ] Automatische Prüfung (CI) bei jedem Push mit GitHub Actions: fmt,
-      Clippy, Tests, Abdeckung (Windows-Runner wegen MSVC und mtga-reader).
-- [ ] Linux- und macOS-Builds erstellen und testen (Speicherlesen braucht dort
-      root; Pfade sind vorbereitet).
+- [x] CI mit GitHub Actions: fmt, Clippy, Tests und Release-Build auf
+      Windows, Linux und macOS, Testabdeckung ≥ 90 %.
+- [ ] Linux- und macOS-Version tatsächlich starten und ausprobieren (bauen und
+      Tests laufen in der CI; Speicherlesen braucht dort root).
+- [ ] Releases: bei einem Versions-Tag die CI-Artefakte als GitHub-Release
+      veröffentlichen.
 - [ ] Oberfläche (`app.rs`, ~2400 Zeilen) weiter in kleinere Ansichten
       aufteilen, z. B. ein Modul je Reiter.
