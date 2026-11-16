@@ -5,6 +5,7 @@ mod builder;
 mod carddb;
 mod collection;
 mod deck;
+mod deckcheck;
 mod games;
 mod meta;
 mod paths;
@@ -365,6 +366,91 @@ fn games_cli() -> anyhow::Result<()> {
     Ok(())
 }
 
+/// `--decks [FORMAT]`: Deck-Auswertung für alle gespielten Decks.
+fn decks_cli(format: &str) -> anyhow::Result<()> {
+    let db = carddb::CardDb::load(&paths::find_card_db(None)?)?;
+    let col = collection::Collection::load(&paths::data_dir().join("collection.json"))
+        .ok_or_else(|| anyhow::anyhow!("Keine gespeicherte Sammlung"))?;
+    let owned = col.owned_by_name(&db);
+    let games = games::sync(&paths::data_dir().join("games.json"), &paths::player_logs());
+    let mut fetcher = meta::Fetcher::new(paths::data_dir().join("cache"));
+    let scry = meta::FORMATS
+        .iter()
+        .find(|f| f.0 == format)
+        .map(|f| f.2)
+        .unwrap_or("standard");
+    let legal = fetcher.legal_names(scry).ok();
+    let mut lists: Vec<(u32, String, Vec<deck::Deck>)> = Vec::new();
+    for arch in fetcher.archetypes(format, false)? {
+        let id = arch.id;
+        let decks: Vec<deck::Deck> = fetcher
+            .cached_decks(format, &arch)
+            .unwrap_or_default()
+            .iter()
+            .filter_map(|d| fetcher.cached_decklist(d.id))
+            .map(|t| deck::parse(&t))
+            .collect();
+        lists.push((id, arch.name.clone(), decks));
+    }
+    let meta: Vec<deckcheck::MetaArchetype> = lists
+        .iter()
+        .map(|(id, name, decks)| deckcheck::MetaArchetype {
+            id: *id,
+            name: name.clone(),
+            lists: decks.iter().collect(),
+        })
+        .collect();
+    for group in deckcheck::group_decks(&games, &db) {
+        let r = deckcheck::check(&group, &games, &db, &owned, legal.as_ref(), &meta);
+        println!(
+            "
+##### {} {}",
+            group.label,
+            if group.fixed { "[vorgegeben]" } else { "" }
+        );
+        println!(
+            "{} Siege aus {} Partien ({} vollständig)",
+            r.wins, r.games, r.complete
+        );
+        println!(
+            "Mana: {} Länder / {} Karten · zu wenig in {} · zu viel in {} von {} → {}",
+            r.mana.lands, r.mana.size, r.mana.screw, r.mana.flood, r.mana.games, r.mana.advice
+        );
+        if let Some(m) = &r.meta {
+            println!(
+                "Turnier-Archetyp: {} ({} Listen, {:.0} % Übereinstimmung)",
+                m.archetype,
+                m.lists,
+                m.overlap * 100.0
+            );
+            for (name, share, own) in m.missing.iter().take(8) {
+                println!(
+                    "   fehlt: {name} ({:.0} % der Listen, du hast {own})",
+                    share * 100.0
+                );
+            }
+        }
+        for c in &r.cards {
+            println!(
+                "   {}x {:<32} gezogen {} gespielt {} zurückgehalten {} Schaden {:>3} Turnier {}",
+                c.copies,
+                c.name,
+                c.seen,
+                c.cast,
+                c.held,
+                c.damage,
+                c.meta_share
+                    .map(|m| format!("{:.0}%", m * 100.0))
+                    .unwrap_or("-".into())
+            );
+        }
+        for s in &r.swaps {
+            println!("   RAUS {} – {} → {:?}", s.out, s.reason, s.replacement);
+        }
+    }
+    Ok(())
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     match args.get(1).map(String::as_str) {
@@ -388,6 +474,33 @@ fn main() {
         Some("--build") => {
             let format = args.get(2).map(String::as_str).unwrap_or("ST");
             if let Err(e) = build(format) {
+                println!("FEHLER: {e:#}");
+                std::process::exit(1);
+            }
+            return;
+        }
+        Some("--parse") => {
+            // Diagnose: eine Logdatei einlesen, ohne gespeicherte Partien anzufassen.
+            for path in &args[2..] {
+                for g in games::parse_log(Path::new(path)) {
+                    let cast: usize = g.turns.iter().map(|t| t.cast.len()).sum();
+                    println!(
+                        "{} {:<14} deck {:>2} züge {:>2} vollständig {} gewirkt {:>2} starthand {}",
+                        g.id.get(..8).unwrap_or(""),
+                        g.event.get(..14).unwrap_or(&g.event),
+                        g.deck.len(),
+                        g.turns.len(),
+                        g.complete,
+                        cast,
+                        g.opening_hand.len()
+                    );
+                }
+            }
+            return;
+        }
+        Some("--decks") => {
+            let format = args.get(2).map(String::as_str).unwrap_or("ST");
+            if let Err(e) = decks_cli(format) {
                 println!("FEHLER: {e:#}");
                 std::process::exit(1);
             }

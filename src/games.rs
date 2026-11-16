@@ -46,6 +46,8 @@ pub struct TurnStat {
     pub blocked: bool,
     /// Gegnerzug: meine ungetappten Kreaturen vor dem Kampf.
     pub my_untapped_creatures: u32,
+    /// Von mir in diesem Zug gewirkte Karten (grpIds), auch im Gegnerzug.
+    pub cast: Vec<u32>,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -76,6 +78,28 @@ pub struct GameRecord {
     pub opening_hand: Vec<u32>,
     /// Schaden an mir je Quelle (grpId -> Schaden).
     pub damage_taken: HashMap<u32, u32>,
+    /// Schaden meiner Karten am Gegner (grpId -> Schaden).
+    pub damage_dealt: HashMap<u32, u32>,
+}
+
+impl GameRecord {
+    /// Karten, die ich in dieser Partie gezogen bzw. gesehen habe (Starthand,
+    /// Hand an einem Zugende oder gewirkt).
+    pub fn seen_cards(&self) -> HashSet<u32> {
+        self.opening_hand
+            .iter()
+            .chain(self.turns.iter().flat_map(|t| t.hand.iter().chain(&t.cast)))
+            .copied()
+            .collect()
+    }
+
+    pub fn cast_cards(&self) -> HashSet<u32> {
+        self.turns
+            .iter()
+            .flat_map(|t| t.cast.iter())
+            .copied()
+            .collect()
+    }
 }
 
 impl GameRecord {
@@ -450,18 +474,24 @@ impl Tracker {
                 .unwrap_or(Value::Null)
         };
         if is("AnnotationType_DamageDealt") {
-            let hits_me = a["affectedIds"]
-                .as_array()
-                .is_some_and(|t| t.iter().any(|x| u(x) == self.seat()));
-            if hits_me {
-                let source = self
-                    .objects
-                    .get(&u(&a["affectorId"]))
-                    .map(|o| o.grp_id)
-                    .unwrap_or(0);
-                let damage = u(&detail("damage")["valueInt32"][0]);
-                if source > 0 && damage > 0 {
+            let hits = |seat: u32| {
+                a["affectedIds"]
+                    .as_array()
+                    .is_some_and(|t| t.iter().any(|x| u(x) == seat))
+            };
+            let (hits_me, hits_opp) = (hits(self.seat()), hits(self.opponent()));
+            let (source, source_ctrl) = self
+                .objects
+                .get(&u(&a["affectorId"]))
+                .map(|o| (o.grp_id, o.controller))
+                .unwrap_or((0, 0));
+            let damage = u(&detail("damage")["valueInt32"][0]);
+            if source > 0 && damage > 0 {
+                if hits_me {
                     *self.rec.damage_taken.entry(source).or_insert(0) += damage;
+                }
+                if hits_opp && source_ctrl == self.seat() {
+                    *self.rec.damage_dealt.entry(source).or_insert(0) += damage;
                 }
             }
         }
@@ -473,11 +503,15 @@ impl Tracker {
             .unwrap_or("")
             .to_string();
         for target in a["affectedIds"].as_array().into_iter().flatten() {
-            let controller = self
+            let (controller, grp) = self
                 .objects
                 .get(&u(target))
-                .map(|o| o.controller)
-                .unwrap_or(0);
+                .map(|o| (o.controller, o.grp_id))
+                .unwrap_or((0, 0));
+            // Eigene Zauber merken – auch Spontanzauber im gegnerischen Zug.
+            if category == "CastSpell" && controller == self.seat() && grp > 0 {
+                self.cur.cast.push(grp);
+            }
             match category.as_str() {
                 "PlayLand" if controller == self.active => self.cur.land_played = true,
                 "CastSpell" if controller == self.active => self.cur.spells += 1,
@@ -630,7 +664,38 @@ pub fn parse_log(path: &Path) -> Vec<GameRecord> {
         let match_id = rec.id.split('#').next().unwrap_or("");
         rec.event = events.get(match_id).cloned().unwrap_or_default();
     }
-    out
+    // Arena meldet das Spielende oft doppelt; die zweite Meldung erzeugt eine
+    // leere Kopie derselben Partie. Pro Partie nur die beste Aufzeichnung behalten.
+    let mut best: Vec<GameRecord> = Vec::new();
+    for rec in out {
+        match best.iter_mut().find(|b| b.id == rec.id) {
+            Some(b) => {
+                let deck = if b.deck.is_empty() {
+                    rec.deck.clone()
+                } else {
+                    Vec::new()
+                };
+                if quality(&rec) > quality(b) {
+                    *b = rec;
+                }
+                if b.deck.is_empty() {
+                    b.deck = deck;
+                }
+            }
+            None => best.push(rec),
+        }
+    }
+    best
+}
+
+/// Wie vollständig ist eine Aufzeichnung? Höher = besser.
+fn quality(g: &GameRecord) -> (bool, usize, bool, bool) {
+    (
+        g.complete,
+        g.turns.len(),
+        !g.opening_hand.is_empty(),
+        !g.deck.is_empty(),
+    )
 }
 
 /// Steht im Log, dass „Detaillierte Logs“ ausgeschaltet sind?
@@ -647,7 +712,7 @@ pub fn detailed_logs_disabled(path: &Path) -> bool {
 
 /// Version der Auswertung. Wird sie erhöht, werden gespeicherte Partien beim
 /// nächsten Einlesen aus noch vorhandenen Logs neu berechnet.
-const PARSER_VERSION: u32 = 2;
+const PARSER_VERSION: u32 = 4;
 
 #[derive(Default, Serialize, Deserialize)]
 #[serde(default)]
@@ -672,9 +737,11 @@ pub fn sync(store: &Path, logs: &[PathBuf]) -> Vec<GameRecord> {
         for rec in parse_log(log) {
             match games.iter_mut().find(|g| g.id == rec.id) {
                 // Vollständigere oder mit neuerer Auswertung erzeugte Aufzeichnung gewinnt.
+                // Bessere Aufzeichnung gewinnt; nach einem Update der Auswertung
+                // auch eine gleich gute (dann mit den neuen Daten), nie eine schlechtere.
                 Some(old)
-                    if outdated
-                        || (rec.complete, rec.turns.len()) > (old.complete, old.turns.len()) =>
+                    if quality(&rec) > quality(old)
+                        || (outdated && quality(&rec) >= quality(old)) =>
                 {
                     *old = rec
                 }
