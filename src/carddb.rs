@@ -44,6 +44,8 @@ pub const ROLE_REMOVAL: u8 = 1;
 pub const ROLE_COUNTER: u8 = 2;
 /// Zieht Karten.
 pub const ROLE_DRAW: u8 = 4;
+/// Räumt das ganze Spielfeld ab – trifft auch die eigenen Kreaturen.
+pub const ROLE_WIPE: u8 = 8;
 
 /// Leitet aus einem (englischen) Fähigkeitstext grobe Rollen ab.
 fn roles_of(text: &str) -> u8 {
@@ -73,6 +75,14 @@ fn roles_of(text: &str) -> u8 {
         ])
     {
         roles |= ROLE_REMOVAL;
+    }
+    if has(&[
+        "destroy all",
+        "exile all creatures",
+        "damage to each creature",
+        "creatures get -",
+    ]) {
+        roles |= ROLE_WIPE;
     }
     if t.contains("counter target") {
         roles |= ROLE_COUNTER;

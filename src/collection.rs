@@ -41,7 +41,7 @@ pub struct Collection {
 
 impl Collection {
     pub fn load(path: &Path) -> Option<Collection> {
-        serde_json::from_slice(&fs::read(path).ok()?).ok()
+        crate::paths::read_json(path)
     }
 
     pub fn save(&self, path: &Path) -> Result<(), String> {

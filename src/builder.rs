@@ -8,7 +8,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use crate::carddb::{Card, CardDb, ROLE_DRAW, ROLE_REMOVAL};
+use crate::carddb::{Card, CardDb, ROLE_DRAW, ROLE_REMOVAL, ROLE_WIPE};
 use crate::deck::{Deck, DeckEntry};
 
 const TYPE_CREATURE: u8 = 2;
@@ -36,7 +36,7 @@ fn is_creature(c: &Card) -> bool {
 }
 
 /// Geschätzte Stärke einer Karte (höher = besser).
-fn rating(card: &Card, meta_use: u32, colors: u8) -> f32 {
+fn rating(card: &Card, meta_use: u32, colors: u8, copies: u32) -> f32 {
     let mut r = match card.rarity {
         5 => 3.0,
         4 => 2.6,
@@ -64,6 +64,21 @@ fn rating(card: &Card, meta_use: u32, colors: u8) -> f32 {
     if card.colors == colors && colors.count_ones() == 2 {
         r += 0.4;
     }
+    // Mehrere Exemplare machen das Deck berechenbarer als lauter Einzelkarten.
+    r += 0.15 * (copies.saturating_sub(1)) as f32;
+    // Teure Karten bleiben oft auf der Hand stecken.
+    if card.cmc >= 5 {
+        r -= 0.5;
+    }
+    // In zweifarbigen Decks sind Kosten wie {U}{U} oder {R}{R}{R} schwer zu bezahlen.
+    if colors.count_ones() == 2 {
+        let max_pips = COLOR_LETTERS
+            .iter()
+            .map(|l| card.mana_cost.matches(*l).count())
+            .max()
+            .unwrap_or(0);
+        r -= 0.3 * max_pips.saturating_sub(1) as f32;
+    }
     r
 }
 
@@ -71,8 +86,13 @@ fn curve_bucket(cmc: u32) -> usize {
     (cmc.clamp(1, 6) - 1) as usize
 }
 
-/// Obergrenzen je Manawert (1, 2, 3, 4, 5, 6+).
-const CURVE_CAPS: [u32; 6] = [8, 12, 10, 7, 4, 2];
+/// Obergrenzen je Manawert (1, 2, 3, 4, 5, 6+): zuerst eine schnelle Kurve,
+/// und nur wenn die Sammlung dafür nicht reicht, eine großzügigere.
+const CURVE_CAPS: [[u32; 6]; 2] = [[10, 14, 8, 4, 2, 0], [12, 16, 10, 7, 4, 2]];
+/// Höchstens so viele Nicht-Kreaturen – viele Kreaturen halten Removal besser aus.
+const MAX_NONCREATURE: u32 = 14;
+/// Davon höchstens so viele ohne Removal-Funktion.
+const MAX_OTHER: u32 = 4;
 
 fn label_of(colors: u8) -> String {
     let names: Vec<&str> = (0..5)
@@ -107,9 +127,20 @@ fn build_one(
         .filter_map(|(key, n)| {
             let card = db.representative(key)?;
             let meta = meta_use.get(key).copied().unwrap_or(0);
-            let fits =
-                !card.is_land() && !card.back_face && card.cmc > 0 && card.colors & !colors == 0;
-            fits.then(|| (rating(card, meta, colors), card, (*n).min(4), meta))
+            let fits = !card.is_land()
+                && !card.back_face
+                && card.cmc > 0
+                && card.colors & !colors == 0
+                // Flächenräumer schaden einem Kreaturendeck mehr, als sie nützen.
+                && !card.has_role(ROLE_WIPE);
+            fits.then(|| {
+                (
+                    rating(card, meta, colors, (*n).min(4)),
+                    card,
+                    (*n).min(4),
+                    meta,
+                )
+            })
         })
         .collect();
     pool.sort_by(|a, b| b.0.total_cmp(&a.0).then_with(|| a.1.name.cmp(&b.1.name)));
@@ -120,28 +151,33 @@ fn build_one(
     let mut curve = [0u32; 6];
     let (mut creatures, mut removal, mut rares, mut meta_cards) = (0u32, 0u32, 0u32, 0u32);
     let (mut noncreature, mut other) = (0u32, 0u32);
-    for (r, card, copies, meta) in &pool {
+    let mut taken: HashMap<u32, u32> = HashMap::new();
+    for (caps, (r, card, copies, meta)) in CURVE_CAPS
+        .iter()
+        .flat_map(|caps| pool.iter().map(move |p| (caps, p)))
+    {
         if total >= SPELLS {
             break;
         }
+        let already = taken.get(&card.grp_id).copied().unwrap_or(0);
         let bucket = curve_bucket(card.cmc);
         let creature = is_creature(card);
         let rem = card.has_role(ROLE_REMOVAL);
-        // Höchstens 16 Nicht-Kreaturen, davon höchstens 6 ohne Removal-Funktion.
         let type_room = if creature {
             SPELLS
         } else if rem {
-            16u32.saturating_sub(noncreature)
+            MAX_NONCREATURE.saturating_sub(noncreature)
         } else {
-            (6u32.saturating_sub(other)).min(16u32.saturating_sub(noncreature))
+            (MAX_OTHER.saturating_sub(other)).min(MAX_NONCREATURE.saturating_sub(noncreature))
         };
-        let qty = (*copies)
+        let qty = (*copies - already)
             .min(SPELLS - total)
-            .min(CURVE_CAPS[bucket].saturating_sub(curve[bucket]))
+            .min(caps[bucket].saturating_sub(curve[bucket]))
             .min(type_room);
         if qty == 0 {
             continue;
         }
+        *taken.entry(card.grp_id).or_insert(0) += qty;
         total += qty;
         curve[bucket] += qty;
         score += r * qty as f32;
@@ -162,7 +198,10 @@ fn build_one(
         if *meta > 0 {
             meta_cards += qty;
         }
-        picks.push(Pick { card, qty });
+        match picks.iter_mut().find(|p| p.card.grp_id == card.grp_id) {
+            Some(p) => p.qty += qty,
+            None => picks.push(Pick { card, qty }),
+        }
     }
     if total < SPELLS || creatures < 12 {
         return None; // zu wenige spielbare Karten in diesen Farben

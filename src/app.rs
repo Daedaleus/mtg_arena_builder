@@ -12,6 +12,7 @@ use crate::builder::{self, Built};
 use crate::carddb::{CardDb, RARITY_COMMON, rarity_label};
 use crate::collection::{self, Collection};
 use crate::deck::{self, Deck, DeckEval, LineEval, Summary};
+use crate::games::{self, GameRecord};
 use crate::meta::{Archetype, DeckRef, FORMATS, Fetcher};
 use crate::paths;
 use crate::similar::{self, Suggestion};
@@ -132,6 +133,8 @@ enum Msg {
     Collection(Result<Collection, String>),
     /// Wiederherstellung aus dem Cache ist abgeschlossen.
     Restored(usize),
+    /// Partien aus den Arena-Logs; `bool` = „Detaillierte Logs“ ist aus.
+    Games(Vec<GameRecord>, bool),
     Pending(usize),
 }
 
@@ -212,6 +215,7 @@ enum Tab {
     Meta,
     Paste,
     Built,
+    Games,
 }
 
 pub struct App {
@@ -248,15 +252,21 @@ pub struct App {
     /// Aus der Sammlung gebaute Deckvorschläge (None = noch nicht berechnet).
     built: Option<Vec<Built>>,
     sel_built: usize,
+    ctx: egui::Context,
+    games: Vec<GameRecord>,
+    games_loading: bool,
+    games_scanned: Option<std::time::Instant>,
+    logs_disabled: bool,
+    /// Filter nach Arena-Event (None = alle).
+    games_event: Option<String>,
+    sel_game: Option<usize>,
 }
 
 impl App {
     pub fn new(cc: &eframe::CreationContext<'_>) -> App {
         let data_dir = paths::data_dir();
-        let settings: Settings = std::fs::read(data_dir.join("settings.json"))
-            .ok()
-            .and_then(|b| serde_json::from_slice(&b).ok())
-            .unwrap_or_default();
+        let settings: Settings =
+            paths::read_json(&data_dir.join("settings.json")).unwrap_or_default();
 
         let (tx_job, rx_job) = channel();
         let (tx_msg, rx_msg) = channel();
@@ -276,6 +286,7 @@ impl App {
             tab: match settings.tab {
                 1 => Tab::Paste,
                 2 => Tab::Built,
+                3 => Tab::Games,
                 _ => Tab::Meta,
             },
             paste_text: settings.paste_text.clone(),
@@ -305,6 +316,13 @@ impl App {
             saved_json: Vec::new(),
             built: None,
             sel_built: 0,
+            ctx: cc.egui_ctx.clone(),
+            games: Vec::new(),
+            games_loading: false,
+            games_scanned: None,
+            logs_disabled: false,
+            games_event: None,
+            sel_game: None,
         };
         app.settings.format = app.settings.format.min(FORMATS.len() - 1);
         app.load_db();
@@ -315,7 +333,32 @@ impl App {
         if !app.paste_text.trim().is_empty() {
             app.set_list(PASTED, deck::parse(&app.paste_text));
         }
+        app.scan_games();
         app
+    }
+
+    /// Liest die Arena-Logs im Hintergrund ein und ergänzt `games.json`.
+    fn scan_games(&mut self) {
+        if self.games_loading {
+            return;
+        }
+        self.games_loading = true;
+        self.games_scanned = Some(std::time::Instant::now());
+        let (tx, ctx, store) = (
+            self.tx_msg.clone(),
+            self.ctx.clone(),
+            self.data_dir.join("games.json"),
+        );
+        std::thread::spawn(move || {
+            let logs = paths::player_logs();
+            let games = games::sync(&store, &logs);
+            let disabled = logs
+                .iter()
+                .find(|p| p.file_name().is_some_and(|n| n == "Player.log"))
+                .is_some_and(|p| games::detailed_logs_disabled(p));
+            let _ = tx.send(Msg::Games(games, disabled));
+            ctx.request_repaint();
+        });
     }
 
     /// Schreibt Einstellungen und Sitzungszustand nach `settings.json`
@@ -326,6 +369,7 @@ impl App {
             Tab::Meta => 0,
             Tab::Paste => 1,
             Tab::Built => 2,
+            Tab::Games => 3,
         };
         self.settings.paste_text = self.paste_text.clone();
         self.settings.sel_arch = self.sel_arch;
@@ -513,6 +557,14 @@ impl App {
                             }
                         }
                     }
+                }
+                Msg::Games(games, disabled) => {
+                    self.games_loading = false;
+                    self.logs_disabled = disabled;
+                    if games.len() != self.games.len() {
+                        self.sel_game = None;
+                    }
+                    self.games = games;
                 }
                 Msg::Pending(n) => {
                     self.pending = n;
@@ -1243,13 +1295,365 @@ impl eframe::App for App {
                 ui.selectable_value(&mut self.tab, Tab::Meta, "Turnierdecks");
                 ui.selectable_value(&mut self.tab, Tab::Built, "Aus meiner Sammlung");
                 ui.selectable_value(&mut self.tab, Tab::Paste, "Eigene Liste prüfen");
+                ui.selectable_value(&mut self.tab, Tab::Games, "Meine Partien");
             });
             ui.separator();
             match self.tab {
                 Tab::Meta => self.meta_tab(ui),
                 Tab::Paste => self.paste_tab(ui),
                 Tab::Built => self.built_tab(ui),
+                Tab::Games => self.games_tab(ui),
             }
         });
+    }
+}
+
+// ------------------------------------------------------- Meine Partien ----
+
+fn event_label(event: &str) -> String {
+    match event {
+        "Ladder" => "Rangliste".into(),
+        "Traditional_Ladder" => "Rangliste Bo3".into(),
+        "Play" => "Spielen".into(),
+        "Traditional_Play" => "Spielen Bo3".into(),
+        "DualColorPrecons" => "Starterdecks".into(),
+        "" => "?".into(),
+        e if e.starts_with("WelcomeDeckDuels") => "Willkommens-Duelle".into(),
+        e if e.starts_with("ColorChallenge") => "Farb-Challenge".into(),
+        e => e.replace('_', " "),
+    }
+}
+
+fn ago(ms: u64) -> String {
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0);
+    let secs = now.saturating_sub(ms) / 1000;
+    match secs {
+        0..=89 => "gerade eben".into(),
+        90..=5399 => format!("vor {} Min.", secs / 60),
+        5400..=172_799 => format!("vor {} Std.", secs / 3600),
+        _ => format!("vor {} Tagen", secs / 86_400),
+    }
+}
+
+fn ratio(won: usize, total: usize) -> String {
+    if total == 0 {
+        "–".into()
+    } else {
+        format!("{won} von {total} gewonnen")
+    }
+}
+
+impl App {
+    fn games_tab(&mut self, ui: &mut egui::Ui) {
+        // Beim Öffnen des Reiters automatisch nachladen (höchstens einmal pro Minute).
+        if self
+            .games_scanned
+            .is_none_or(|t| t.elapsed().as_secs() > 60)
+        {
+            self.scan_games();
+        }
+        ui.horizontal(|ui| {
+            if ui
+                .add_enabled(!self.games_loading, egui::Button::new("Logs neu einlesen"))
+                .clicked()
+            {
+                self.scan_games();
+            }
+            if self.games_loading {
+                ui.spinner();
+            }
+            let mut events: Vec<String> = self.games.iter().map(|g| g.event.clone()).collect();
+            events.sort();
+            events.dedup();
+            let shown = self
+                .games_event
+                .as_deref()
+                .map(event_label)
+                .unwrap_or_else(|| "Alle Modi".into());
+            let before = self.games_event.clone();
+            egui::ComboBox::from_id_salt("games_event")
+                .selected_text(shown)
+                .show_ui(ui, |ui| {
+                    ui.selectable_value(&mut self.games_event, None, "Alle Modi");
+                    for e in events {
+                        let label = event_label(&e);
+                        ui.selectable_value(&mut self.games_event, Some(e), label);
+                    }
+                });
+            if before != self.games_event {
+                self.sel_game = None;
+            }
+            ui.label(RichText::new(format!("{} Partien gespeichert", self.games.len())).weak());
+        });
+        if self.logs_disabled {
+            ui.label(
+                RichText::new(
+                    "In Arena sind „Detaillierte Logs“ ausgeschaltet – neue Partien werden nicht mitgeschrieben. \
+                     Einschalten: Zahnrad → Konto → „Detaillierte Logs (Plugin-Unterstützung)“, danach Arena neu starten.",
+                )
+                .color(YELLOW),
+            );
+        }
+        let Some(db) = &self.db else { return };
+        let games: Vec<GameRecord> = self
+            .games
+            .iter()
+            .filter(|g| self.games_event.as_ref().is_none_or(|e| &g.event == e))
+            .cloned()
+            .collect();
+        if games.is_empty() {
+            ui.add_space(10.0);
+            ui.label("Noch keine Partien. Spiel mit eingeschalteten „Detaillierten Logs“ ein paar Runden – die App liest sie dann hier ein.");
+            return;
+        }
+        let r = games::report(&games, db);
+        let mut clicked: Option<usize> = None;
+
+        egui::ScrollArea::vertical().id_salt("games_scroll").auto_shrink([false, false]).show(ui, |ui| {
+            // --- Bilanz ---
+            ui.add_space(4.0);
+            ui.horizontal_wrapped(|ui| {
+                let color = if r.wins >= r.losses { GREEN } else { RED };
+                ui.label(RichText::new(format!("{} Siege, {} Niederlagen", r.wins, r.losses)).color(color).strong());
+                ui.label(format!("aus {} Partien", r.games));
+                if r.conceded > 0 {
+                    ui.label(format!("· {} davon aufgegeben", r.conceded));
+                }
+            });
+            ui.label(format!(
+                "Als Erster: {} · Als Zweiter: {} · Partien dauern im Schnitt {:.0} Züge",
+                ratio(r.on_play.0, r.on_play.1),
+                ratio(r.on_draw.0, r.on_draw.1),
+                r.avg_turns
+            ));
+            ui.add_space(6.0);
+
+            // --- Auffälligkeiten ---
+            ui.strong("Auffälligkeiten");
+            ui.label(
+                RichText::new(format!(
+                    "Ausgewertet: {} eigene Züge aus vollständig mitgeschriebenen Partien. Ein Klick auf einen Eintrag öffnet die Partie.",
+                    r.my_turns
+                ))
+                .weak(),
+            );
+            let sections = [
+                (
+                    "Land nicht gespielt",
+                    "Ein Land pro Zug zu legen ist fast immer richtig – auch wenn du es gerade nicht brauchst. Später fehlt es sonst.",
+                    &r.missed_lands,
+                ),
+                (
+                    "Mana ungenutzt",
+                    "Am Zugende waren Länder frei, obwohl eine Kreatur oder Hexerei bezahlbar gewesen wäre. Die Farben prüft die App nicht – manchmal fehlte also die passende Farbe.",
+                    &r.unused_mana,
+                ),
+                (
+                    "Nicht angegriffen",
+                    "Deine Kreaturen hätten angreifen können, haben es aber nicht. Mit einem Aggro-Deck lohnt sich Angreifen meist, solange der Gegner nicht günstig blocken kann.",
+                    &r.no_attack,
+                ),
+                (
+                    "Keine Kreatur auf dem Feld",
+                    "In Zug 3–6 lag keine eigene Kreatur auf dem Feld – das Deck kann dann keinen Druck machen.",
+                    &r.empty_board,
+                ),
+            ];
+            for (title, explain, items) in sections {
+                let color = if items.is_empty() { GREEN } else { YELLOW };
+                egui::CollapsingHeader::new(RichText::new(format!("{title}: {}×", items.len())).color(color))
+                    .id_salt(title)
+                    .show(ui, |ui| {
+                        ui.label(RichText::new(explain).weak());
+                        for f in items.iter() {
+                            if ui.link(format!("Partie #{}, Zug {}: {}", f.game, f.turn, f.text)).clicked() {
+                                clicked = Some(f.game - 1);
+                            }
+                        }
+                    });
+            }
+            if r.discards > 0 {
+                ui.label(format!("Abgeworfene Karten: {} (z. B. weil die Hand am Zugende zu voll war)", r.discards));
+            }
+            egui::CollapsingHeader::new(format!("Häufigste Karten deiner Gegner ({})", r.opp_cards.len()))
+                .id_salt("opp_cards")
+                .show(ui, |ui| {
+                    for (name, n) in &r.opp_cards {
+                        ui.label(format!("{name} – in {n} Partie(n)"));
+                    }
+                });
+            ui.add_space(6.0);
+            ui.separator();
+
+            // --- Partienliste ---
+            ui.push_id("games_table", |ui| {
+                TableBuilder::new(ui)
+                    .striped(true)
+                    .vscroll(false)
+                    .column(Column::auto().at_least(34.0))
+                    .column(Column::auto().at_least(80.0))
+                    .column(Column::auto().at_least(120.0))
+                    .column(Column::auto().at_least(90.0))
+                    .column(Column::auto().at_least(70.0))
+                    .column(Column::auto().at_least(40.0))
+                    .column(Column::auto().at_least(40.0))
+                    .column(Column::auto().at_least(60.0))
+                    .column(Column::auto().at_least(50.0))
+                    .column(Column::remainder().at_least(50.0))
+                    .header(20.0, |mut h| {
+                        for title in ["#", "Wann", "Modus", "Ergebnis", "Anfang", "Mull.", "Züge", "Leben", "Deck", "Gegner"] {
+                            h.col(|ui| {
+                                ui.strong(title);
+                            });
+                        }
+                    })
+                    .body(|mut body| {
+                        for (i, g) in games.iter().enumerate() {
+                            body.row(20.0, |mut row| {
+                                row.col(|ui| {
+                                    if ui.selectable_label(self.sel_game == Some(i), format!("#{}", i + 1)).clicked() {
+                                        clicked = Some(i);
+                                    }
+                                });
+                                row.col(|ui| {
+                                    ui.label(ago(g.started_ms));
+                                });
+                                row.col(|ui| {
+                                    ui.label(event_label(&g.event));
+                                });
+                                row.col(|ui| {
+                                    let (text, color) = match g.won {
+                                        Some(true) => ("Sieg", GREEN),
+                                        Some(false) if g.conceded() => ("Aufgegeben", RED),
+                                        Some(false) => ("Niederlage", RED),
+                                        None => ("?", Color32::GRAY),
+                                    };
+                                    ui.label(RichText::new(text).color(color));
+                                });
+                                row.col(|ui| {
+                                    ui.label(match g.on_play {
+                                        Some(true) => "Erster",
+                                        Some(false) => "Zweiter",
+                                        None => "?",
+                                    });
+                                });
+                                row.col(|ui| {
+                                    ui.label(g.mulligans.to_string());
+                                });
+                                row.col(|ui| {
+                                    ui.label(if g.turns.is_empty() { "–".into() } else { g.last_turn().to_string() });
+                                });
+                                row.col(|ui| {
+                                    let (me, opp) = g.final_life();
+                                    ui.label(format!("{me} : {opp}"));
+                                });
+                                row.col(|ui| {
+                                    ui.label(games::deck_colors(&g.deck, db));
+                                });
+                                row.col(|ui| {
+                                    ui.label(games::opp_colors(g, db));
+                                });
+                            });
+                        }
+                    });
+            });
+
+            // --- Zugdetails ---
+            if let Some(g) = self.sel_game.and_then(|i| games.get(i).map(|g| (i, g))) {
+                let (i, g) = g;
+                ui.add_space(8.0);
+                ui.separator();
+                ui.heading(format!("Partie #{} – {}", i + 1, event_label(&g.event)));
+                if g.turns.is_empty() {
+                    ui.label("Für diese Partie stehen keine Zugdaten im Log.");
+                    return;
+                }
+                if !g.complete {
+                    ui.label(
+                        RichText::new(format!(
+                            "Erst ab Zug {} mitgeschrieben – Länder und Handkarten aus der Zeit davor fehlen.",
+                            g.turns.first().map(|t| t.turn).unwrap_or(0)
+                        ))
+                        .color(YELLOW),
+                    );
+                }
+                ui.label(RichText::new("Stand jeweils am Ende des Zuges. „Frei“ = ungetappte eigene Länder.").weak());
+                ui.push_id(("turns", i), |ui| {
+                    TableBuilder::new(ui)
+                        .striped(true)
+                        .vscroll(false)
+                        .column(Column::auto().at_least(36.0))
+                        .column(Column::auto().at_least(56.0))
+                        .column(Column::auto().at_least(64.0))
+                        .column(Column::auto().at_least(56.0))
+                        .column(Column::auto().at_least(70.0))
+                        .column(Column::auto().at_least(36.0))
+                        .column(Column::auto().at_least(40.0))
+                        .column(Column::auto().at_least(40.0))
+                        .column(Column::auto().at_least(46.0))
+                        .column(Column::remainder().at_least(50.0))
+                        .header(20.0, |mut h| {
+                            for title in ["Zug", "Wer", "Leben", "Länder", "Kreaturen", "Frei", "Hand", "Land", "Zauber", "Angriff"] {
+                                h.col(|ui| {
+                                    ui.strong(title);
+                                });
+                            }
+                        })
+                        .body(|mut body| {
+                            for t in &g.turns {
+                                body.row(20.0, |mut row| {
+                                    let who = if t.mine { RichText::new("ich").strong() } else { RichText::new("Gegner") };
+                                    row.col(|ui| {
+                                        ui.label(t.turn.to_string());
+                                    });
+                                    row.col(|ui| {
+                                        ui.label(who);
+                                    });
+                                    row.col(|ui| {
+                                        ui.label(format!("{} : {}", t.life_me, t.life_opp));
+                                    });
+                                    row.col(|ui| {
+                                        ui.label(format!("{} : {}", t.lands_me, t.lands_opp));
+                                    });
+                                    row.col(|ui| {
+                                        ui.label(format!("{} : {}", t.creatures_me, t.creatures_opp));
+                                    });
+                                    row.col(|ui| {
+                                        if t.mine {
+                                            ui.label(t.untapped_lands.to_string());
+                                        }
+                                    });
+                                    row.col(|ui| {
+                                        let names: Vec<String> = t
+                                            .hand
+                                            .iter()
+                                            .map(|g| db.cards.get(g).map(|c| c.name.clone()).unwrap_or_else(|| "?".into()))
+                                            .collect();
+                                        let label = ui.label(t.hand.len().to_string());
+                                        if !names.is_empty() {
+                                            label.on_hover_text(names.join("\n"));
+                                        }
+                                    });
+                                    row.col(|ui| {
+                                        ui.label(if t.land_played { "ja" } else { "–" });
+                                    });
+                                    row.col(|ui| {
+                                        ui.label(t.spells.to_string());
+                                    });
+                                    row.col(|ui| {
+                                        ui.label(if t.attacked { "ja" } else { "–" });
+                                    });
+                                });
+                            }
+                        });
+                });
+            }
+        });
+        if let Some(i) = clicked {
+            self.sel_game = Some(i);
+        }
     }
 }

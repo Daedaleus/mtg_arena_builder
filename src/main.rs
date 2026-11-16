@@ -5,6 +5,7 @@ mod builder;
 mod carddb;
 mod collection;
 mod deck;
+mod games;
 mod meta;
 mod paths;
 mod similar;
@@ -290,6 +291,69 @@ fn build(format: &str) -> anyhow::Result<()> {
     Ok(())
 }
 
+/// `--games`: Partien aus den Arena-Logs einlesen und auswerten.
+fn games_cli() -> anyhow::Result<()> {
+    let db = carddb::CardDb::load(&paths::find_card_db(None)?)?;
+    let games = games::sync(&paths::data_dir().join("games.json"), &paths::player_logs());
+    for (i, g) in games.iter().enumerate() {
+        let (me, opp) = g.final_life();
+        println!(
+            "#{} {} {:<8} {} {} Mull {} Züge {} Leben {}:{} Deck {} Gegner {} {}",
+            i + 1,
+            g.id.get(..8).unwrap_or(""),
+            g.event,
+            match g.won {
+                Some(true) => "SIEG",
+                Some(false) => "NIEDERLAGE",
+                None => "?",
+            },
+            match g.on_play {
+                Some(true) => "angefangen",
+                Some(false) => "gezogen",
+                None => "?",
+            },
+            g.mulligans,
+            g.last_turn(),
+            me,
+            opp,
+            games::deck_colors(&g.deck, &db),
+            games::opp_colors(g, &db),
+            if g.complete {
+                String::new()
+            } else {
+                format!(
+                    "(erst ab Zug {} mitgeschrieben)",
+                    g.turns.first().map(|t| t.turn).unwrap_or(0)
+                )
+            }
+        );
+        for t in &g.turns {
+            println!(
+                "   Zug {:>2} {:<6} Leben {:>3}:{:<3} Länder {}:{} Kreaturen {}:{} frei {} Hand {:>2} Land {} Zauber {} Angriff {}",
+                t.turn,
+                if t.mine { "ich" } else { "Gegner" },
+                t.life_me,
+                t.life_opp,
+                t.lands_me,
+                t.lands_opp,
+                t.creatures_me,
+                t.creatures_opp,
+                t.untapped_lands,
+                t.hand.len(),
+                if t.land_played { "ja" } else { "-" },
+                t.spells,
+                if t.attacked { "ja" } else { "-" }
+            );
+        }
+    }
+    let r = games::report(&games, &db);
+    println!(
+        "
+{r:#?}"
+    );
+    Ok(())
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     match args.get(1).map(String::as_str) {
@@ -313,6 +377,13 @@ fn main() {
         Some("--build") => {
             let format = args.get(2).map(String::as_str).unwrap_or("ST");
             if let Err(e) = build(format) {
+                println!("FEHLER: {e:#}");
+                std::process::exit(1);
+            }
+            return;
+        }
+        Some("--games") => {
+            if let Err(e) = games_cli() {
                 println!("FEHLER: {e:#}");
                 std::process::exit(1);
             }

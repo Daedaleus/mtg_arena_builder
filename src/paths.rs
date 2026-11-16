@@ -25,6 +25,13 @@ pub fn write_atomic(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
     fs::rename(&tmp, path)
 }
 
+/// Liest eine JSON-Datei; ein UTF-8-BOM am Anfang (z. B. von Windows-Editoren) wird ignoriert.
+pub fn read_json<T: serde::de::DeserializeOwned>(path: &Path) -> Option<T> {
+    let bytes = fs::read(path).ok()?;
+    let body = bytes.strip_prefix(b"\xEF\xBB\xBF").unwrap_or(&bytes);
+    serde_json::from_slice(body).ok()
+}
+
 /// Mögliche Orte der `Player.log` je nach Plattform.
 pub fn player_log_candidates() -> Vec<PathBuf> {
     let mut out = Vec::new();
@@ -44,6 +51,15 @@ pub fn player_log_candidates() -> Vec<PathBuf> {
         }
     }
     out
+}
+
+/// Vorhandene Arena-Logs (aktuelle und vorige Sitzung).
+pub fn player_logs() -> Vec<PathBuf> {
+    player_log_candidates()
+        .into_iter()
+        .flat_map(|p| [p.with_file_name("Player-prev.log"), p])
+        .filter(|p| p.is_file())
+        .collect()
 }
 
 /// Liest das Installationsverzeichnis aus dem Kopf der Player.log
