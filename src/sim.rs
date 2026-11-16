@@ -91,7 +91,7 @@ pub fn simulate(deck: &[u32], db: &CardDb, games: usize, seed: u64) -> SimReport
         let lands_in = |h: &[u32]| h.iter().filter(|g| is_land(db, **g)).count();
         if !(2..=5).contains(&lands_in(&hand)) {
             mulligans += 1;
-            library.extend(hand.drain(..));
+            library.append(&mut hand);
             rng.shuffle(&mut library);
             hand = library.drain(..7).collect();
             // Eine Karte unter die Bibliothek: bei vielen Ländern ein Land,
