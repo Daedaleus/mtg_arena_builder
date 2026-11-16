@@ -65,7 +65,7 @@ jobs:
         run: cargo test --locked
       - name: Release-Build
         run: cargo build --release --locked
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v6
         with:
           name: ${{ matrix.artifact }}
           path: ${{ matrix.binary }}
