@@ -32,5 +32,4 @@ Stand: 16.11.2026. Erledigtes steht in der Git-Historie.
       Tests laufen in der CI; Speicherlesen braucht dort root).
 - [ ] Releases: bei einem Versions-Tag die CI-Artefakte als GitHub-Release
       veröffentlichen.
-- [ ] Oberfläche (`app.rs`, ~2400 Zeilen) weiter in kleinere Ansichten
-      aufteilen, z. B. ein Modul je Reiter.
+- [x] Oberfläche in Module je Bereich aufgeteilt (`src/app/`).

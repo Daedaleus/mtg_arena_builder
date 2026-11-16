@@ -3,7 +3,7 @@
     Misst die Testabdeckung und erzeugt einen HTML-Bericht.
 
 .DESCRIPTION
-    Nutzt cargo-llvm-cov. Die Oberfläche (app.rs), der Programmstart (main.rs)
+    Nutzt cargo-llvm-cov. Die Oberfläche (src/app/), der Programmstart (main.rs)
     und die Testhilfen zählen nicht mit: Sie enthalten nur Bedienelemente und
     Verdrahtung, die eigentliche Logik steckt in den übrigen Modulen.
 
@@ -36,7 +36,7 @@ if ($LASTEXITCODE -ne 0) {
     exit 1
 }
 
-$ignore = '(app|testutil|main)\.rs$|[\/]tests[\/]'
+$ignore = '[\\/]app[\\/]|(testutil|main)\.rs$|[\\/]tests[\\/]'
 Write-Host "==> Tests mit Abdeckungsmessung" -ForegroundColor Cyan
 cargo llvm-cov --lib --locked --html --ignore-filename-regex $ignore
 if ($LASTEXITCODE -ne 0) { throw "Tests fehlgeschlagen (Exit-Code $LASTEXITCODE)" }

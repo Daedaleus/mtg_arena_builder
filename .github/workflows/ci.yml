@@ -90,5 +90,5 @@ jobs:
       - name: Abdeckung messen (mindestens 90 %)
         run: >
           cargo llvm-cov --lib --locked
-          --ignore-filename-regex '(app|testutil|main)\.rs$|[\\/]tests[\\/]'
+          --ignore-filename-regex '[\\/]app[\\/]|(testutil|main)\.rs$|[\\/]tests[\\/]'
           --fail-under-lines 90

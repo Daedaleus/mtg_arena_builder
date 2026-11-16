@@ -1,0 +1,219 @@
+//! Hintergrund-Abrufe (MTGTop8, Scryfall) und Verarbeitung ihrer Ergebnisse.
+
+use super::*;
+
+pub(super) enum Job {
+    Archetypes {
+        format: usize,
+        force: bool,
+    },
+    Decks {
+        format: usize,
+        arch: Archetype,
+        urgent: bool,
+    },
+    List {
+        deck_id: u32,
+        urgent: bool,
+    },
+    /// Bereits heruntergeladene Decks aus dem Cache wiederherstellen (ohne Netz).
+    Restore {
+        format: usize,
+        archetypes: Vec<Archetype>,
+    },
+    Clear,
+}
+
+pub(super) enum Msg {
+    Archetypes(usize, Result<Vec<Archetype>, String>),
+    Decks(usize, u32, Result<Vec<DeckRef>, String>),
+    List(u32, Result<String, String>),
+    Legal(usize, Result<HashSet<String>, String>),
+    Collection(Result<Collection, String>),
+    /// Wiederherstellung aus dem Cache ist abgeschlossen.
+    Restored(usize),
+    /// Partien aus den Arena-Logs; `bool` = „Detaillierte Logs“ ist aus.
+    Games(Vec<GameRecord>, bool),
+    /// Kartenbild von Scryfall (None = keins gefunden).
+    Image(String, Option<egui::ColorImage>),
+    Pending(usize),
+}
+
+/// Arbeitet Web-Abrufe nacheinander ab (MTGTop8 erlaubt nur eine Anfrage alle 5 s).
+pub(super) fn worker(rx: Receiver<Job>, tx: Sender<Msg>, ctx: egui::Context, cache: PathBuf) {
+    let mut fetcher = Fetcher::new(cache);
+    let mut queue: VecDeque<Job> = VecDeque::new();
+    loop {
+        // „Clear“ wirkt sofort beim Eintreffen – es darf nie in der Warteschlange
+        // landen, sonst löscht es später eingereihte Aufträge.
+        let intake = |job: Job, queue: &mut VecDeque<Job>| match job {
+            Job::Clear => queue.clear(),
+            Job::Decks { urgent: true, .. } | Job::List { urgent: true, .. } => {
+                queue.push_front(job)
+            }
+            other => queue.push_back(other),
+        };
+        if queue.is_empty() {
+            match rx.recv() {
+                Ok(job) => intake(job, &mut queue),
+                Err(_) => return,
+            }
+        }
+        while let Ok(job) = rx.try_recv() {
+            intake(job, &mut queue);
+        }
+        let Some(job) = queue.pop_front() else {
+            continue;
+        };
+        let err = |e: anyhow::Error| format!("{e:#}");
+        let send = |m: Msg| {
+            let _ = tx.send(m);
+            ctx.request_repaint();
+        };
+        match job {
+            Job::Clear => queue.clear(),
+            Job::Archetypes { format, force } => {
+                send(Msg::Archetypes(
+                    format,
+                    fetcher.archetypes(FORMATS[format].0, force).map_err(err),
+                ));
+            }
+            Job::Decks { format, arch, .. } => {
+                let decks = fetcher.decks(FORMATS[format].0, &arch).map_err(err);
+                let top = decks.as_ref().ok().and_then(|d| d.first()).map(|d| d.id);
+                send(Msg::Decks(format, arch.id, decks));
+                // Das neueste Deck gleich mitladen, damit der Archetyp bewertet werden kann.
+                if let Some(deck_id) = top {
+                    send(Msg::List(deck_id, fetcher.decklist(deck_id).map_err(err)));
+                }
+            }
+            Job::List { deck_id, .. } => {
+                send(Msg::List(deck_id, fetcher.decklist(deck_id).map_err(err)));
+            }
+            Job::Restore { format, archetypes } => {
+                for arch in archetypes {
+                    let Some(decks) = fetcher.cached_decks(FORMATS[format].0, &arch) else {
+                        continue;
+                    };
+                    let lists: Vec<(u32, String)> = decks
+                        .iter()
+                        .filter_map(|d| Some((d.id, fetcher.cached_decklist(d.id)?)))
+                        .collect();
+                    send(Msg::Decks(format, arch.id, Ok(decks)));
+                    for (deck_id, text) in lists {
+                        send(Msg::List(deck_id, Ok(text)));
+                    }
+                }
+                send(Msg::Restored(format));
+            }
+        }
+        send(Msg::Pending(queue.len()));
+    }
+}
+
+impl App {
+    pub(super) fn handle_messages(&mut self) {
+        while let Ok(msg) = self.rx_msg.try_recv() {
+            match msg {
+                Msg::Archetypes(format, result) if format == self.settings.format => match result {
+                    Ok(list) => {
+                        self.status = format!("{} Archetypen geladen.", list.len());
+                        let _ = self.tx_job.send(Job::Restore {
+                            format,
+                            archetypes: list.clone(),
+                        });
+                        self.archetypes = list;
+                    }
+                    Err(e) => self.status = e,
+                },
+                Msg::Decks(format, arch, result) if format == self.settings.format => {
+                    match result {
+                        Ok(list) => {
+                            if self.sel_arch == Some(arch) && self.sel_deck.is_none() {
+                                self.sel_deck = list.first().map(|d| d.id);
+                            }
+                            self.decks.insert(arch, list);
+                            if self.sel_arch == Some(arch) {
+                                self.queue_variants(arch);
+                            }
+                        }
+                        Err(e) => self.status = e,
+                    }
+                }
+                Msg::List(deck_id, result) => match result {
+                    Ok(text) => self.set_list(deck_id, deck::parse(&text)),
+                    Err(e) => self.status = e,
+                },
+                Msg::Legal(format, result) => match result {
+                    Ok(names) => {
+                        self.legal.insert(format, names);
+                        self.subs.clear();
+                        self.built = None;
+                    }
+                    Err(e) => {
+                        self.status = format!(
+                            "Format-Legalität nicht verfügbar ({e}) – Ersatzvorschläge sind ungefiltert."
+                        )
+                    }
+                },
+                Msg::Collection(result) => {
+                    self.syncing = false;
+                    match result {
+                        Ok(c) => {
+                            self.status = format!("Sammlung gelesen: {} Karten.", c.total_cards());
+                            self.collection = Some(c);
+                            self.refresh_owned();
+                        }
+                        Err(e) => {
+                            self.status = format!("Sammlung konnte nicht gelesen werden: {e}")
+                        }
+                    }
+                }
+                Msg::Restored(format) if format == self.settings.format => {
+                    // Gemerkte Auswahl, deren Decks nicht (mehr) im Cache liegen, nachladen.
+                    if let Some(id) = self.sel_arch.filter(|id| !self.decks.contains_key(id)) {
+                        match self.archetypes.iter().find(|a| a.id == id).cloned() {
+                            Some(arch) => {
+                                let _ = self.tx_job.send(Job::Decks {
+                                    format,
+                                    arch,
+                                    urgent: true,
+                                });
+                            }
+                            None => {
+                                self.sel_arch = None;
+                                self.sel_deck = None;
+                            }
+                        }
+                    }
+                }
+                Msg::Image(name, img) => match img {
+                    Some(img) => {
+                        let tex =
+                            self.ctx
+                                .load_texture(format!("card:{name}"), img, Default::default());
+                        self.textures.insert(name, tex);
+                    }
+                    None => {
+                        self.img_missing.insert(name);
+                    }
+                },
+                Msg::Games(games, disabled) => {
+                    self.games_loading = false;
+                    self.logs_disabled = disabled;
+                    if games.len() != self.games.len() {
+                        self.sel_game = None;
+                    }
+                    self.games = games;
+                }
+                Msg::Pending(n) => {
+                    self.pending = n;
+                    if n == 0 && self.status.starts_with("Bewerte") {
+                        self.status = "Alle Archetypen bewertet.".into();
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+}

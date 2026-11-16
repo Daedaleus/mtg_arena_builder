@@ -14,7 +14,7 @@ Offene Punkte: [ToDo.md](ToDo.md).
 ## Aufbau
 
 Bibliothek (`src/lib.rs`) mit dünnem Programm (`src/main.rs`: Start und
-Diagnose-Kommandozeile). `app.rs` enthält nur Oberfläche und Verdrahtung –
+Diagnose-Kommandozeile). `src/app/` enthält nur Oberfläche und Verdrahtung (ein Modul je Bereich) –
 Logik gehört in die Fachmodule, damit sie testbar bleibt.
 
 | Modul | Aufgabe |
@@ -36,7 +36,7 @@ Logik gehört in die Fachmodule, damit sie testbar bleibt.
 - **Tests:** neue Logik bekommt Tests in `src/tests/<modul>.rs` (eingebunden
   per `#[cfg(test)] #[path = "tests/<modul>.rs"] mod tests;`). Testdaten
   (Karten, Lognachrichten, temporäre Ordner) aus `src/testutil.rs`.
-  `coverage.ps1` verlangt mindestens 90 % Zeilenabdeckung ohne `app.rs`/`main.rs`.
+  `coverage.ps1` verlangt mindestens 90 % Zeilenabdeckung ohne `src/app/` und `main.rs`.
 - Tests dürfen weder Netzwerk noch das echte Datenverzeichnis anfassen.
 - Ändert sich, was der Log-Parser pro Partie speichert, `PARSER_VERSION` in
   `games.rs` erhöhen – dann werden gespeicherte Partien aus noch vorhandenen

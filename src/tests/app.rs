@@ -1,3 +1,4 @@
+use super::games_tab::progress_view;
 use super::*;
 use crate::games::Rank;
 use crate::testutil::*;

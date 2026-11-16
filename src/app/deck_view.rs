@@ -1,0 +1,318 @@
+//! Deckansicht mit fehlenden Karten, Ersatzvorschlägen und Kartenbildern.
+
+use super::*;
+
+impl App {
+    /// Berechnet (einmalig) Ersatzvorschläge für alle fehlenden Karten eines Decks.
+    pub(super) fn ensure_suggestions(&mut self, deck_id: u32, eval: &DeckEval) {
+        let Some(db) = &self.db else { return };
+        if self.owned.is_empty() {
+            return;
+        }
+        let in_deck: HashSet<String> = eval.lines.iter().filter_map(|l| l.key.clone()).collect();
+        let colors = in_deck
+            .iter()
+            .filter_map(|k| db.representative(k))
+            .filter(|c| !c.is_land())
+            .fold(0u8, |m, c| m | c.colors);
+        let legal = self.legal.get(&self.settings.format);
+        for line in eval.lines.iter().filter(|l| l.missing > 0) {
+            let Some(key) = &line.key else { continue };
+            let slot = (deck_id, key.clone());
+            if !self.subs.contains_key(&slot) {
+                let found = similar::suggest(db, &self.owned, legal, colors, &in_deck, key, 6);
+                self.subs.insert(slot, found);
+            }
+        }
+    }
+
+    pub(super) fn deck_view(&mut self, ui: &mut egui::Ui, deck_id: u32) {
+        let Some(eval) = self.evals.get(&deck_id).cloned() else {
+            return;
+        };
+        self.ensure_suggestions(deck_id, &eval);
+        let summary = eval.summary(self.settings.include_side, |l| {
+            self.replaced_qty(deck_id, l)
+        });
+        let wc = self.wildcards();
+
+        // --- Zusammenfassung ---
+        ui.horizontal_wrapped(|ui| {
+            if self.collection.is_none() {
+                ui.label(
+                    RichText::new("Ohne gelesene Sammlung gilt alles als fehlend.").color(YELLOW),
+                );
+            } else if summary.complete() {
+                ui.label(
+                    RichText::new("Du kannst dieses Deck komplett bauen.")
+                        .color(GREEN)
+                        .strong(),
+                );
+            } else if summary.craftable(wc) {
+                ui.label(
+                    RichText::new("Mit deinen Wildcards baubar.")
+                        .color(YELLOW)
+                        .strong(),
+                );
+            } else {
+                ui.label(RichText::new("Noch nicht baubar.").color(RED).strong());
+            }
+            ui.label(format!(
+                "{} von {} Karten vorhanden ({:.0} %)",
+                summary.total - summary.missing,
+                summary.total,
+                summary.percent().floor()
+            ));
+        });
+        if summary.missing > 0 {
+            ui.horizontal_wrapped(|ui| {
+                ui.label("Benötigte Wildcards:");
+                for i in 0..4 {
+                    if summary.need[i] > 0 {
+                        let enough = summary.need[i] <= wc[i];
+                        ui.label(
+                            RichText::new(format!(
+                                "{} {} (du hast {})",
+                                summary.need[i], RARITY_NAMES[i], wc[i]
+                            ))
+                            .color(if enough { GREEN } else { RED }),
+                        );
+                    }
+                }
+                if summary.unavailable > 0 {
+                    ui.label(
+                        RichText::new(format!(
+                            "{} Karten gibt es in Arena nicht",
+                            summary.unavailable
+                        ))
+                        .color(RED),
+                    );
+                }
+            });
+        }
+        let has_repl = self.repl.keys().any(|k| k.0 == deck_id);
+        let mut budget_clicked = false;
+        let mut reset_clicked = false;
+        ui.horizontal(|ui| {
+            if summary.missing > 0 || has_repl {
+                budget_clicked = ui
+                    .button("Budget-Version bauen")
+                    .on_hover_text(
+                        "Stellt die wichtigsten fehlenden Karten mit deinen Wildcards her und ersetzt den Rest                          durch ähnliche Karten aus deiner Sammlung. Ergebnis siehst du in der Spalte „Ersatz“.",
+                    )
+                    .clicked();
+            }
+            if has_repl {
+                reset_clicked = ui.button("Ersetzungen zurücksetzen").clicked();
+            }
+            if ui.button("Für Arena kopieren").on_hover_text("In Arena: Decks > Importieren").clicked()
+                && let Some(db) = &self.db {
+                    let text = deck::export_arena(
+                        &eval,
+                        db,
+                        self.collection.as_ref().map(|c| &c.cards),
+                        self.settings.with_sets,
+                        self.settings.include_side,
+                        |line| {
+                            let rep = self.repl.get(&(deck_id, line.key.clone()?))?;
+                            Some((rep.clone(), self.replaced_qty(deck_id, line)))
+                        },
+                    );
+                    ui.ctx().copy_text(text);
+                    self.status = "Deck in die Zwischenablage kopiert – in Arena unter Decks > Importieren einfügen.".into();
+                }
+            let mut changed = ui.checkbox(&mut self.settings.include_side, "Sideboard einbeziehen").changed();
+            changed |= ui
+                .checkbox(&mut self.settings.with_sets, "Mit Set-Kürzeln exportieren")
+                .on_hover_text("Empfohlen, wenn Arena nicht auf Englisch läuft.")
+                .changed();
+            if changed {
+                self.save_settings();
+            }
+        });
+        if reset_clicked {
+            self.repl.retain(|k, _| k.0 != deck_id);
+            self.status = "Ersetzungen zurückgesetzt.".into();
+        }
+        if budget_clicked {
+            // Neu planen: bisherige Ersetzungen zählen dabei nicht.
+            self.repl.retain(|k, _| k.0 != deck_id);
+            self.apply_budget(deck_id, &eval);
+        }
+        ui.add_space(4.0);
+
+        // --- Kartenliste ---
+        let lines: Vec<&LineEval> = eval
+            .lines
+            .iter()
+            .filter(|l| self.settings.include_side || !l.side)
+            .collect();
+        let mut new_choice: Option<(String, Option<String>)> = None;
+        ui.push_id(("cards", deck_id), |ui| {
+            TableBuilder::new(ui)
+                .striped(true)
+                .column(Column::auto().at_least(30.0))
+                .column(Column::auto().at_least(260.0).clip(true))
+                .column(Column::auto().at_least(80.0))
+                .column(Column::auto().at_least(50.0))
+                .column(Column::auto().at_least(45.0))
+                .column(Column::remainder().at_least(220.0))
+                .header(20.0, |mut h| {
+                    for title in [
+                        "Anz.",
+                        "Karte",
+                        "Seltenheit",
+                        "Besitz",
+                        "Fehlt",
+                        "Ersatz aus deiner Sammlung",
+                    ] {
+                        h.col(|ui| {
+                            ui.strong(title);
+                        });
+                    }
+                })
+                .body(|mut body| {
+                    let mut side_started = false;
+                    for line in lines {
+                        if line.side && !side_started {
+                            side_started = true;
+                            body.row(24.0, |mut row| {
+                                row.col(|_| {});
+                                row.col(|ui| {
+                                    ui.strong("Sideboard");
+                                });
+                                for _ in 0..4 {
+                                    row.col(|_| {});
+                                }
+                            });
+                        }
+                        body.row(22.0, |mut row| {
+                            self.card_row(&mut row, deck_id, line, &mut new_choice);
+                        });
+                    }
+                });
+        });
+        if let Some((key, choice)) = new_choice {
+            match choice {
+                Some(rep) => self.repl.insert((deck_id, key), rep),
+                None => self.repl.remove(&(deck_id, key)),
+            };
+        }
+    }
+
+    pub(super) fn card_row(
+        &self,
+        row: &mut egui_extras::TableRow<'_, '_>,
+        deck_id: u32,
+        line: &LineEval,
+        new_choice: &mut Option<(String, Option<String>)>,
+    ) {
+        let db = self.db.as_ref();
+        let card = line.key.as_deref().and_then(|k| db?.representative(k));
+        row.col(|ui| {
+            ui.label(line.qty.to_string());
+        });
+        row.col(|ui| {
+            let label = ui.label(&line.name);
+            if let Some(c) = card {
+                let de = c.name_de.as_deref().filter(|d| *d != c.name);
+                let info = format!(
+                    "{}{}  ·  {} {}",
+                    de.map(|d| format!("{d}\n")).unwrap_or_default(),
+                    c.mana_cost,
+                    c.set,
+                    c.collector
+                );
+                self.card_hover(label, &c.name, Some(info));
+            }
+        });
+        row.col(|ui| {
+            if line.key.is_some() {
+                ui.label(RichText::new(rarity_label(line.rarity)).color(rarity_color(line.rarity)));
+            }
+        });
+        row.col(|ui| {
+            ui.label(if line.basic {
+                "∞".to_string()
+            } else {
+                line.owned.to_string()
+            });
+        });
+        row.col(|ui| {
+            if line.missing > 0 {
+                ui.label(RichText::new(line.missing.to_string()).color(RED).strong());
+            }
+        });
+        row.col(|ui| {
+            if line.missing == 0 {
+                return;
+            }
+            let Some(key) = &line.key else {
+                ui.label(RichText::new("nicht in Arena verfügbar").color(RED));
+                return;
+            };
+            let slot = (deck_id, key.clone());
+            let options = self.subs.get(&slot).map(Vec::as_slice).unwrap_or(&[]);
+            if options.is_empty() {
+                ui.label(RichText::new("kein Vorschlag").weak());
+                return;
+            }
+            let current = self.repl.get(&slot);
+            let shown = current
+                .and_then(|k| options.iter().find(|o| &o.key == k))
+                .map(|o| o.name.clone())
+                .unwrap_or_else(|| format!("– ({} Vorschläge)", options.len()));
+            egui::ComboBox::from_id_salt(("rep", deck_id, key, line.side))
+                .selected_text(shown)
+                .width(210.0)
+                .show_ui(ui, |ui| {
+                    if ui
+                        .selectable_label(current.is_none(), "– (Wildcard nutzen)")
+                        .clicked()
+                    {
+                        *new_choice = Some((key.clone(), None));
+                    }
+                    for o in options {
+                        let text = format!("{}  {}  ({}×)", o.name, o.info, o.owned);
+                        if ui.selectable_label(current == Some(&o.key), text).clicked() {
+                            *new_choice = Some((key.clone(), Some(o.key.clone())));
+                        }
+                    }
+                });
+        });
+    }
+
+    /// Zeigt beim Überfahren eines Kartennamens das Kartenbild (lädt es bei Bedarf).
+    pub(super) fn card_hover(
+        &self,
+        resp: egui::Response,
+        name: &str,
+        extra: Option<String>,
+    ) -> egui::Response {
+        if resp.hovered()
+            && !self.textures.contains_key(name)
+            && !self.img_missing.contains(name)
+            && self.img_requested.borrow_mut().insert(name.to_string())
+        {
+            let _ = self.img_tx.send(name.to_string());
+        }
+        resp.on_hover_ui(|ui| {
+            if let Some(tex) = self.textures.get(name) {
+                ui.add(
+                    egui::Image::new((tex.id(), tex.size_vec2()))
+                        .fit_to_exact_size(egui::vec2(244.0, 340.0)),
+                );
+            } else if self.img_missing.contains(name) {
+                ui.label(RichText::new("Kein Bild verfügbar").weak());
+            } else {
+                ui.horizontal(|ui| {
+                    ui.spinner();
+                    ui.label("Bild wird geladen …");
+                });
+            }
+            if let Some(text) = &extra {
+                ui.label(text);
+            }
+        })
+    }
+}

@@ -59,7 +59,7 @@ cargo test              # alle Tests
 Die Tests liegen je Modul in `src/tests/`. Sie brauchen weder Arena noch
 Internet: Kartendatenbanken, Arena-Lognachrichten und Turnierseiten werden in
 `src/testutil.rs` künstlich erzeugt. Die Abdeckung wird ohne Oberfläche
-(`app.rs`) und Programmstart (`main.rs`) gemessen; `coverage.ps1` schlägt unter
+(`src/app/`) und Programmstart (`main.rs`) gemessen; `coverage.ps1` schlägt unter
 90 % fehl. Für `coverage.ps1` einmalig:
 
 ```powershell
