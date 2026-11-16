@@ -13,6 +13,7 @@ pub mod deckcheck;
 pub mod games;
 pub mod images;
 pub mod live;
+pub mod magicgg;
 pub mod meta;
 pub mod opponents;
 pub mod paths;

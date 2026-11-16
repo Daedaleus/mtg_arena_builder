@@ -22,6 +22,7 @@ use crate::deckcheck;
 use crate::games::{self, GameRecord};
 use crate::images;
 use crate::live;
+use crate::magicgg::{self, GgDeck, GgEvent};
 use crate::meta::{Archetype, DeckRef, FORMATS, Fetcher};
 use crate::opponents;
 use crate::paths;
@@ -54,6 +55,7 @@ mod chrome;
 mod companion;
 mod deck_check;
 mod deck_view;
+mod events;
 mod games_tab;
 mod lists;
 mod worker;
@@ -63,6 +65,7 @@ use worker::{Job, Msg, worker};
 #[derive(Clone, Copy, PartialEq)]
 enum Tab {
     Meta,
+    Events,
     Paste,
     Built,
     Games,
@@ -119,6 +122,14 @@ pub struct App {
     textures: HashMap<String, egui::TextureHandle>,
     img_requested: std::cell::RefCell<HashSet<String>>,
     img_missing: HashSet<String>,
+    /// magic.gg: Events des Formats, für das sie geladen wurden.
+    gg_events: Vec<GgEvent>,
+    gg_format: Option<usize>,
+    /// magic.gg: Decks je Event (Kennung, Deck).
+    gg_decks: HashMap<String, Vec<(u32, GgDeck)>>,
+    gg_requested: HashSet<String>,
+    sel_gg_event: Option<String>,
+    sel_gg_deck: Option<u32>,
     /// Ergebnisse der Probehände je Deck (Turnierdeck, Vorschlag, eigene Liste).
     sims: HashMap<u32, sim::SimReport>,
     /// Probehände für gespielte Decks („Deck verbessern“), nach Deck-Bezeichnung.
@@ -166,6 +177,7 @@ impl App {
                 2 => Tab::Built,
                 3 => Tab::Games,
                 4 => Tab::DeckCheck,
+                5 => Tab::Events,
                 _ => Tab::Meta,
             },
             paste_text: settings.paste_text.clone(),
@@ -209,6 +221,12 @@ impl App {
             textures: HashMap::new(),
             img_requested: std::cell::RefCell::new(HashSet::new()),
             img_missing: HashSet::new(),
+            gg_events: Vec::new(),
+            gg_format: None,
+            gg_decks: HashMap::new(),
+            gg_requested: HashSet::new(),
+            sel_gg_event: None,
+            sel_gg_deck: None,
             sims: HashMap::new(),
             group_sims: HashMap::new(),
             live: None,
@@ -263,6 +281,7 @@ impl App {
             Tab::Built => 2,
             Tab::Games => 3,
             Tab::DeckCheck => 4,
+            Tab::Events => 5,
         };
         self.settings.paste_text = self.paste_text.clone();
         self.settings.sel_arch = self.sel_arch;
@@ -319,6 +338,11 @@ impl App {
         self.sel_deck = None;
         self.subs.clear();
         self.built = None;
+        // magic.gg-Events beim nächsten Öffnen für das neue Format laden.
+        self.gg_events.clear();
+        self.gg_format = None;
+        self.sel_gg_event = None;
+        self.sel_gg_deck = None;
         self.status = format!("Lade {}-Metagame von MTGTop8 …", FORMATS[format].1);
         if self.legal_requested.insert(format) {
             let (tx, cache) = (self.tx_msg.clone(), self.data_dir.join("cache"));
@@ -509,8 +533,10 @@ impl eframe::App for App {
         self.companion(ctx);
         self.top_bar(ctx);
         self.settings_window(ctx);
-        if self.tab == Tab::Meta {
-            self.side_panel(ctx);
+        match self.tab {
+            Tab::Meta => self.side_panel(ctx),
+            Tab::Events => self.events_panel(ctx),
+            _ => {}
         }
         egui::CentralPanel::default().show(ctx, |ui| {
             if self.db.is_none() {
@@ -525,6 +551,7 @@ impl eframe::App for App {
                 Tab::Built => self.built_tab(ui),
                 Tab::Games => self.games_tab(ui),
                 Tab::DeckCheck => self.deck_check_tab(ui),
+                Tab::Events => self.events_tab(ui),
             }
         });
     }

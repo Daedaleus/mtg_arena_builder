@@ -70,6 +70,7 @@ impl App {
             ui.horizontal(|ui| {
                 let tabs = [
                     (Tab::Meta, "Turnierdecks", "Aktuelle Turnierdecks: Was kannst du nachbauen, was kostet es?"),
+                    (Tab::Events, "Offizielle Events", "Decklisten von magic.gg: Championships, Arena-Events und Ranglisten-Decks"),
                     (Tab::Built, "Aus meiner Sammlung", "Decks nur aus Karten, die du schon besitzt"),
                     (Tab::Paste, "Eigene Liste", "Eine Deckliste einfügen und gegen deine Sammlung prüfen"),
                     (Tab::Games, "Meine Partien", "Bilanz und Tipps aus deinen gespielten Partien"),

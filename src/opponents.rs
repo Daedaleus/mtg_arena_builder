@@ -109,6 +109,42 @@ pub fn match_archetype<'a>(
     (hits >= 3 || (seen.len() >= 2 && hits * 2 >= seen.len() && hits >= 2)).then_some(arch)
 }
 
+/// Ab diesem durchschnittlichen Anteil gilt eine Deckliste als Archetyp.
+const MIN_DECK_MATCH: f32 = 0.35;
+
+/// Bezeichnung für eine vollständige Deckliste ohne Archetyp-Namen (z. B. von
+/// magic.gg): passender Turnier-Archetyp, wenn die Nichtland-Karten im Schnitt
+/// in mindestens 35 % seiner Listen vorkommen, sonst Farben und seltenste Karte.
+pub fn deck_label(deck: &crate::deck::Deck, db: &CardDb, shares: &[ArchShare]) -> String {
+    let cards: Vec<&crate::carddb::Card> = deck
+        .main
+        .iter()
+        .filter_map(|e| db.resolve(&e.name).and_then(|k| db.representative(&k)))
+        .filter(|c| !c.is_land())
+        .collect();
+    let keys: HashSet<String> = cards.iter().map(|c| name_key(&c.name)).collect();
+    if !keys.is_empty() {
+        let best = shares
+            .iter()
+            .map(|a| {
+                let sum: f32 = keys.iter().filter_map(|k| a.share.get(k)).sum();
+                (a, sum / keys.len() as f32)
+            })
+            .max_by(|a, b| a.1.total_cmp(&b.1));
+        if let Some((arch, score)) = best
+            && score >= MIN_DECK_MATCH
+        {
+            return arch.name.clone();
+        }
+    }
+    let ids: Vec<u32> = cards.iter().map(|c| c.grp_id).collect();
+    let colors = color_label(&games::deck_colors(&ids, db));
+    match cards.iter().max_by_key(|c| (c.rarity, c.cmc)) {
+        Some(c) => format!("{colors} – {}", c.name),
+        None => colors,
+    }
+}
+
 /// Erkennt das gegnerische Deck einer Partie.
 pub fn classify(g: &GameRecord, db: &CardDb, shares: &[ArchShare]) -> String {
     let seen = seen_keys(g.opp_cards.keys(), db);

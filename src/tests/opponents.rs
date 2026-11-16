@@ -108,3 +108,56 @@ fn groups_by_opponent() {
     assert_eq!(groups[1].name, "Mono-Blau");
     assert_eq!(groups[1].losses(), 0);
 }
+
+#[test]
+fn labels_unnamed_decks() {
+    let db = std_db();
+    let gruul = parse(
+        "4 Grizzly Bears
+4 Hill Ogre
+4 Llanowar Elves
+",
+    );
+    let shares = arch_shares(
+        &[MetaArchetype {
+            id: 1,
+            name: "Gruul".into(),
+            lists: vec![&gruul],
+        }],
+        &db,
+    );
+    // Gleiche Karten: Archetyp erkannt.
+    let deck = parse(
+        "4 Grizzly Bears
+4 Hill Ogre
+2 Shock
+20 Forest
+",
+    );
+    assert_eq!(deck_label(&deck, &db, &shares), "Gruul");
+    // Kaum Übereinstimmung: Farben und seltenste Karte.
+    let other = parse(
+        "4 Serra Angel
+4 Shock
+4 Grizzly Bears
+10 Plains
+",
+    );
+    assert_eq!(
+        deck_label(&other, &db, &shares),
+        "Weiß-Rot-Grün – Serra Angel"
+    );
+    assert_eq!(deck_label(&other, &db, &[]), "Weiß-Rot-Grün – Serra Angel");
+    // Nur Länder oder Unbekanntes
+    assert_eq!(
+        deck_label(
+            &parse(
+                "20 Forest
+"
+            ),
+            &db,
+            &shares
+        ),
+        "Unbekannt"
+    );
+}

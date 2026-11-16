@@ -16,6 +16,15 @@ pub(super) enum Job {
         deck_id: u32,
         urgent: bool,
     },
+    /// magic.gg: Events eines Formats.
+    GgEvents {
+        format: usize,
+        force: bool,
+    },
+    /// magic.gg: Decks eines Events.
+    GgDecks {
+        slug: String,
+    },
     /// Bereits heruntergeladene Decks aus dem Cache wiederherstellen (ohne Netz).
     Restore {
         format: usize,
@@ -29,6 +38,8 @@ pub(super) enum Msg {
     Decks(usize, u32, Result<Vec<DeckRef>, String>),
     List(u32, Result<String, String>),
     Legal(usize, Result<HashSet<String>, String>),
+    GgEvents(usize, Result<Vec<GgEvent>, String>),
+    GgDecks(String, Result<Vec<GgDeck>, String>),
     Collection(Result<Collection, String>),
     /// Wiederherstellung aus dem Cache ist abgeschlossen.
     Restored(usize),
@@ -89,6 +100,16 @@ pub(super) fn worker(rx: Receiver<Job>, tx: Sender<Msg>, ctx: egui::Context, cac
             }
             Job::List { deck_id, .. } => {
                 send(Msg::List(deck_id, fetcher.decklist(deck_id).map_err(err)));
+            }
+            Job::GgEvents { format, force } => {
+                send(Msg::GgEvents(
+                    format,
+                    fetcher.gg_events(FORMATS[format].2, force).map_err(err),
+                ));
+            }
+            Job::GgDecks { slug } => {
+                let decks = fetcher.gg_decks(&slug).map_err(err);
+                send(Msg::GgDecks(slug, decks));
             }
             Job::Restore { format, archetypes } => {
                 for arch in archetypes {
@@ -212,6 +233,29 @@ impl App {
                         self.status = "Alle Archetypen bewertet.".into();
                     }
                 }
+                Msg::GgEvents(format, result) if format == self.settings.format => match result {
+                    Ok(list) => {
+                        self.status = format!("{} Events von magic.gg geladen.", list.len());
+                        self.gg_events = list;
+                    }
+                    Err(e) => self.status = e,
+                },
+                Msg::GgDecks(slug, result) => match result {
+                    Ok(decks) => {
+                        self.status = format!("{} Decks von magic.gg geladen.", decks.len());
+                        let mut list = Vec::new();
+                        for (i, d) in decks.into_iter().enumerate() {
+                            let id = magicgg::deck_id(&slug, i);
+                            self.set_list(id, d.deck.clone());
+                            list.push((id, d));
+                        }
+                        self.gg_decks.insert(slug, list);
+                    }
+                    Err(e) => {
+                        self.gg_requested.remove(&slug);
+                        self.status = e;
+                    }
+                },
                 _ => {}
             }
         }

@@ -643,6 +643,34 @@ fn main() {
             }
             return;
         }
+        Some("--gg") => {
+            // Diagnose: Events und Decks von magic.gg für ein Format.
+            let code = args.get(2).map(String::as_str).unwrap_or("ST");
+            let Some(fmt) = meta::FORMATS.iter().find(|f| f.0 == code) else {
+                println!("Unbekanntes Format {code}");
+                std::process::exit(1);
+            };
+            let run = || -> anyhow::Result<()> {
+                let db = carddb::CardDb::load(&paths::find_card_db(None)?)?;
+                let mut fetcher = meta::Fetcher::new(paths::data_dir().join("cache"));
+                let events = fetcher.gg_events(fmt.2, false)?;
+                for e in events.iter().take(3) {
+                    let decks = fetcher.gg_decks(&e.slug)?;
+                    println!("##### {} ({}) – {} Decks", e.title, e.date, decks.len());
+                    for d in decks.iter().take(5) {
+                        let label = opponents::deck_label(&d.deck, &db, &[]);
+                        println!("   {:<40} {}", d.title, label);
+                    }
+                }
+                println!("{} Events insgesamt", events.len());
+                Ok(())
+            };
+            if let Err(e) = run() {
+                println!("FEHLER: {e:#}");
+                std::process::exit(1);
+            }
+            return;
+        }
         Some("--sim") => {
             // Probehände für alle gespielten Decks.
             let db = match paths::find_card_db(None).and_then(|p| carddb::CardDb::load(&p)) {

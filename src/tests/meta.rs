@@ -122,3 +122,29 @@ fn format_table_is_consistent() {
         assert_eq!(scryfall, scryfall.to_lowercase());
     }
 }
+
+#[test]
+fn magic_gg_from_cache_without_network() {
+    let dir = TempDir::new("gg");
+    std::fs::write(dir.path("gg_index.html"), crate::testutil::GG_INDEX_HTML).unwrap();
+    let slug = "arena-championship-13-standard-decklists-a-k";
+    std::fs::write(
+        dir.path(&crate::magicgg::cache_file(slug)),
+        crate::testutil::GG_EVENT_HTML,
+    )
+    .unwrap();
+    let mut f = Fetcher::new(dir.0.clone());
+    let events = f.gg_events("standard", false).unwrap();
+    assert_eq!(events.len(), 2);
+    assert!(f.gg_events("pioneer", false).is_err());
+    let decks = f.gg_decks(slug).unwrap();
+    assert_eq!(decks.len(), 2);
+    // Seite ohne Decks: Fehler, und die Datei wird verworfen.
+    std::fs::write(
+        dir.path(&crate::magicgg::cache_file("leer")),
+        "<html></html>",
+    )
+    .unwrap();
+    assert!(f.gg_decks("leer").is_err());
+    assert!(!dir.path(&crate::magicgg::cache_file("leer")).exists());
+}

@@ -1,4 +1,4 @@
-//! Turnierdecks von MTGTop8 und Format-Legalität von Scryfall.
+//! Turnierdecks von MTGTop8 und magic.gg, Format-Legalität von Scryfall.
 //!
 //! MTGTop8 verlangt in der robots.txt 5 Sekunden Abstand zwischen Anfragen –
 //! daran halten wir uns und legen alles im lokalen Cache ab.
@@ -14,6 +14,7 @@ use anyhow::{Context, Result, anyhow, bail};
 use regex::Regex;
 
 use crate::carddb::name_key;
+use crate::magicgg::{self, GgDeck, GgEvent};
 
 /// (MTGTop8-Kürzel, Anzeigename, Scryfall-Formatname)
 pub const FORMATS: [(&str, &str, &str); 5] = [
@@ -27,6 +28,9 @@ pub const FORMATS: [(&str, &str, &str); 5] = [
 const USER_AGENT: &str = "mtg_arena_builder/0.1 (privates Deckbau-Werkzeug)";
 const TOP8: &str = "https://www.mtgtop8.com";
 const TOP8_DELAY: Duration = Duration::from_secs(5);
+const GG: &str = "https://magic.gg";
+/// magic.gg nennt keine Wartezeit; trotzdem höflich bleiben.
+const GG_DELAY: Duration = Duration::from_secs(2);
 const HOUR: u64 = 3600;
 
 #[derive(Clone, Debug)]
@@ -52,6 +56,18 @@ pub struct Fetcher {
     agent: ureq::Agent,
     cache: PathBuf,
     last_top8: Option<Instant>,
+    last_gg: Option<Instant>,
+}
+
+/// Wartet, bis seit der letzten Anfrage an dieselbe Seite `delay` vergangen ist.
+fn throttle(last: &mut Option<Instant>, delay: Duration) {
+    if let Some(t) = *last {
+        let since = t.elapsed();
+        if since < delay {
+            sleep(delay - since);
+        }
+    }
+    *last = Some(Instant::now());
 }
 
 fn decode_entities(s: &str) -> String {
@@ -74,6 +90,7 @@ impl Fetcher {
             agent,
             cache,
             last_top8: None,
+            last_gg: None,
         }
     }
 
@@ -90,29 +107,65 @@ impl Fetcher {
         fs::read_to_string(path).ok()
     }
 
-    /// Holt eine MTGTop8-Seite (ISO-8859-1), mit Cache und Wartezeit.
-    fn top8(&mut self, path: &str, file: &str, max_age_secs: Option<u64>) -> Result<String> {
-        if let Some(hit) = self.cached(file, max_age_secs) {
-            return Ok(hit);
-        }
-        if let Some(last) = self.last_top8 {
-            let since = last.elapsed();
-            if since < TOP8_DELAY {
-                sleep(TOP8_DELAY - since);
-            }
-        }
-        self.last_top8 = Some(Instant::now());
-        let url = format!("{TOP8}/{path}");
+    /// Lädt eine Seite herunter (höchstens 5 MB) und legt sie im Cache ab.
+    /// `latin1`: MTGTop8 liefert ISO-8859-1, magic.gg UTF-8.
+    fn download(&self, url: &str, file: &str, latin1: bool) -> Result<String> {
         let resp = self
             .agent
-            .get(&url)
+            .get(url)
             .call()
             .with_context(|| format!("Abruf von {url} fehlgeschlagen"))?;
         let mut bytes = Vec::new();
         resp.into_reader().take(5_000_000).read_to_end(&mut bytes)?;
-        let text: String = bytes.iter().map(|&b| b as char).collect();
+        let text: String = if latin1 {
+            bytes.iter().map(|&b| b as char).collect()
+        } else {
+            String::from_utf8_lossy(&bytes).into_owned()
+        };
         let _ = fs::write(self.cache.join(file), &text);
         Ok(text)
+    }
+
+    /// Holt eine MTGTop8-Seite, mit Cache und Wartezeit.
+    fn top8(&mut self, path: &str, file: &str, max_age_secs: Option<u64>) -> Result<String> {
+        if let Some(hit) = self.cached(file, max_age_secs) {
+            return Ok(hit);
+        }
+        throttle(&mut self.last_top8, TOP8_DELAY);
+        self.download(&format!("{TOP8}/{path}"), file, true)
+    }
+
+    /// Holt eine magic.gg-Seite, mit Cache und Wartezeit.
+    fn gg(&mut self, path: &str, file: &str, max_age_secs: Option<u64>) -> Result<String> {
+        if let Some(hit) = self.cached(file, max_age_secs) {
+            return Ok(hit);
+        }
+        throttle(&mut self.last_gg, GG_DELAY);
+        self.download(&format!("{GG}/{path}"), file, false)
+    }
+
+    /// Events mit Decklisten auf magic.gg, deren Kennung `format` enthält.
+    pub fn gg_events(&mut self, format: &str, force: bool) -> Result<Vec<GgEvent>> {
+        let max_age = if force { Some(0) } else { Some(12 * HOUR) };
+        let html = self.gg("decklists", "gg_index.html", max_age)?;
+        let list = magicgg::parse_index(&html, format);
+        if list.is_empty() {
+            bail!("Auf magic.gg wurden für dieses Format keine Decklisten gefunden.");
+        }
+        Ok(list)
+    }
+
+    /// Decks eines magic.gg-Events. Veröffentlichte Listen ändern sich nicht
+    /// mehr – dauerhaft cachen.
+    pub fn gg_decks(&mut self, slug: &str) -> Result<Vec<GgDeck>> {
+        let file = magicgg::cache_file(slug);
+        let html = self.gg(&format!("decklists/{slug}"), &file, None)?;
+        let decks = magicgg::parse_event(&html);
+        if decks.is_empty() {
+            let _ = fs::remove_file(self.cache.join(&file));
+            bail!("magic.gg hat für dieses Event keine Decklisten geliefert.");
+        }
+        Ok(decks)
     }
 
     /// Archetypen eines Formats mit Meta-Anteil (Standardzeitraum der Seite).
