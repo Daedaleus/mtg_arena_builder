@@ -80,6 +80,10 @@ struct Settings {
     mtga_dir: String,
     /// Begleitfenster geöffnet?
     companion: bool,
+    /// Textgröße (Zoomfaktor der Oberfläche).
+    zoom: f32,
+    /// „Erste Schritte“ ausgeblendet?
+    onboarding_hidden: bool,
     format: usize,
     include_side: bool,
     with_sets: bool,
@@ -98,6 +102,8 @@ impl Default for Settings {
         Settings {
             mtga_dir: String::new(),
             companion: false,
+            zoom: 1.0,
+            onboarding_hidden: false,
             format: 0,
             include_side: true,
             with_sets: true,
@@ -220,7 +226,7 @@ fn worker(rx: Receiver<Job>, tx: Sender<Msg>, ctx: egui::Context, cache: PathBuf
     }
 }
 
-#[derive(PartialEq)]
+#[derive(Clone, Copy, PartialEq)]
 enum Tab {
     Meta,
     Paste,
@@ -263,6 +269,9 @@ pub struct App {
     /// Aus der Sammlung gebaute Deckvorschläge (None = noch nicht berechnet).
     built: Option<Vec<Built>>,
     sel_built: usize,
+    /// Anzahl Turnierlisten und Zeitpunkt bei der letzten Berechnung der Vorschläge.
+    built_lists: usize,
+    built_at: Option<std::time::Instant>,
     ctx: egui::Context,
     games: Vec<GameRecord>,
     games_loading: bool,
@@ -281,6 +290,9 @@ pub struct App {
     live: Option<std::sync::Arc<live::Shared>>,
     /// Anzahl Turnierlisten beim letzten Abgleich mit dem Begleitfenster.
     live_meta_lists: usize,
+    show_settings: bool,
+    /// Unterseite von „Meine Partien“: 0 = Übersicht, 1 = Partienliste.
+    games_view: u8,
 }
 
 impl App {
@@ -288,6 +300,13 @@ impl App {
         let data_dir = paths::data_dir();
         let settings: Settings =
             paths::read_json(&data_dir.join("settings.json")).unwrap_or_default();
+
+        // Etwas großzügigere Abstände und die gewählte Textgröße.
+        cc.egui_ctx.style_mut(|style| {
+            style.spacing.item_spacing = egui::vec2(8.0, 6.0);
+            style.spacing.button_padding = egui::vec2(8.0, 4.0);
+        });
+        cc.egui_ctx.set_zoom_factor(settings.zoom.clamp(0.8, 1.6));
 
         let (tx_job, rx_job) = channel();
         let (tx_msg, rx_msg) = channel();
@@ -345,6 +364,8 @@ impl App {
             saved_json: Vec::new(),
             built: None,
             sel_built: 0,
+            built_lists: 0,
+            built_at: None,
             ctx: cc.egui_ctx.clone(),
             games: Vec::new(),
             games_loading: false,
@@ -359,6 +380,8 @@ impl App {
             img_missing: HashSet::new(),
             live: None,
             live_meta_lists: usize::MAX,
+            show_settings: false,
+            games_view: 0,
         };
         app.settings.format = app.settings.format.min(FORMATS.len() - 1);
         app.load_db();
@@ -775,43 +798,83 @@ impl App {
 
     fn top_bar(&mut self, ctx: &egui::Context) {
         egui::TopBottomPanel::top("top").show(ctx, |ui| {
-            ui.add_space(4.0);
-            ui.horizontal_wrapped(|ui| {
-                ui.heading("MTG Arena Builder");
+            ui.add_space(6.0);
+            ui.horizontal(|ui| {
+                ui.heading(RichText::new("MTG Arena Builder").strong());
                 ui.separator();
                 match &self.collection {
                     Some(c) => {
-                        ui.label(format!("Sammlung: {} Karten ({})", c.total_cards(), c.age_text()));
-                        ui.separator();
-                        ui.label("Wildcards:");
+                        ui.label(format!("{} Karten", c.total_cards()))
+                            .on_hover_text(format!("Sammlung gelesen {}", c.age_text()));
+                        ui.label(RichText::new("Wildcards").weak());
                         for (i, n) in c.wildcards.as_array().iter().enumerate() {
                             ui.label(
-                                RichText::new(format!("{} {n}", RARITY_NAMES[i]))
+                                RichText::new(format!("{} {n}", ["C", "U", "R", "M"][i]))
                                     .color(rarity_color(i as u8 + RARITY_COMMON))
                                     .strong(),
-                            );
+                            )
+                            .on_hover_text(format!("{n} {}-Wildcards", RARITY_NAMES[i]));
                         }
                     }
                     None => {
                         ui.label(RichText::new("Sammlung noch nicht gelesen").color(YELLOW));
                     }
                 }
-                ui.separator();
-                let button = egui::Button::new(if self.syncing { "Lese …" } else { "Sammlung aus Arena lesen" });
-                let hint = "MTG Arena muss laufen und im Hauptmenü sein. Falls Windows nach Administratorrechten fragt: Die werden nur gebraucht, um den Speicher des Spiels zu lesen.";
-                if ui.add_enabled(!self.syncing, button).on_hover_text(hint).clicked() {
-                    self.sync_collection(ctx);
-                }
-                ui.separator();
-                if ui
-                    .toggle_value(&mut self.settings.companion, "Begleitfenster")
-                    .on_hover_text(
-                        "Kleines Fenster, das während einer Partie live Hinweise gibt (Land legen, gefahrlos angreifen, blocken …). \
-                         Es liest nur das Arena-Log. Arena dafür im Fenstermodus oder randlosen Vollbild spielen.",
-                    )
-                    .changed()
-                {
-                    self.save_settings();
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    if ui.button("⚙ Einstellungen").clicked() {
+                        self.show_settings = !self.show_settings;
+                    }
+                    if ui
+                        .toggle_value(&mut self.settings.companion, "Begleitfenster")
+                        .on_hover_text(
+                            "Kleines Fenster, das während einer Partie live Hinweise gibt (Land legen, gefahrlos angreifen, \
+                             tödlicher Angriff …). Es liest nur das Arena-Log. Arena dafür im Fenstermodus oder randlosen Vollbild spielen.",
+                        )
+                        .changed()
+                    {
+                        self.save_settings();
+                    }
+                    let button = egui::Button::new(if self.syncing { "Lese …" } else { "Sammlung aktualisieren" });
+                    let hint = "Liest Karten und Wildcards aus dem laufenden MTG Arena (Hauptmenü). Falls Windows nach \
+                                Administratorrechten fragt: Die werden nur gebraucht, um den Speicher des Spiels zu lesen.";
+                    if ui.add_enabled(!self.syncing, button).on_hover_text(hint).clicked() {
+                        self.sync_collection(ctx);
+                    }
+                    let before = self.settings.format;
+                    egui::ComboBox::from_id_salt("format")
+                        .selected_text(FORMATS[self.settings.format].1)
+                        .show_ui(ui, |ui| {
+                            for (i, f) in FORMATS.iter().enumerate() {
+                                ui.selectable_value(&mut self.settings.format, i, f.1);
+                            }
+                        })
+                        .response
+                        .on_hover_text("Format für Turnierdecks, Legalität der Ersatzkarten und Gegner-Erkennung");
+                    if before != self.settings.format {
+                        self.save_settings();
+                        self.load_format(false);
+                    }
+                    ui.label("Format:");
+                });
+            });
+            ui.add_space(4.0);
+            ui.horizontal(|ui| {
+                let tabs = [
+                    (Tab::Meta, "Turnierdecks", "Aktuelle Turnierdecks: Was kannst du nachbauen, was kostet es?"),
+                    (Tab::Built, "Aus meiner Sammlung", "Decks nur aus Karten, die du schon besitzt"),
+                    (Tab::Paste, "Eigene Liste", "Eine Deckliste einfügen und gegen deine Sammlung prüfen"),
+                    (Tab::Games, "Meine Partien", "Bilanz und Tipps aus deinen gespielten Partien"),
+                    (Tab::DeckCheck, "Deck verbessern", "Welche Karten deines Decks du tauschen solltest"),
+                ];
+                for (tab, label, hint) in tabs {
+                    let text = RichText::new(label).size(15.0);
+                    if ui
+                        .add(egui::SelectableLabel::new(self.tab == tab, text))
+                        .on_hover_text(hint)
+                        .clicked()
+                    {
+                        self.tab = tab;
+                    }
                 }
             });
             ui.add_space(4.0);
@@ -835,24 +898,7 @@ impl App {
     fn side_panel(&mut self, ctx: &egui::Context) {
         egui::SidePanel::left("archetypes").default_width(310.0).show(ctx, |ui| {
             ui.add_space(6.0);
-            ui.horizontal(|ui| {
-                ui.label("Format:");
-                let before = self.settings.format;
-                egui::ComboBox::from_id_salt("format")
-                    .selected_text(FORMATS[self.settings.format].1)
-                    .show_ui(ui, |ui| {
-                        for (i, f) in FORMATS.iter().enumerate() {
-                            ui.selectable_value(&mut self.settings.format, i, f.1);
-                        }
-                    });
-                if before != self.settings.format {
-                    self.save_settings();
-                    self.load_format(false);
-                }
-                if ui.button("Aktualisieren").clicked() {
-                    self.load_format(true);
-                }
-            });
+            ui.strong(format!("Archetypen · {}", FORMATS[self.settings.format].1));
             ui.horizontal(|ui| {
                 let todo: Vec<Archetype> =
                     self.archetypes.iter().filter(|a| !self.decks.contains_key(&a.id)).cloned().collect();
@@ -863,9 +909,12 @@ impl App {
                         let _ = self.tx_job.send(Job::Decks { format: self.settings.format, arch, urgent: false });
                     }
                 }
-                ui.checkbox(&mut self.sort_by_fit, "Günstigste zuerst")
-                    .on_hover_text("Sortiert nach benötigten Wildcards (Rares und Mythics zuerst).");
+                if ui.button("Aktualisieren").on_hover_text("Metagame neu von MTGTop8 laden").clicked() {
+                    self.load_format(true);
+                }
             });
+            ui.checkbox(&mut self.sort_by_fit, "Günstigste zuerst")
+                .on_hover_text("Sortiert nach benötigten Wildcards (Rares und Mythics zuerst).");
             ui.separator();
 
             let mut rows: Vec<(Archetype, Option<Summary>)> =
@@ -896,15 +945,6 @@ impl App {
                         }
                     });
                 }
-                ui.add_space(10.0);
-                ui.collapsing("Einstellungen", |ui| {
-                    ui.label("MTGA-Installationsordner (leer = automatisch):");
-                    ui.text_edit_singleline(&mut self.settings.mtga_dir);
-                    if ui.button("Kartendaten neu laden").clicked() {
-                        self.save_settings();
-                        self.load_db();
-                    }
-                });
             });
             if let Some(arch) = clicked {
                 self.tab = Tab::Meta;
@@ -918,6 +958,126 @@ impl App {
                 }
             }
         });
+    }
+
+    fn settings_window(&mut self, ctx: &egui::Context) {
+        if !self.show_settings {
+            return;
+        }
+        let mut open = true;
+        let mut reload_db = false;
+        egui::Window::new("Einstellungen")
+            .open(&mut open)
+            .collapsible(false)
+            .resizable(false)
+            .default_width(440.0)
+            .show(ctx, |ui| {
+                ui.strong("Darstellung");
+                let mut zoom = self.settings.zoom;
+                if ui
+                    .add(egui::Slider::new(&mut zoom, 0.8..=1.6).step_by(0.05).text("Textgröße"))
+                    .changed()
+                {
+                    self.settings.zoom = zoom;
+                    ctx.set_zoom_factor(zoom);
+                }
+                ui.separator();
+                ui.strong("Decks exportieren");
+                ui.checkbox(&mut self.settings.include_side, "Sideboard einbeziehen")
+                    .on_hover_text("Für Best-of-One ausschalten – dann zählt das Sideboard auch nicht bei den Wildcards.");
+                ui.checkbox(&mut self.settings.with_sets, "Mit Set-Kürzeln exportieren")
+                    .on_hover_text("Empfohlen, wenn Arena nicht auf Englisch läuft.");
+                ui.separator();
+                ui.strong("Während der Partie");
+                ui.checkbox(&mut self.settings.companion, "Begleitfenster anzeigen");
+                if self.logs_disabled {
+                    ui.label(
+                        RichText::new("„Detaillierte Logs“ sind in Arena aus – ohne sie bleiben Begleitfenster und Partien leer.")
+                            .color(YELLOW),
+                    );
+                }
+                ui.separator();
+                ui.strong("MTG Arena");
+                ui.label("Installationsordner (leer = automatisch erkennen):");
+                ui.text_edit_singleline(&mut self.settings.mtga_dir);
+                ui.horizontal(|ui| {
+                    reload_db = ui.button("Kartendaten neu laden").clicked();
+                    ui.label(RichText::new(&self.db_status).weak());
+                });
+                ui.separator();
+                if ui.button("„Erste Schritte“ wieder anzeigen").clicked() {
+                    self.settings.onboarding_hidden = false;
+                }
+            });
+        if reload_db {
+            self.save_settings();
+            self.load_db();
+        }
+        if !open {
+            self.show_settings = false;
+            self.save_settings();
+        }
+    }
+
+    /// Checkliste für den Einstieg, solange noch etwas fehlt.
+    fn onboarding(&mut self, ui: &mut egui::Ui, ctx: &egui::Context) {
+        if self.settings.onboarding_hidden {
+            return;
+        }
+        let logs_known = self.games_scanned.is_some() && !self.games_loading;
+        let steps = [
+            (
+                self.db.is_some(),
+                "Kartendaten von MTG Arena gefunden",
+                "Installationsordner in den Einstellungen angeben.",
+            ),
+            (
+                self.collection.is_some(),
+                "Sammlung gelesen",
+                "Arena starten, ins Hauptmenü gehen und „Sammlung aktualisieren“ klicken.",
+            ),
+            (
+                logs_known && !self.logs_disabled,
+                "„Detaillierte Logs“ in Arena aktiv",
+                "In Arena: Zahnrad → Konto → „Detaillierte Logs (Plugin-Unterstützung)“, dann Arena neu starten.",
+            ),
+            (
+                !self.archetypes.is_empty(),
+                "Turnierdecks geladen",
+                "Internetverbindung prüfen, dann „Aktualisieren“ unter Turnierdecks.",
+            ),
+        ];
+        if steps.iter().all(|(done, _, _)| *done) {
+            return;
+        }
+        let mut sync = false;
+        egui::Frame::group(ui.style()).show(ui, |ui| {
+            ui.horizontal(|ui| {
+                ui.strong("Erste Schritte");
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    if ui.small_button("Ausblenden").clicked() {
+                        self.settings.onboarding_hidden = true;
+                    }
+                });
+            });
+            for (i, (done, title, how)) in steps.iter().enumerate() {
+                ui.horizontal_wrapped(|ui| {
+                    if *done {
+                        ui.label(RichText::new(format!("✔ {title}")).color(GREEN));
+                    } else {
+                        ui.label(RichText::new(format!("○ {title}")).strong());
+                        ui.label(RichText::new(*how).weak());
+                        if i == 1 && !self.syncing {
+                            sync = ui.small_button("Jetzt lesen").clicked();
+                        }
+                    }
+                });
+            }
+        });
+        ui.add_space(6.0);
+        if sync {
+            self.sync_collection(ctx);
+        }
     }
 
     fn meta_tab(&mut self, ui: &mut egui::Ui) {
@@ -1063,6 +1223,8 @@ impl App {
         }
         self.sel_built = self.sel_built.min(built.len().saturating_sub(1));
         self.built = Some(built);
+        self.built_lists = self.lists.len();
+        self.built_at = Some(std::time::Instant::now());
     }
 
     fn built_tab(&mut self, ui: &mut egui::Ui) {
@@ -1070,7 +1232,11 @@ impl App {
             ui.label("Dafür muss zuerst die Sammlung gelesen werden (oben rechts).");
             return;
         }
-        if self.built.is_none() {
+        // Neu rechnen, wenn inzwischen weitere Turnierlisten geladen wurden
+        // (beim Start kommen sie erst nach und nach aus dem Zwischenspeicher).
+        let stale = self.lists.len() != self.built_lists
+            && self.built_at.is_none_or(|t| t.elapsed().as_secs() >= 2);
+        if self.built.is_none() || stale {
             self.compute_built();
         }
         ui.label(format!(
@@ -1078,7 +1244,7 @@ impl App {
             FORMATS[self.settings.format].1
         ));
         ui.label(
-            RichText::new("Die Kartenstärke ist geschätzt (Seltenheit, Vorkommen in Turnierdecks, Werte, Removal). Je mehr Turnierdecks links geladen sind, desto besser die Schätzung.")
+            RichText::new("Die Kartenstärke ist geschätzt (Seltenheit, Vorkommen in Turnierdecks, Werte, Removal). Je mehr Turnierdecks unter „Turnierdecks“ geladen sind, desto besser die Schätzung.")
                 .weak(),
         );
         let built = self.built.clone().unwrap_or_default();
@@ -1429,21 +1595,17 @@ impl eframe::App for App {
         self.handle_messages();
         self.companion(ctx);
         self.top_bar(ctx);
-        self.side_panel(ctx);
+        self.settings_window(ctx);
+        if self.tab == Tab::Meta {
+            self.side_panel(ctx);
+        }
         egui::CentralPanel::default().show(ctx, |ui| {
             if self.db.is_none() {
                 ui.label(RichText::new(&self.db_status).color(RED));
-                ui.label("Den Ordner kannst du links unter „Einstellungen“ angeben.");
+                ui.label("Den Arena-Ordner kannst du unter „⚙ Einstellungen“ angeben.");
                 ui.separator();
             }
-            ui.horizontal(|ui| {
-                ui.selectable_value(&mut self.tab, Tab::Meta, "Turnierdecks");
-                ui.selectable_value(&mut self.tab, Tab::Built, "Aus meiner Sammlung");
-                ui.selectable_value(&mut self.tab, Tab::Paste, "Eigene Liste prüfen");
-                ui.selectable_value(&mut self.tab, Tab::Games, "Meine Partien");
-                ui.selectable_value(&mut self.tab, Tab::DeckCheck, "Deck verbessern");
-            });
-            ui.separator();
+            self.onboarding(ui, ctx);
             match self.tab {
                 Tab::Meta => self.meta_tab(ui),
                 Tab::Paste => self.paste_tab(ui),
@@ -1535,6 +1697,20 @@ impl App {
             }
             ui.label(RichText::new(format!("{} Partien gespeichert", self.games.len())).weak());
         });
+        ui.horizontal(|ui| {
+            ui.selectable_value(
+                &mut self.games_view,
+                0,
+                RichText::new("Übersicht & Tipps").strong(),
+            );
+            ui.selectable_value(
+                &mut self.games_view,
+                1,
+                RichText::new("Partienliste").strong(),
+            );
+        });
+        ui.separator();
+        let overview = self.games_view == 0;
         if self.logs_disabled {
             ui.label(
                 RichText::new(
@@ -1566,6 +1742,7 @@ impl App {
         let mut clicked: Option<usize> = None;
 
         egui::ScrollArea::vertical().id_salt("games_scroll").auto_shrink([false, false]).show(ui, |ui| {
+            if overview {
             // --- Bilanz ---
             ui.add_space(4.0);
             ui.horizontal_wrapped(|ui| {
@@ -1693,6 +1870,8 @@ impl App {
                 });
             ui.add_space(6.0);
 
+            }
+            if !overview {
             // --- Partienliste ---
             ui.push_id("games_table", |ui| {
                 TableBuilder::new(ui)
@@ -1893,9 +2072,11 @@ impl App {
                         });
                 });
             }
+            }
         });
         if let Some(i) = clicked {
             self.sel_game = Some(i);
+            self.games_view = 1;
         }
     }
 }
