@@ -122,6 +122,10 @@ impl GameRecord {
 // Arena-Kennungen von Schlüsselwort-Fähigkeiten (aus der Kartendatenbank).
 const KW_DEATHTOUCH: u32 = 1;
 const KW_DEFENDER: u32 = 2;
+const KW_DOUBLE_STRIKE: u32 = 3;
+const KW_FIRST_STRIKE: u32 = 6;
+const KW_TRAMPLE: u32 = 14;
+const KW_INDESTRUCTIBLE: u32 = 104;
 const KW_FLYING: u32 = 8;
 const KW_HASTE: u32 = 9;
 const KW_REACH: u32 = 13;
@@ -147,10 +151,16 @@ struct Obj {
 impl Obj {
     fn live(&self) -> LiveCreature {
         LiveCreature {
+            grp_id: self.grp_id,
             power: self.power.max(0),
+            toughness: self.toughness,
             flying: self.has(KW_FLYING),
             reach: self.has(KW_FLYING) || self.has(KW_REACH),
             menace: self.has(KW_MENACE),
+            deathtouch: self.has(KW_DEATHTOUCH),
+            first_strike: self.has(KW_FIRST_STRIKE) || self.has(KW_DOUBLE_STRIKE),
+            trample: self.has(KW_TRAMPLE),
+            indestructible: self.has(KW_INDESTRUCTIBLE),
         }
     }
 
@@ -569,15 +579,6 @@ impl Tracker {
             } else {
                 self.count(opp, |o| o.attacking)
             },
-            opp_attack_power: if my_turn {
-                0
-            } else {
-                self.battlefield()
-                    .filter(|(_, o)| o.controller == opp && o.attacking)
-                    .map(|(_, o)| o.power.max(0))
-                    .sum()
-            },
-            my_untapped_creatures: self.count(me, |o| o.creature && !o.tapped),
             opp_cards: self.seen_cards.keys().copied().collect(),
             attackers: self
                 .battlefield()
@@ -598,6 +599,22 @@ impl Tracker {
                 .filter(|o| o.controller == opp && o.creature && !o.tapped)
                 .map(Obj::live)
                 .collect(),
+            opp_attacking: if my_turn {
+                Vec::new()
+            } else {
+                self.battlefield()
+                    .map(|(_, o)| o)
+                    .filter(|o| o.controller == opp && o.attacking)
+                    .map(Obj::live)
+                    .collect()
+            },
+            my_blockers: self
+                .battlefield()
+                .map(|(_, o)| o)
+                .filter(|o| o.controller == me && o.creature && !o.tapped)
+                .map(Obj::live)
+                .collect(),
+            opp_untapped_lands: self.count(opp, |o| o.land && !o.tapped),
         }
     }
 
@@ -618,11 +635,18 @@ impl Tracker {
 /// Kreatur im Spiel, für die Angriffsrechnung des Begleitfensters.
 #[derive(Clone, Debug, Default)]
 pub struct LiveCreature {
+    pub grp_id: u32,
     pub power: i32,
+    pub toughness: i32,
     pub flying: bool,
     /// Kann Flieger blocken (Fliegend oder Reichweite).
     pub reach: bool,
     pub menace: bool,
+    pub deathtouch: bool,
+    /// Erstschlag oder Doppelschlag.
+    pub first_strike: bool,
+    pub trample: bool,
+    pub indestructible: bool,
 }
 
 /// Momentaufnahme einer laufenden Partie für das Begleitfenster.
@@ -648,16 +672,20 @@ pub struct LiveState {
     pub mulligan: bool,
     /// Kreaturen (grpIds), die gerade gefahrlos angreifen könnten.
     pub safe_attackers: Vec<u32>,
-    /// Gegnerzug: Anzahl angreifender gegnerischer Kreaturen und ihre Kraft.
+    /// Gegnerzug: Anzahl angreifender gegnerischer Kreaturen.
     pub opp_attackers: u32,
-    pub opp_attack_power: i32,
-    pub my_untapped_creatures: u32,
     /// Bisher gesehene Karten des Gegners (grpIds).
     pub opp_cards: Vec<u32>,
     /// Eigene Kreaturen, die jetzt angreifen könnten.
     pub attackers: Vec<LiveCreature>,
     /// Ungetappte Kreaturen des Gegners (mögliche Blocker).
     pub blockers: Vec<LiveCreature>,
+    /// Gegnerzug: angreifende Kreaturen des Gegners.
+    pub opp_attacking: Vec<LiveCreature>,
+    /// Gegnerzug: eigene ungetappte Kreaturen, die blocken können.
+    pub my_blockers: Vec<LiveCreature>,
+    /// Ungetappte Länder des Gegners (offenes Mana für Tricks).
+    pub opp_untapped_lands: u32,
 }
 
 /// Liest eine Logdatei Zeile für Zeile – für das komplette Einlesen ebenso

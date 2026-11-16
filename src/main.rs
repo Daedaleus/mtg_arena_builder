@@ -5,6 +5,7 @@ mod budget;
 mod builder;
 mod carddb;
 mod collection;
+mod combat;
 mod deck;
 mod deckcheck;
 mod games;

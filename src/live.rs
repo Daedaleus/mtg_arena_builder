@@ -83,7 +83,11 @@ fn names(db: &CardDb, grps: &[u32], limit: usize) -> String {
 }
 
 /// Erkennt das gegnerische Deck aus den bisher gesehenen Karten.
-fn guess_opponent(cards: &[u32], db: &CardDb, meta: &[ArchShare]) -> String {
+fn guess_opponent<'a>(
+    cards: &[u32],
+    db: &CardDb,
+    meta: &'a [ArchShare],
+) -> (String, Option<&'a ArchShare>) {
     let seen: HashSet<String> = cards
         .iter()
         .filter_map(|g| db.cards.get(g))
@@ -104,16 +108,17 @@ fn guess_opponent(cards: &[u32], db: &CardDb, meta: &[ArchShare]) -> String {
         Some((a, hits, _))
             if hits >= 3 || (seen.len() >= 2 && hits * 2 >= seen.len() && hits >= 2) =>
         {
-            format!("vermutlich {}", a.name)
+            (format!("vermutlich {}", a.name), Some(a))
         }
         _ => {
             let ids: Vec<u32> = cards.to_vec();
             let colors = crate::games::deck_colors(&ids, db);
-            if colors.is_empty() {
+            let label = if colors.is_empty() {
                 "noch unbekannt".into()
             } else {
                 crate::opponents::color_label(&colors)
-            }
+            };
+            (label, None)
         }
     }
 }
@@ -151,6 +156,7 @@ pub fn build_view(
     };
 
     v.life = Some((ls.life_me, ls.life_opp));
+    let (opponent, arch) = guess_opponent(&ls.opp_cards, db, meta);
     v.board = format!(
         "Länder: {} ({} frei) · Kreaturen: du {}, Gegner {}",
         ls.lands_me, ls.lands_untapped, ls.creatures_me, ls.creatures_opp
@@ -258,19 +264,33 @@ pub fn build_view(
                     ),
                 ));
             }
-            if ls.opp_attack_power >= ls.life_me {
+            block_hints(&mut v, ls, db);
+        }
+        // Offenes Mana des Gegners: typische Tricks seines Decks.
+        let combat_ahead = if ls.my_turn {
+            matches!(ls.phase.as_str(), "Phase_Main1" | "Phase_Combat")
+        } else {
+            ls.opp_attackers > 0
+        };
+        if combat_ahead && ls.opp_untapped_lands > 0 {
+            let tricks =
+                crate::combat::likely_tricks(db, arch, &ls.opp_cards, ls.opp_untapped_lands);
+            if !tricks.is_empty() {
+                let list: Vec<String> = tricks
+                    .iter()
+                    .take(3)
+                    .map(|(n, share)| match share {
+                        Some(s) => format!("{n} ({:.0} %)", s * 100.0),
+                        None => format!("{n} (schon gesehen)"),
+                    })
+                    .collect();
                 v.hints.push((
                     Level::Warn,
                     format!(
-                        "Achtung: {} Schaden greifen an, du hast {} Leben – blocken!",
-                        ls.opp_attack_power, ls.life_me
+                        "Vorsicht, Gegner hat {} Mana offen – möglich: {}",
+                        ls.opp_untapped_lands,
+                        list.join(", ")
                     ),
-                ));
-            } else if ls.life_me <= 10 && ls.my_untapped_creatures > 0 {
-                v.hints.push((
-                    Level::Warn,
-                    "Wenig Leben – blocken lohnt sich, auch wenn deine Kreatur dabei stirbt."
-                        .into(),
                 ));
             }
         }
@@ -280,7 +300,7 @@ pub fn build_view(
         }
     }
 
-    v.opponent = guess_opponent(&ls.opp_cards, db, meta);
+    v.opponent = opponent;
     let mut seen: Vec<String> = ls
         .opp_cards
         .iter()
@@ -292,6 +312,57 @@ pub fn build_view(
     seen.dedup();
     v.opp_cards = seen;
     v
+}
+
+/// Blockvorschlag, während der Gegner angreift.
+fn block_hints(v: &mut CompanionView, ls: &LiveState, db: &CardDb) {
+    use crate::combat::BlockKind;
+    let plan = crate::combat::plan_blocks(&ls.opp_attacking, &ls.my_blockers, ls.life_me);
+    let mut parts: Vec<String> = Vec::new();
+    for b in &plan.blocks {
+        let how = match b.kind {
+            BlockKind::Win => "gewinnt",
+            BlockKind::Safe => "hält auf, überlebt",
+            BlockKind::Trade => "Tausch",
+            BlockKind::Chump => "opfern, sonst tödlich",
+        };
+        parts.push(format!(
+            "{} blockt {} ({how})",
+            card_name(db, b.blocker),
+            card_name(db, b.attacker)
+        ));
+    }
+    if plan.lethal {
+        v.hints.push((
+            Level::Warn,
+            format!(
+                "Achtung: Selbst mit allen Blocks kommen {} Schaden durch, du hast {} Leben – nur ein Trick rettet dich.",
+                plan.damage, ls.life_me
+            ),
+        ));
+    }
+    if parts.is_empty() {
+        if !plan.lethal && plan.damage > 0 {
+            v.hints.push((
+                Level::Info,
+                format!(
+                    "Kein lohnender Block – nicht blocken, du nimmst {} Schaden.",
+                    plan.damage
+                ),
+            ));
+        }
+        return;
+    }
+    let chump = plan.blocks.iter().any(|b| b.kind == BlockKind::Chump);
+    v.hints.push((
+        if chump { Level::Warn } else { Level::Good },
+        format!(
+            "Blocken: {}. Du nimmst {} statt {} Schaden.",
+            parts.join("; "),
+            plan.damage,
+            plan.damage_unblocked
+        ),
+    ));
 }
 
 fn card_name(db: &CardDb, grp: u32) -> String {
@@ -554,6 +625,7 @@ mod tests {
             flying,
             reach,
             menace,
+            ..Default::default()
         }
     }
 
