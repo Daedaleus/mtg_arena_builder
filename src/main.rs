@@ -490,14 +490,18 @@ fn main() {
                 for g in games::parse_log(Path::new(path)) {
                     let cast: usize = g.turns.iter().map(|t| t.cast.len()).sum();
                     println!(
-                        "{} {:<14} deck {:>2} züge {:>2} vollständig {} gewirkt {:>2} starthand {}",
+                        "{} {:<14} deck {:>2} züge {:>2} vollständig {} gewirkt {:>2} starthand {} rang {}",
                         g.id.get(..8).unwrap_or(""),
                         g.event.get(..14).unwrap_or(&g.event),
                         g.deck.len(),
                         g.turns.len(),
                         g.complete,
                         cast,
-                        g.opening_hand.len()
+                        g.opening_hand.len(),
+                        g.rank_after
+                            .as_ref()
+                            .map(mtg_arena_builder::progress::rank_label)
+                            .unwrap_or_else(|| "–".into())
                     );
                 }
             }

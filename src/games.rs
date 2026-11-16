@@ -48,6 +48,10 @@ pub struct TurnStat {
     pub my_untapped_creatures: u32,
     /// Von mir in diesem Zug gewirkte Karten (grpIds), auch im Gegnerzug.
     pub cast: Vec<u32>,
+    /// Meine Länder im Spiel am Zugende (grpIds, für die Farben).
+    pub lands: Vec<u32>,
+    /// Kreaturen des Gegners am Zugende: (grpId, Kraft).
+    pub opp_creatures: Vec<(u32, i32)>,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -80,6 +84,43 @@ pub struct GameRecord {
     pub damage_taken: HashMap<u32, u32>,
     /// Schaden meiner Karten am Gegner (grpId -> Schaden).
     pub damage_dealt: HashMap<u32, u32>,
+    /// Constructed-Rang, den Arena nach dieser Partie gemeldet hat.
+    pub rank_after: Option<Rank>,
+}
+
+/// Constructed-Rang laut Arena (`RankGetCombinedRankInfo`).
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Rank {
+    pub season: u32,
+    /// Klasse wie „Bronze“, „Silver“ … „Mythic“.
+    pub class: String,
+    /// Stufe innerhalb der Klasse: 4 (Einstieg) bis 1.
+    pub level: u32,
+    /// Fortschritt innerhalb der Stufe.
+    pub step: u32,
+    pub won: u32,
+    pub lost: u32,
+}
+
+impl Rank {
+    /// Liest die Antwort von `RankGetCombinedRankInfo`. Arena lässt die Klasse
+    /// weg, solange sie den Standardwert hat (Bronze).
+    pub fn parse(text: &str) -> Option<Rank> {
+        let v: Value = serde_json::from_str(text.trim()).ok()?;
+        let season = v["constructedSeasonOrdinal"].as_u64()? as u32;
+        Some(Rank {
+            season,
+            class: v["constructedClass"]
+                .as_str()
+                .unwrap_or("Bronze")
+                .to_string(),
+            level: v["constructedLevel"].as_u64().unwrap_or(4) as u32,
+            step: v["constructedStep"].as_u64().unwrap_or(0) as u32,
+            won: v["constructedMatchesWon"].as_u64().unwrap_or(0) as u32,
+            lost: v["constructedMatchesLost"].as_u64().unwrap_or(0) as u32,
+        })
+    }
 }
 
 impl GameRecord {
@@ -313,6 +354,18 @@ impl Tracker {
         t.creatures_opp = self.count(opp, |o| o.creature);
         t.untapped_lands = self.count(me, |o| o.land && !o.tapped);
         t.hand = self.hand();
+        t.lands = self
+            .battlefield()
+            .map(|(_, o)| o)
+            .filter(|o| o.controller == me && o.land)
+            .map(|o| o.grp_id)
+            .collect();
+        t.opp_creatures = self
+            .battlefield()
+            .map(|(_, o)| o)
+            .filter(|o| o.controller == opp && o.creature)
+            .map(|o| (o.grp_id, o.power.max(0)))
+            .collect();
         if t.mine {
             t.safe_idle = self
                 .safe_snapshot
@@ -698,6 +751,10 @@ pub struct LogParser {
     cur: Option<Tracker>,
     /// Zuletzt beendete Partie (für die Anzeige „Partie vorbei“).
     pub last_finished: Option<GameRecord>,
+    /// Zuletzt gemeldeter Rang.
+    pub rank: Option<Rank>,
+    /// Die zuletzt beendete Partie wartet noch auf den Rang danach.
+    rank_pending: bool,
 }
 
 impl LogParser {
@@ -706,6 +763,18 @@ impl LogParser {
             return;
         }
         let text = String::from_utf8_lossy(line);
+        if text.contains("\"constructedSeasonOrdinal\"") {
+            if let Some(rank) = Rank::parse(&text) {
+                if self.rank_pending
+                    && let Some(last) = self.out.last_mut()
+                {
+                    last.rank_after = Some(rank.clone());
+                }
+                self.rank_pending = false;
+                self.rank = Some(rank);
+            }
+            return;
+        }
         let is_gre = text.contains("\"greToClientEvent\"");
         let is_room = text.contains("\"matchGameRoomStateChangedEvent\"");
         if !is_gre && !is_room {
@@ -821,6 +890,7 @@ impl LogParser {
                         rec.event = self.events.get(match_id).cloned().unwrap_or_default();
                         self.last_finished = Some(rec.clone());
                         self.out.push(rec);
+                        self.rank_pending = true;
                     }
                 }
             }
@@ -857,12 +927,14 @@ impl LogParser {
                     } else {
                         Vec::new()
                     };
+                    let rank = b.rank_after.clone().or_else(|| rec.rank_after.clone());
                     if quality(&rec) > quality(b) {
                         *b = rec;
                     }
                     if b.deck.is_empty() {
                         b.deck = deck;
                     }
+                    b.rank_after = rank;
                 }
                 None => best.push(rec),
             }
@@ -907,7 +979,7 @@ pub fn detailed_logs_disabled(path: &Path) -> bool {
 
 /// Version der Auswertung. Wird sie erhöht, werden gespeicherte Partien beim
 /// nächsten Einlesen aus noch vorhandenen Logs neu berechnet.
-const PARSER_VERSION: u32 = 4;
+const PARSER_VERSION: u32 = 5;
 
 #[derive(Default, Serialize, Deserialize)]
 #[serde(default)]
@@ -1030,6 +1102,7 @@ pub fn report(games: &[GameRecord], db: &CardDb) -> Report {
     let mut missed_lands = Vec::new();
     let mut safe_attacks = Vec::new();
     let mut unused_mana = Vec::new();
+    let mut better_turns = Vec::new();
     let mut held = Vec::new();
     let mut no_block = Vec::new();
     let mut empty_board = Vec::new();
@@ -1148,8 +1221,10 @@ pub fn report(games: &[GameRecord], db: &CardDb) -> Report {
                     names(db, &t.safe_idle)
                 )));
             }
-            // Mana übrig, obwohl eine Kreatur/Hexerei bezahlbar gewesen wäre (Farben nicht geprüft).
-            if t.untapped_lands >= 1 {
+            if let Some(text) = key_moment(t, db) {
+                better_turns.push(find(text));
+            } else if t.lands.is_empty() && t.untapped_lands >= 1 {
+                // Ältere Aufzeichnung ohne Länder: einfache Prüfung ohne Farben.
                 let castable = hand
                     .iter()
                     .filter(|c| {
@@ -1227,6 +1302,13 @@ pub fn report(games: &[GameRecord], db: &CardDb) -> Report {
             items: unused_mana,
         },
         Category {
+            title: "Besserer Zug möglich",
+            advice: "Der Zugvorschlag des Begleitfensters hätte in diesen Zügen mehr aus deinem Mana gemacht – \
+                     mit Blick auf Farben und gegnerische Kreaturen. Oft lohnen zwei günstige Karten statt einer teuren \
+                     oder Entfernung vor der nächsten Kreatur.",
+            items: better_turns,
+        },
+        Category {
             title: "Karte lange nicht gespielt",
             advice: "Diese Karten lagen mehrere Züge bezahlbar auf deiner Hand. Spiel sie früher – \
                      oder tausch sie im Deck gegen etwas, das du wirklich spielst. (Spontanzauber zählen hier nicht mit.)",
@@ -1266,6 +1348,49 @@ pub fn report(games: &[GameRecord], db: &CardDb) -> Report {
     damage.truncate(10);
     r.damage_sources = damage;
     r
+}
+
+/// Mindestens so viel Mana mehr hätte der Zugvorschlag nutzen müssen,
+/// damit ein Zug als „besserer Zug möglich“ gilt.
+const KEY_MOMENT_MANA: u32 = 2;
+
+/// Vergleicht einen eigenen Zug mit dem Zugvorschlag: Hand zu Zugbeginn
+/// (Hand am Ende plus gewirkte Karten) und Länder am Zugende.
+pub fn key_moment(t: &TurnStat, db: &CardDb) -> Option<String> {
+    if !t.mine || t.lands.is_empty() {
+        return None;
+    }
+    let mut hand = t.hand.clone();
+    hand.extend(&t.cast);
+    let plan = crate::turnplan::plan(
+        db,
+        &hand,
+        &t.lands,
+        true,
+        &t.opp_creatures,
+        t.creatures_at_start,
+    );
+    let used: u32 = t
+        .cast
+        .iter()
+        .filter_map(|g| card(db, *g))
+        .map(|c| c.cmc)
+        .sum();
+    if plan.spells.is_empty() || plan.mana_used < used + KEY_MOMENT_MANA {
+        return None;
+    }
+    let names: Vec<String> = plan
+        .spells
+        .iter()
+        .filter_map(|g| card(db, *g))
+        .map(|c| c.name.clone())
+        .collect();
+    Some(format!(
+        "{used} von {} Mana genutzt – möglich: {} ({} Mana)",
+        plan.mana_total,
+        names.join(", dann "),
+        plan.mana_used
+    ))
 }
 
 /// Farben eines Decks als Buchstaben (z. B. „UR“), aus den Manakosten.

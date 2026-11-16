@@ -20,6 +20,7 @@ pub mod similar;
 pub mod turnplan;
 
 pub mod present;
+pub mod progress;
 pub mod settings;
 #[cfg(test)]
 pub mod testutil;

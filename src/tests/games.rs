@@ -231,7 +231,10 @@ fn records_a_complete_game() {
     let mut p = LogParser::default();
     play_first_game(&mut p);
     end_first_game(&mut p);
+    // Danach meldet Arena den Rang.
+    line(&mut p, RANK_LINE);
     assert!(p.live().is_none(), "Partie beendet");
+    assert_eq!(p.rank.as_ref().unwrap().level, 4);
     assert_eq!(p.last_finished.as_ref().unwrap().id, "m-1#1");
     let games = p.finish();
     assert_eq!(games.len(), 1);
@@ -268,9 +271,114 @@ fn records_a_complete_game() {
     assert_eq!(t3.safe_idle, vec![OGRE]);
     assert_eq!(t3.cast, vec![SHOCK]);
     assert_eq!(t3.creatures_at_start, 1);
+    assert_eq!(t3.lands, vec![MOUNTAIN]);
+    assert_eq!(t3.opp_creatures, vec![(BEAR, 2)]);
     let t4 = &g.turns[3];
     assert_eq!(t4.my_untapped_creatures, 1);
     assert!(!t4.blocked);
+    let rank = g.rank_after.as_ref().expect("Rang nach der Partie");
+    assert_eq!(
+        (rank.class.as_str(), rank.level, rank.step),
+        ("Bronze", 4, 2)
+    );
+    assert_eq!((rank.won, rank.lost), (1, 11));
+}
+
+const RANK_LINE: &str = r#"{"constructedSeasonOrdinal":95,"constructedLevel":4,"constructedStep":2,"constructedMatchesWon":1,"constructedMatchesLost":11,"limitedSeasonOrdinal":95,"limitedLevel":4}"#;
+
+#[test]
+fn rank_snapshots() {
+    let r = Rank::parse(RANK_LINE).unwrap();
+    assert_eq!(r.season, 95);
+    assert_eq!(r.class, "Bronze", "fehlende Klasse = Bronze");
+    let silver = Rank::parse(
+        r#"{"constructedSeasonOrdinal":96,"constructedClass":"Silver","constructedLevel":2}"#,
+    )
+    .unwrap();
+    assert_eq!(
+        (silver.class.as_str(), silver.level, silver.step),
+        ("Silver", 2, 0)
+    );
+    assert!(Rank::parse(r#"{"limitedLevel":4}"#).is_none());
+    assert!(Rank::parse("kaputt").is_none());
+
+    // Rang vor jeder Partie (Spielstart) wird keiner Partie zugeordnet.
+    let mut p = LogParser::default();
+    line(&mut p, RANK_LINE);
+    play_first_game(&mut p);
+    end_first_game(&mut p);
+    let games = p.finish();
+    assert!(games[0].rank_after.is_none());
+}
+
+#[test]
+fn key_moments_compare_with_suggestion() {
+    let db = std_db();
+    // Zwei Wälder + Berg: Oger und Elf wären gegangen, gespielt wurde nichts.
+    let t = TurnStat {
+        turn: 4,
+        mine: true,
+        hand: vec![OGRE, ELF, GIANT],
+        lands: vec![FOREST, FOREST, MOUNTAIN, MOUNTAIN],
+        ..Default::default()
+    };
+    let text = key_moment(&t, &db).unwrap();
+    assert!(
+        text.starts_with("0 von 4 Mana genutzt – möglich:"),
+        "{text}"
+    );
+    assert!(text.ends_with("(4 Mana)"), "{text}");
+    // Gut gespielt: Oger gewirkt, nur 1 Mana übrig.
+    let good = TurnStat {
+        hand: vec![ELF, GIANT],
+        cast: vec![OGRE],
+        ..t.clone()
+    };
+    assert!(key_moment(&good, &db).is_none());
+    // Farben fehlen: nichts möglich.
+    let wrong = TurnStat {
+        hand: vec![SPIRIT, COUNTER],
+        lands: vec![MOUNTAIN, MOUNTAIN, MOUNTAIN],
+        ..t.clone()
+    };
+    assert!(key_moment(&wrong, &db).is_none());
+    // Gegnerzug oder ältere Aufzeichnung ohne Länder: keine Aussage.
+    assert!(
+        key_moment(
+            &TurnStat {
+                mine: false,
+                ..t.clone()
+            },
+            &db
+        )
+        .is_none()
+    );
+    assert!(
+        key_moment(
+            &TurnStat {
+                lands: vec![],
+                ..t.clone()
+            },
+            &db
+        )
+        .is_none()
+    );
+
+    let mut g = game("x", Some(false), vec![t.clone()]);
+    g.turns[0].lands_me = 4;
+    let r = report(&[g], &db);
+    let cat = r
+        .categories
+        .iter()
+        .find(|c| c.title == "Besserer Zug möglich")
+        .unwrap();
+    assert_eq!(cat.items.len(), 1);
+    let unused = r
+        .categories
+        .iter()
+        .find(|c| c.title == "Mana ungenutzt")
+        .unwrap();
+    assert!(unused.items.is_empty(), "neue Prüfung ersetzt die alte");
 }
 
 #[test]
@@ -280,6 +388,8 @@ fn next_game_after_leftover_message() {
     end_first_game(&mut p);
     // Arena meldet das Spielende doppelt und schickt danach noch Zustände ohne Kennung.
     end_first_game(&mut p);
+    // Der Rang hängt an der (schlechteren) Doppelmeldung und muss erhalten bleiben.
+    line(&mut p, RANK_LINE);
     state_msg(
         &mut p,
         1800,
@@ -322,6 +432,10 @@ fn next_game_after_leftover_message() {
     let first = games.iter().find(|g| g.id == "m-1#1").unwrap();
     assert_eq!(first.turns.len(), 4, "beste Aufzeichnung behalten");
     assert_eq!(first.deck.len(), 6);
+    assert!(
+        first.rank_after.is_some(),
+        "Rang aus der Doppelmeldung übernommen"
+    );
     let second = games.iter().find(|g| g.id == "m-2#1").unwrap();
     assert_eq!(second.won, Some(true));
     assert_eq!(second.event, "Play");
