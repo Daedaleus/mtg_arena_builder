@@ -46,6 +46,8 @@ impl App {
             ui.heading(title);
         };
 
+        let sim_report = self.group_sims.get(&group.label).cloned();
+        let mut sim_clicked = false;
         egui::ScrollArea::vertical().id_salt("deck_check_scroll").auto_shrink([false, false]).show(ui, |ui| {
             if group.fixed {
                 ui.label(
@@ -81,6 +83,16 @@ impl App {
             ));
             let ok = r.mana.advice.contains("passt") || r.mana.advice.contains("mindestens");
             ui.label(RichText::new(&r.mana.advice).color(if ok { Color32::GRAY } else { YELLOW }));
+            sim_clicked = ui
+                .button("Probehände testen")
+                .on_hover_text(
+                    "Spielt dieses Deck 1000-mal bis Zug 6 durch – unabhängig von deinen bisherigen Partien – \
+                     und zeigt, wie oft Länder oder Farben fehlen.",
+                )
+                .clicked();
+            if let Some(report) = &sim_report {
+                super::deck_view::sim_view(ui, report);
+            }
 
             if !group.fixed {
                 // --- Tausch-Vorschläge ---
@@ -225,6 +237,10 @@ impl App {
         // Änderungen erst nach dem Zeichnen anwenden (Borrows auf self sind dann frei).
         let deck_text = adopt.then(|| deckcheck::deck_text(&group.deck, db));
         let match_id = r.meta.as_ref().map(|m| m.id);
+        if sim_clicked {
+            let report = sim::simulate(&group.deck, db, sim::DEFAULT_GAMES, 1);
+            self.group_sims.insert(group.label.clone(), report);
+        }
         self.sel_deck_group = sel;
         if let Some(text) = deck_text {
             self.paste_text = text;

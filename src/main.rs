@@ -632,6 +632,35 @@ fn main() {
             }
             return;
         }
+        Some("--sim") => {
+            // Probehände für alle gespielten Decks.
+            let db = match paths::find_card_db(None).and_then(|p| carddb::CardDb::load(&p)) {
+                Ok(db) => db,
+                Err(e) => {
+                    println!("FEHLER: {e:#}");
+                    std::process::exit(1);
+                }
+            };
+            let games = games::sync(&paths::data_dir().join("games.json"), &paths::player_logs());
+            for g in deckcheck::group_decks(&games, &db) {
+                let start = std::time::Instant::now();
+                let r = mtg_arena_builder::sim::simulate(
+                    &g.deck,
+                    &db,
+                    mtg_arena_builder::sim::DEFAULT_GAMES,
+                    1,
+                );
+                println!("##### {} ({} ms)", g.label, start.elapsed().as_millis());
+                println!(
+                    "   Land rechtzeitig Z1–4 {:?} · Mulligan {:.2} · Farbe fehlte {:.2} · Flut {:.2}",
+                    r.on_curve, r.mulligan, r.color_screw, r.flood
+                );
+                for a in &r.advice {
+                    println!("   {a}");
+                }
+            }
+            return;
+        }
         Some("--games") => {
             if let Err(e) = games_cli() {
                 println!("FEHLER: {e:#}");

@@ -16,6 +16,7 @@ pub mod live;
 pub mod meta;
 pub mod opponents;
 pub mod paths;
+pub mod sim;
 pub mod similar;
 pub mod turnplan;
 

@@ -39,3 +39,16 @@ fn progress_page_renders() {
         .collect();
     render(&games);
 }
+
+#[test]
+fn sim_page_renders() {
+    let db = std_db();
+    let deck: Vec<u32> = std::iter::repeat_n(FOREST, 24)
+        .chain(std::iter::repeat_n(BEAR, 36))
+        .collect();
+    let report = crate::sim::simulate(&deck, &db, 50, 1);
+    let ctx = egui::Context::default();
+    let _ = ctx.run(egui::RawInput::default(), |ctx| {
+        egui::CentralPanel::default().show(ctx, |ui| super::deck_view::sim_view(ui, &report));
+    });
+}

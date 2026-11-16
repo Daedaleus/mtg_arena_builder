@@ -93,18 +93,25 @@ impl App {
         let has_repl = self.repl.keys().any(|k| k.0 == deck_id);
         let mut budget_clicked = false;
         let mut reset_clicked = false;
+        let mut sim_clicked = false;
         ui.horizontal(|ui| {
             if summary.missing > 0 || has_repl {
                 budget_clicked = ui
                     .button("Budget-Version bauen")
                     .on_hover_text(
-                        "Stellt die wichtigsten fehlenden Karten mit deinen Wildcards her und ersetzt den Rest                          durch ähnliche Karten aus deiner Sammlung. Ergebnis siehst du in der Spalte „Ersatz“.",
+                        "Stellt die wichtigsten fehlenden Karten mit deinen Wildcards her und ersetzt den Rest durch ähnliche Karten aus deiner Sammlung. Ergebnis siehst du in der Spalte „Ersatz“.",
                     )
                     .clicked();
             }
             if has_repl {
                 reset_clicked = ui.button("Ersetzungen zurücksetzen").clicked();
             }
+            sim_clicked = ui
+                .button("Probehände testen")
+                .on_hover_text(
+                    "Spielt das Deck 1000-mal bis Zug 6 durch (mit deinen Ersatzkarten) und zeigt,                      wie oft Länder oder Farben fehlen und wie gut das Mana genutzt wird.",
+                )
+                .clicked();
             if ui.button("Für Arena kopieren").on_hover_text("In Arena: Decks > Importieren").clicked()
                 && let Some(db) = &self.db {
                     let text = deck::export_arena(
@@ -130,6 +137,32 @@ impl App {
                 self.save_settings();
             }
         });
+        if sim_clicked && let Some(db) = &self.db {
+            let entries: Vec<(String, u32)> = eval
+                .lines
+                .iter()
+                .filter(|l| !l.side)
+                .flat_map(|l| {
+                    let rep = l
+                        .key
+                        .as_ref()
+                        .and_then(|k| self.repl.get(&(deck_id, k.clone())))
+                        .map(|r| (r.clone(), self.replaced_qty(deck_id, l)))
+                        .filter(|(_, n)| *n > 0);
+                    let n = rep.as_ref().map_or(0, |(_, n)| *n);
+                    std::iter::once((l.name.clone(), l.qty - n)).chain(rep)
+                })
+                .collect();
+            let deck = sim::deck_from_entries(entries.iter().map(|(n, q)| (n.as_str(), *q)), db);
+            self.sims
+                .insert(deck_id, sim::simulate(&deck, db, sim::DEFAULT_GAMES, 1));
+        }
+        if let Some(report) = self.sims.get(&deck_id) {
+            sim_view(ui, report);
+        }
+        if reset_clicked || budget_clicked {
+            self.sims.remove(&deck_id);
+        }
         if reset_clicked {
             self.repl.retain(|k, _| k.0 != deck_id);
             self.status = "Ersetzungen zurückgesetzt.".into();
@@ -315,4 +348,46 @@ impl App {
             }
         })
     }
+}
+
+/// Ergebnis der Probehände: Empfehlungen und Kennzahlen.
+pub(super) fn sim_view(ui: &mut egui::Ui, r: &sim::SimReport) {
+    egui::CollapsingHeader::new(RichText::new("Probehände").strong())
+        .id_salt("sim_view")
+        .default_open(true)
+        .show(ui, |ui| {
+            ui.label(
+                RichText::new(format!(
+                    "{} simulierte Partien bis Zug {} · {} Karten, davon {} Länder",
+                    r.games,
+                    sim::TURNS,
+                    r.size,
+                    r.lands
+                ))
+                .weak(),
+            );
+            for (i, a) in r.advice.iter().enumerate() {
+                let color = if a.contains("rund") { GREEN } else { YELLOW };
+                let text = RichText::new(a).color(color);
+                ui.label(if i == 0 { text.strong() } else { text });
+            }
+            let pct = |x: f32| format!("{:.0} %", x * 100.0);
+            ui.label(format!(
+                "Land rechtzeitig (mind. so viele Länder wie der Zug): Zug 1 {} · Zug 2 {} · Zug 3 {} · Zug 4 {}",
+                pct(r.on_curve[0]),
+                pct(r.on_curve[1]),
+                pct(r.on_curve[2]),
+                pct(r.on_curve[3])
+            ));
+            ui.label(format!(
+                "Mulligan {} · Farbe fehlte {} · Länderflut {}",
+                pct(r.mulligan),
+                pct(r.color_screw),
+                pct(r.flood)
+            ));
+            let mana: Vec<String> = (0..sim::TURNS)
+                .map(|t| format!("Z{} {:.1}/{:.1}", t + 1, r.mana_used[t], r.mana_avail[t]))
+                .collect();
+            ui.label(RichText::new(format!("Mana genutzt/verfügbar: {}", mana.join(" · "))).weak());
+        });
 }

@@ -199,7 +199,7 @@ impl App {
                 .show(ui, |ui| {
                     ui.label(
                         RichText::new(
-                            "Das gegnerische Deck erkennt die App an den Karten, die du gesehen hast: passend zu einem                              geladenen Turnier-Archetyp („erkannt“), sonst nach Farben.",
+                            "Das gegnerische Deck erkennt die App an den Karten, die du gesehen hast: passend zu einem geladenen Turnier-Archetyp („erkannt“), sonst nach Farben.",
                         )
                         .weak(),
                     );

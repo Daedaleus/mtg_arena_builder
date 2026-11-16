@@ -28,6 +28,7 @@ use crate::paths;
 use crate::present::{self, Fit, ago, cost_key, cost_tooltip, event_label, ratio};
 use crate::progress;
 use crate::settings::{Settings, SettingsFile};
+use crate::sim;
 use crate::similar::{self, Suggestion};
 
 const GREEN: Color32 = Color32::from_rgb(110, 200, 120);
@@ -118,6 +119,10 @@ pub struct App {
     textures: HashMap<String, egui::TextureHandle>,
     img_requested: std::cell::RefCell<HashSet<String>>,
     img_missing: HashSet<String>,
+    /// Ergebnisse der Probehände je Deck (Turnierdeck, Vorschlag, eigene Liste).
+    sims: HashMap<u32, sim::SimReport>,
+    /// Probehände für gespielte Decks („Deck verbessern“), nach Deck-Bezeichnung.
+    group_sims: HashMap<String, sim::SimReport>,
     /// Geteilter Zustand des Begleitfensters (läuft, sobald es einmal geöffnet wurde).
     live: Option<std::sync::Arc<live::Shared>>,
     /// Anzahl Turnierlisten beim letzten Abgleich mit dem Begleitfenster.
@@ -204,6 +209,8 @@ impl App {
             textures: HashMap::new(),
             img_requested: std::cell::RefCell::new(HashSet::new()),
             img_missing: HashSet::new(),
+            sims: HashMap::new(),
+            group_sims: HashMap::new(),
             live: None,
             live_meta_lists: usize::MAX,
             show_settings: false,
