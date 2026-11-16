@@ -1,13 +1,17 @@
 #![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]
 
 mod app;
+mod budget;
 mod builder;
 mod carddb;
 mod collection;
 mod deck;
 mod deckcheck;
 mod games;
+mod images;
+mod live;
 mod meta;
+mod opponents;
 mod paths;
 mod similar;
 
@@ -400,6 +404,17 @@ fn decks_cli(format: &str) -> anyhow::Result<()> {
             lists: decks.iter().collect(),
         })
         .collect();
+    println!("##### Gegner");
+    for o in opponents::analyze(&games, &db, &meta) {
+        println!(
+            "   {:<32} {} Siege, {} Niederlagen, Ø {:.0} Züge, Schaden: {:?}",
+            o.name,
+            o.wins,
+            o.losses(),
+            o.avg_turns,
+            o.threats
+        );
+    }
     for group in deckcheck::group_decks(&games, &db) {
         let r = deckcheck::check(&group, &games, &db, &owned, legal.as_ref(), &meta);
         println!(
@@ -494,6 +509,102 @@ fn main() {
                         cast,
                         g.opening_hand.len()
                     );
+                }
+            }
+            return;
+        }
+        Some("--budget") => {
+            // Diagnose: Budget-Version des neuesten Turnierdecks eines Archetyps.
+            let format = args.get(2).map(String::as_str).unwrap_or("ST").to_string();
+            let name = args.get(3).cloned().unwrap_or_default();
+            let run = || -> anyhow::Result<()> {
+                let db = carddb::CardDb::load(&paths::find_card_db(None)?)?;
+                let col = collection::Collection::load(&paths::data_dir().join("collection.json"))
+                    .ok_or_else(|| anyhow::anyhow!("Keine gespeicherte Sammlung"))?;
+                let owned = col.owned_by_name(&db);
+                let mut fetcher = meta::Fetcher::new(paths::data_dir().join("cache"));
+                let arch = fetcher
+                    .archetypes(&format, false)?
+                    .into_iter()
+                    .find(|a| a.name.eq_ignore_ascii_case(&name))
+                    .ok_or_else(|| anyhow::anyhow!("Archetyp nicht gefunden"))?;
+                let d = fetcher
+                    .decks(&format, &arch)?
+                    .into_iter()
+                    .next()
+                    .ok_or_else(|| anyhow::anyhow!("keine Decks"))?;
+                let eval = deck::evaluate(&deck::parse(&fetcher.decklist(d.id)?), &db, &owned);
+                let legal = fetcher.legal_names("standard").ok();
+                let wc = col.wildcards.as_array();
+                println!(
+                    "Wildcards {wc:?}, ohne Ersatz nötig: {:?}",
+                    eval.summary(false, |_| 0).need
+                );
+                let plan = budget::plan(&eval, &db, &owned, legal.as_ref(), wc, false);
+                println!(
+                    "hergestellt {:?}, ersetzt {}, ohne Ersatz {:?}",
+                    plan.crafted, plan.replaced, plan.unresolved
+                );
+                for (k, r) in &plan.replacements {
+                    let n = |k: &str| {
+                        db.representative(k)
+                            .map(|c| format!("{} ({})", c.name, carddb::rarity_label(c.rarity)))
+                            .unwrap_or_default()
+                    };
+                    println!("   {} -> {}", n(k), n(r));
+                }
+                Ok(())
+            };
+            if let Err(e) = run() {
+                println!("FEHLER: {e:#}");
+            }
+            return;
+        }
+        Some("--image") => {
+            // Diagnose: ein Kartenbild über Scryfall laden.
+            let (tx, rx) = std::sync::mpsc::channel();
+            let req = images::spawn(
+                paths::data_dir().join("cache").join("img"),
+                move |name, img| {
+                    let _ = tx.send((name, img.map(|i| i.size)));
+                },
+            );
+            for name in &args[2..] {
+                let _ = req.send(name.clone());
+                match rx.recv_timeout(std::time::Duration::from_secs(30)) {
+                    Ok((n, size)) => println!("{n}: {size:?}"),
+                    Err(e) => println!("{name}: {e}"),
+                }
+            }
+            return;
+        }
+        Some("--replay") => {
+            // Diagnose: ein Log abspielen und die Hinweise des Begleitfensters ausgeben.
+            let db = match paths::find_card_db(None).and_then(|p| carddb::CardDb::load(&p)) {
+                Ok(db) => db,
+                Err(e) => {
+                    println!("FEHLER: {e:#}");
+                    return;
+                }
+            };
+            let Some(path) = args.get(2) else { return };
+            let limit: usize = args.get(3).and_then(|s| s.parse().ok()).unwrap_or(60);
+            let mut parser = games::LogParser::default();
+            let mut last = String::new();
+            let mut shown = 0;
+            let text = std::fs::read(path).unwrap_or_default();
+            for line in text.split(|b| *b == b'\n') {
+                parser.feed(line.strip_suffix(b"\r").unwrap_or(line));
+                let live = parser.live();
+                let view = live::build_view(live.as_ref(), None, &db, &[]);
+                let key = format!("{} | {:?}", view.status, view.hints);
+                if live.is_some() && key != last {
+                    println!("{key}");
+                    last = key;
+                    shown += 1;
+                    if shown >= limit {
+                        break;
+                    }
                 }
             }
             return;

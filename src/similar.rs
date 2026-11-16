@@ -5,7 +5,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use crate::carddb::{Card, CardDb};
+use crate::carddb::{Card, CardDb, ROLE_COUNTER, ROLE_DRAW, ROLE_REMOVAL};
 
 #[derive(Clone, Debug)]
 pub struct Suggestion {
@@ -37,6 +37,15 @@ fn score(target: &Card, cand: &Card) -> f32 {
     if !target.power.is_empty() && target.power == cand.power && target.toughness == cand.toughness
     {
         s += 0.5;
+    }
+    // Gleiche Aufgabe (Removal, Neutralisieren, Kartenziehen) zählt viel:
+    // Ein Removal-Zauber soll durch Removal ersetzt werden, nicht durch einen Kampftrick.
+    for role in [ROLE_REMOVAL, ROLE_COUNTER, ROLE_DRAW] {
+        match (target.has_role(role), cand.has_role(role)) {
+            (true, true) => s += 2.5,
+            (true, false) => s -= 2.5,
+            _ => {}
+        }
     }
     s
 }

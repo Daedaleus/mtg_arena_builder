@@ -521,6 +521,46 @@ impl Tracker {
         }
     }
 
+    fn live(&self) -> LiveState {
+        let (me, opp) = (self.seat(), self.opponent());
+        let my_turn = self.active == me;
+        let before = my_turn && self.before_attacks();
+        LiveState {
+            turn: self.turn,
+            my_turn,
+            phase: self.phase.clone(),
+            life_me: self.life.get(&me).copied().unwrap_or(20),
+            life_opp: self.life.get(&opp).copied().unwrap_or(20),
+            hand: self.hand(),
+            lands_me: self.count(me, |o| o.land),
+            lands_untapped: self.count(me, |o| o.land && !o.tapped),
+            land_played: self.cur.land_played,
+            creatures_me: self.count(me, |o| o.creature),
+            creatures_opp: self.count(opp, |o| o.creature),
+            mulligan: self.turn == 0 && self.mulligan_reqs > 0,
+            safe_attackers: if before {
+                self.safe_snapshot.iter().map(|(_, g)| *g).collect()
+            } else {
+                Vec::new()
+            },
+            opp_attackers: if my_turn {
+                0
+            } else {
+                self.count(opp, |o| o.attacking)
+            },
+            opp_attack_power: if my_turn {
+                0
+            } else {
+                self.battlefield()
+                    .filter(|(_, o)| o.controller == opp && o.attacking)
+                    .map(|(_, o)| o.power.max(0))
+                    .sum()
+            },
+            my_untapped_creatures: self.count(me, |o| o.creature && !o.tapped),
+            opp_cards: self.seen_cards.keys().copied().collect(),
+        }
+    }
+
     fn finish(mut self, won: Option<bool>, reason: &str) -> GameRecord {
         self.close_turn();
         self.rec.won = won;
@@ -535,28 +575,58 @@ impl Tracker {
     }
 }
 
-/// Liest alle (abgeschlossenen) Partien aus einer Logdatei.
-pub fn parse_log(path: &Path) -> Vec<GameRecord> {
-    let Ok(file) = File::open(path) else {
-        return Vec::new();
-    };
-    let mut out = Vec::new();
-    let mut events: HashMap<String, String> = HashMap::new();
-    let mut deck: Vec<u32> = Vec::new();
-    let mut cur: Option<Tracker> = None;
+/// Momentaufnahme einer laufenden Partie für das Begleitfenster.
+#[derive(Clone, Debug, Default)]
+pub struct LiveState {
+    pub turn: u32,
+    pub my_turn: bool,
+    pub phase: String,
+    pub life_me: i32,
+    pub life_opp: i32,
+    /// Eigene Handkarten (grpIds).
+    pub hand: Vec<u32>,
+    pub lands_me: u32,
+    pub lands_untapped: u32,
+    pub land_played: bool,
+    pub creatures_me: u32,
+    pub creatures_opp: u32,
+    /// Starthand wird gerade angeboten (Mulligan-Entscheidung).
+    pub mulligan: bool,
+    /// Kreaturen (grpIds), die gerade gefahrlos angreifen könnten.
+    pub safe_attackers: Vec<u32>,
+    /// Gegnerzug: Anzahl angreifender gegnerischer Kreaturen und ihre Kraft.
+    pub opp_attackers: u32,
+    pub opp_attack_power: i32,
+    pub my_untapped_creatures: u32,
+    /// Bisher gesehene Karten des Gegners (grpIds).
+    pub opp_cards: Vec<u32>,
+}
 
-    for line in BufReader::new(file).split(b'\n').map_while(Result::ok) {
+/// Liest eine Logdatei Zeile für Zeile – für das komplette Einlesen ebenso
+/// wie für das Mitlesen während einer laufenden Partie.
+#[derive(Default)]
+pub struct LogParser {
+    out: Vec<GameRecord>,
+    events: HashMap<String, String>,
+    deck: Vec<u32>,
+    cur: Option<Tracker>,
+    /// Zuletzt beendete Partie (für die Anzeige „Partie vorbei“).
+    pub last_finished: Option<GameRecord>,
+}
+
+impl LogParser {
+    pub fn feed(&mut self, line: &[u8]) {
         if line.first() != Some(&b'{') {
-            continue;
+            return;
         }
-        let text = String::from_utf8_lossy(&line);
+        let text = String::from_utf8_lossy(line);
         let is_gre = text.contains("\"greToClientEvent\"");
         let is_room = text.contains("\"matchGameRoomStateChangedEvent\"");
         if !is_gre && !is_room {
-            continue;
+            return;
         }
         let Ok(o) = serde_json::from_str::<Value>(&text) else {
-            continue;
+            return;
         };
         let ts = o["timestamp"]
             .as_str()
@@ -566,16 +636,16 @@ pub fn parse_log(path: &Path) -> Vec<GameRecord> {
         if is_room {
             let cfg = &o["matchGameRoomStateChangedEvent"]["gameRoomInfo"]["gameRoomConfig"];
             if let Some(match_id) = cfg["matchId"].as_str() {
-                let seat = cur.as_ref().map(|t| t.seat()).unwrap_or(1);
+                let seat = self.cur.as_ref().map(|t| t.seat()).unwrap_or(1);
                 for p in cfg["reservedPlayers"].as_array().into_iter().flatten() {
                     if u(&p["systemSeatId"]) == seat
                         && let Some(ev) = p["eventId"].as_str()
                     {
-                        events.insert(match_id.to_string(), ev.to_string());
+                        self.events.insert(match_id.to_string(), ev.to_string());
                     }
                 }
             }
-            continue;
+            return;
         }
 
         for m in o["greToClientEvent"]["greToClientMessages"]
@@ -586,7 +656,7 @@ pub fn parse_log(path: &Path) -> Vec<GameRecord> {
             let seat = m["systemSeatIds"][0].as_u64().unwrap_or(1) as u32;
             match m["type"].as_str().unwrap_or("") {
                 "GREMessageType_ConnectResp" => {
-                    deck = m["connectResp"]["deckMessage"]["deckCards"]
+                    self.deck = m["connectResp"]["deckMessage"]["deckCards"]
                         .as_array()
                         .into_iter()
                         .flatten()
@@ -594,7 +664,7 @@ pub fn parse_log(path: &Path) -> Vec<GameRecord> {
                         .collect();
                 }
                 "GREMessageType_MulliganReq" => {
-                    if let Some(t) = cur.as_mut() {
+                    if let Some(t) = self.cur.as_mut() {
                         t.mulligan_reqs += 1;
                         // Die zuletzt angebotene Hand ist die behaltene.
                         t.rec.opening_hand = t.hand();
@@ -612,7 +682,7 @@ pub fn parse_log(path: &Path) -> Vec<GameRecord> {
                 .map(|m| format!("{m}#{}", info["gameNumber"].as_u64().unwrap_or(1)));
             // Arena schickt die Partie-Kennung nicht in jeder Nachricht mit. Beginnt
             // das Log mitten in einer Partie, steht sie erst am Ende fest.
-            let new_game = match (&cur, &known) {
+            let new_game = match (&self.cur, &known) {
                 (None, _) => true,
                 (Some(t), Some(id)) => !t.rec.id.is_empty() && &t.rec.id != id,
                 (Some(t), None) => t.seat() != seat,
@@ -620,13 +690,13 @@ pub fn parse_log(path: &Path) -> Vec<GameRecord> {
             if new_game {
                 // Eine vorige Partie ohne Ergebnis wird verworfen.
                 let mut t = Tracker::new(seat, ts);
-                t.rec.deck = std::mem::take(&mut deck);
-                cur = Some(t);
+                t.rec.deck = std::mem::take(&mut self.deck);
+                self.cur = Some(t);
             }
-            if let (Some(t), Some(id)) = (cur.as_mut(), known) {
+            if let (Some(t), Some(id)) = (self.cur.as_mut(), known) {
                 t.rec.id = id;
             }
-            let Some(t) = cur.as_mut() else { continue };
+            let Some(t) = self.cur.as_mut() else { continue };
             if t.finished {
                 continue;
             }
@@ -652,40 +722,73 @@ pub fn parse_log(path: &Path) -> Vec<GameRecord> {
                         _ => None,
                     };
                     let reason = r["reason"].as_str().unwrap_or("").to_string();
-                    let done = cur.take().unwrap();
+                    let done = self.cur.take().unwrap();
                     if !done.rec.id.is_empty() {
-                        out.push(done.finish(won, &reason));
+                        let mut rec = done.finish(won, &reason);
+                        let match_id = rec.id.split('#').next().unwrap_or("");
+                        rec.event = self.events.get(match_id).cloned().unwrap_or_default();
+                        self.last_finished = Some(rec.clone());
+                        self.out.push(rec);
                     }
                 }
             }
         }
     }
-    for rec in &mut out {
-        let match_id = rec.id.split('#').next().unwrap_or("");
-        rec.event = events.get(match_id).cloned().unwrap_or_default();
+
+    /// Zustand der laufenden Partie, falls gerade eine läuft.
+    pub fn live(&self) -> Option<LiveState> {
+        self.cur
+            .as_ref()
+            .filter(|t| !t.finished && t.turn + t.mulligan_reqs > 0)
+            .map(|t| t.live())
     }
-    // Arena meldet das Spielende oft doppelt; die zweite Meldung erzeugt eine
-    // leere Kopie derselben Partie. Pro Partie nur die beste Aufzeichnung behalten.
-    let mut best: Vec<GameRecord> = Vec::new();
-    for rec in out {
-        match best.iter_mut().find(|b| b.id == rec.id) {
-            Some(b) => {
-                let deck = if b.deck.is_empty() {
-                    rec.deck.clone()
-                } else {
-                    Vec::new()
-                };
-                if quality(&rec) > quality(b) {
-                    *b = rec;
-                }
-                if b.deck.is_empty() {
-                    b.deck = deck;
-                }
-            }
-            None => best.push(rec),
+
+    /// Bisher beendete Partien abholen (das Mitlesen braucht sie nicht aufzuheben).
+    pub fn take_finished(&mut self) -> Vec<GameRecord> {
+        std::mem::take(&mut self.out)
+    }
+
+    /// Alle beendeten Partien, je Partie nur die beste Aufzeichnung.
+    pub fn finish(mut self) -> Vec<GameRecord> {
+        for rec in &mut self.out {
+            let match_id = rec.id.split('#').next().unwrap_or("");
+            rec.event = self.events.get(match_id).cloned().unwrap_or_default();
         }
+        // Arena meldet das Spielende oft doppelt; die zweite Meldung erzeugt eine
+        // leere Kopie derselben Partie. Pro Partie nur die beste Aufzeichnung behalten.
+        let mut best: Vec<GameRecord> = Vec::new();
+        for rec in self.out {
+            match best.iter_mut().find(|b| b.id == rec.id) {
+                Some(b) => {
+                    let deck = if b.deck.is_empty() {
+                        rec.deck.clone()
+                    } else {
+                        Vec::new()
+                    };
+                    if quality(&rec) > quality(b) {
+                        *b = rec;
+                    }
+                    if b.deck.is_empty() {
+                        b.deck = deck;
+                    }
+                }
+                None => best.push(rec),
+            }
+        }
+        best
     }
-    best
+}
+
+/// Liest alle (abgeschlossenen) Partien aus einer Logdatei.
+pub fn parse_log(path: &Path) -> Vec<GameRecord> {
+    let Ok(file) = File::open(path) else {
+        return Vec::new();
+    };
+    let mut parser = LogParser::default();
+    for line in BufReader::new(file).split(b'\n').map_while(Result::ok) {
+        parser.feed(&line);
+    }
+    parser.finish()
 }
 
 /// Wie vollständig ist eine Aufzeichnung? Höher = besser.

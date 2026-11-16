@@ -8,13 +8,17 @@ use eframe::egui::{self, Color32, RichText};
 use egui_extras::{Column, TableBuilder};
 use serde::{Deserialize, Serialize};
 
+use crate::budget;
 use crate::builder::{self, Built};
 use crate::carddb::{CardDb, RARITY_COMMON, rarity_label};
 use crate::collection::{self, Collection};
 use crate::deck::{self, Deck, DeckEval, LineEval, Summary};
 use crate::deckcheck;
 use crate::games::{self, GameRecord};
+use crate::images;
+use crate::live;
 use crate::meta::{Archetype, DeckRef, FORMATS, Fetcher};
+use crate::opponents;
 use crate::paths;
 use crate::similar::{self, Suggestion};
 
@@ -74,6 +78,8 @@ fn cost_tooltip(s: &Summary) -> String {
 #[serde(default)]
 struct Settings {
     mtga_dir: String,
+    /// Begleitfenster geöffnet?
+    companion: bool,
     format: usize,
     include_side: bool,
     with_sets: bool,
@@ -91,6 +97,7 @@ impl Default for Settings {
     fn default() -> Settings {
         Settings {
             mtga_dir: String::new(),
+            companion: false,
             format: 0,
             include_side: true,
             with_sets: true,
@@ -136,6 +143,8 @@ enum Msg {
     Restored(usize),
     /// Partien aus den Arena-Logs; `bool` = „Detaillierte Logs“ ist aus.
     Games(Vec<GameRecord>, bool),
+    /// Kartenbild von Scryfall (None = keins gefunden).
+    Image(String, Option<egui::ColorImage>),
     Pending(usize),
 }
 
@@ -223,7 +232,7 @@ enum Tab {
 pub struct App {
     data_dir: PathBuf,
     settings: Settings,
-    db: Option<CardDb>,
+    db: Option<std::sync::Arc<CardDb>>,
     db_status: String,
     collection: Option<Collection>,
     owned: HashMap<String, u32>,
@@ -264,6 +273,14 @@ pub struct App {
     sel_game: Option<usize>,
     /// Gewähltes Deck im Reiter „Deck verbessern“.
     sel_deck_group: usize,
+    img_tx: Sender<String>,
+    textures: HashMap<String, egui::TextureHandle>,
+    img_requested: std::cell::RefCell<HashSet<String>>,
+    img_missing: HashSet<String>,
+    /// Geteilter Zustand des Begleitfensters (läuft, sobald es einmal geöffnet wurde).
+    live: Option<std::sync::Arc<live::Shared>>,
+    /// Anzahl Turnierlisten beim letzten Abgleich mit dem Begleitfenster.
+    live_meta_lists: usize,
 }
 
 impl App {
@@ -278,6 +295,13 @@ impl App {
             let (tx, ctx, cache) = (tx_msg.clone(), cc.egui_ctx.clone(), data_dir.join("cache"));
             std::thread::spawn(move || worker(rx_job, tx, ctx, cache));
         }
+        let img_tx = {
+            let (tx, ctx) = (tx_msg.clone(), cc.egui_ctx.clone());
+            images::spawn(data_dir.join("cache").join("img"), move |name, img| {
+                let _ = tx.send(Msg::Image(name, img));
+                ctx.request_repaint();
+            })
+        };
 
         let repl = settings
             .replacements
@@ -329,6 +353,12 @@ impl App {
             games_event: None,
             sel_game: None,
             sel_deck_group: 0,
+            img_tx,
+            textures: HashMap::new(),
+            img_requested: std::cell::RefCell::new(HashSet::new()),
+            img_missing: HashSet::new(),
+            live: None,
+            live_meta_lists: usize::MAX,
         };
         app.settings.format = app.settings.format.min(FORMATS.len() - 1);
         app.load_db();
@@ -406,7 +436,7 @@ impl App {
                     db.cards.len(),
                     db.version
                 );
-                self.db = Some(db);
+                self.db = Some(std::sync::Arc::new(db));
             }
             Err(e) => {
                 self.db_status = format!("{e:#}");
@@ -565,6 +595,17 @@ impl App {
                         }
                     }
                 }
+                Msg::Image(name, img) => match img {
+                    Some(img) => {
+                        let tex =
+                            self.ctx
+                                .load_texture(format!("card:{name}"), img, Default::default());
+                        self.textures.insert(name, tex);
+                    }
+                    None => {
+                        self.img_missing.insert(name);
+                    }
+                },
                 Msg::Games(games, disabled) => {
                     self.games_loading = false;
                     self.logs_disabled = disabled;
@@ -614,10 +655,71 @@ impl App {
 
     fn replaced_qty(&self, deck_id: u32, line: &LineEval) -> u32 {
         let Some(key) = &line.key else { return 0 };
-        self.repl
-            .get(&(deck_id, key.clone()))
-            .map(|rep| self.owned.get(rep).copied().unwrap_or(0).min(line.missing))
-            .unwrap_or(0)
+        let Some(rep) = self.repl.get(&(deck_id, key.clone())) else {
+            return 0;
+        };
+        // Standardländer gibt es in Arena unbegrenzt.
+        let basic = self
+            .db
+            .as_ref()
+            .and_then(|db| db.representative(rep))
+            .is_some_and(|c| c.basic);
+        if basic {
+            line.missing
+        } else {
+            self.owned.get(rep).copied().unwrap_or(0).min(line.missing)
+        }
+    }
+
+    /// Ersetzt fehlende Karten automatisch so, dass die Wildcards reichen.
+    fn apply_budget(&mut self, deck_id: u32, eval: &DeckEval) {
+        let Some(db) = &self.db else { return };
+        let legal = self.legal.get(&self.settings.format);
+        let plan = budget::plan(
+            eval,
+            db,
+            &self.owned,
+            legal,
+            self.wildcards(),
+            self.settings.include_side,
+        );
+        // Gewählter Ersatz muss in der Auswahlliste stehen – sonst ergänzen.
+        for (key, rep) in &plan.replacements {
+            let slot = (deck_id, key.clone());
+            let listed = self
+                .subs
+                .get(&slot)
+                .is_some_and(|s| s.iter().any(|o| &o.key == rep));
+            if !listed && let Some(c) = db.representative(rep) {
+                self.subs.entry(slot).or_default().push(Suggestion {
+                    key: rep.clone(),
+                    name: c.name.clone(),
+                    owned: self.owned.get(rep).copied().unwrap_or(0),
+                    score: 0.0,
+                    info: if c.basic {
+                        "Standardland".into()
+                    } else {
+                        c.mana_cost.clone()
+                    },
+                });
+            }
+        }
+        self.repl.retain(|k, _| k.0 != deck_id);
+        for (key, rep) in plan.replacements {
+            self.repl.insert((deck_id, key), rep);
+        }
+        let c = plan.crafted;
+        let mut text = format!(
+            "Budget-Version: {} Karten durch eigene ersetzt, mit Wildcards herzustellen: {} Common, {} Uncommon, {} Rare, {} Mythic.",
+            plan.replaced, c[0], c[1], c[2], c[3]
+        );
+        if !plan.unresolved.is_empty() {
+            text.push_str(&format!(
+                " Ohne passenden Ersatz: {}.",
+                plan.unresolved.join(", ")
+            ));
+        }
+        self.status = text;
     }
 
     fn summary(&self, deck_id: u32) -> Option<Summary> {
@@ -699,6 +801,17 @@ impl App {
                 let hint = "MTG Arena muss laufen und im Hauptmenü sein. Falls Windows nach Administratorrechten fragt: Die werden nur gebraucht, um den Speicher des Spiels zu lesen.";
                 if ui.add_enabled(!self.syncing, button).on_hover_text(hint).clicked() {
                     self.sync_collection(ctx);
+                }
+                ui.separator();
+                if ui
+                    .toggle_value(&mut self.settings.companion, "Begleitfenster")
+                    .on_hover_text(
+                        "Kleines Fenster, das während einer Partie live Hinweise gibt (Land legen, gefahrlos angreifen, blocken …). \
+                         Es liest nur das Arena-Log. Arena dafür im Fenstermodus oder randlosen Vollbild spielen.",
+                    )
+                    .changed()
+                {
+                    self.save_settings();
                 }
             });
             ui.add_space(4.0);
@@ -1113,7 +1226,21 @@ impl App {
                 }
             });
         }
+        let has_repl = self.repl.keys().any(|k| k.0 == deck_id);
+        let mut budget_clicked = false;
+        let mut reset_clicked = false;
         ui.horizontal(|ui| {
+            if summary.missing > 0 || has_repl {
+                budget_clicked = ui
+                    .button("Budget-Version bauen")
+                    .on_hover_text(
+                        "Stellt die wichtigsten fehlenden Karten mit deinen Wildcards her und ersetzt den Rest                          durch ähnliche Karten aus deiner Sammlung. Ergebnis siehst du in der Spalte „Ersatz“.",
+                    )
+                    .clicked();
+            }
+            if has_repl {
+                reset_clicked = ui.button("Ersetzungen zurücksetzen").clicked();
+            }
             if ui.button("Für Arena kopieren").on_hover_text("In Arena: Decks → Importieren").clicked()
                 && let Some(db) = &self.db {
                     let text = deck::export_arena(
@@ -1139,6 +1266,15 @@ impl App {
                 self.save_settings();
             }
         });
+        if reset_clicked {
+            self.repl.retain(|k, _| k.0 != deck_id);
+            self.status = "Ersetzungen zurückgesetzt.".into();
+        }
+        if budget_clicked {
+            // Neu planen: bisherige Ersetzungen zählen dabei nicht.
+            self.repl.retain(|k, _| k.0 != deck_id);
+            self.apply_budget(deck_id, &eval);
+        }
         ui.add_space(4.0);
 
         // --- Kartenliste ---
@@ -1216,13 +1352,14 @@ impl App {
             let label = ui.label(&line.name);
             if let Some(c) = card {
                 let de = c.name_de.as_deref().filter(|d| *d != c.name);
-                label.on_hover_text(format!(
-                    "{}{}\n{} {}",
+                let info = format!(
+                    "{}{}  ·  {} {}",
                     de.map(|d| format!("{d}\n")).unwrap_or_default(),
                     c.mana_cost,
                     c.set,
                     c.collector
-                ));
+                );
+                self.card_hover(label, &c.name, Some(info));
             }
         });
         row.col(|ui| {
@@ -1290,6 +1427,7 @@ impl eframe::App for App {
 
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.handle_messages();
+        self.companion(ctx);
         self.top_bar(ctx);
         self.side_panel(ctx);
         egui::CentralPanel::default().show(ctx, |ui| {
@@ -1419,6 +1557,12 @@ impl App {
             return;
         }
         let r = games::report(&games, db);
+        let meta = self.meta_archetypes();
+        let opp_groups = opponents::analyze(&games, db, &meta);
+        let opp_names: Vec<String> = games
+            .iter()
+            .map(|g| opponents::classify(g, db, &meta))
+            .collect();
         let mut clicked: Option<usize> = None;
 
         egui::ScrollArea::vertical().id_salt("games_scroll").auto_shrink([false, false]).show(ui, |ui| {
@@ -1504,18 +1648,50 @@ impl App {
                         RichText::new("Gegen diese Karten lohnt es sich, Removal aufzuheben oder zu blocken.").weak(),
                     );
                     for (name, dmg) in &r.damage_sources {
-                        ui.label(format!("{name} – {dmg} Schaden"));
+                        let resp = ui.label(format!("{name} – {dmg} Schaden"));
+                        self.card_hover(resp, name, None);
                     }
                 });
             egui::CollapsingHeader::new(format!("Häufigste Karten deiner Gegner ({})", r.opp_cards.len()))
                 .id_salt("opp_cards")
                 .show(ui, |ui| {
                     for (name, n) in &r.opp_cards {
-                        ui.label(format!("{name} – in {n} Partie(n)"));
+                        let resp = ui.label(format!("{name} – in {n} Partie(n)"));
+                        self.card_hover(resp, name, None);
                     }
                 });
             ui.add_space(6.0);
             ui.separator();
+
+            // --- Gegner ---
+            egui::CollapsingHeader::new(RichText::new("Gegen wen du gewinnst und verlierst").strong())
+                .id_salt("opponents")
+                .default_open(true)
+                .show(ui, |ui| {
+                    ui.label(
+                        RichText::new(
+                            "Das gegnerische Deck erkennt die App an den Karten, die du gesehen hast: passend zu einem                              geladenen Turnier-Archetyp („erkannt“), sonst nach Farben.",
+                        )
+                        .weak(),
+                    );
+                    egui::Grid::new("opp_grid").striped(true).num_columns(4).show(ui, |ui| {
+                        for t in ["Gegner", "Bilanz", "Ø Züge", "Hat dir den meisten Schaden gemacht"] {
+                            ui.strong(t);
+                        }
+                        ui.end_row();
+                        for o in &opp_groups {
+                            ui.label(&o.name);
+                            let color = if o.wins >= o.losses() { GREEN } else { RED };
+                            ui.label(RichText::new(format!("{} Siege, {} Niederlagen", o.wins, o.losses())).color(color));
+                            ui.label(format!("{:.0}", o.avg_turns));
+                            let threats: Vec<String> =
+                                o.threats.iter().map(|(n, d)| format!("{n} ({d})")).collect();
+                            ui.label(if threats.is_empty() { "–".into() } else { threats.join(", ") });
+                            ui.end_row();
+                        }
+                    });
+                });
+            ui.add_space(6.0);
 
             // --- Partienliste ---
             ui.push_id("games_table", |ui| {
@@ -1583,7 +1759,7 @@ impl App {
                                     ui.label(games::deck_colors(&g.deck, db));
                                 });
                                 row.col(|ui| {
-                                    ui.label(games::opp_colors(g, db));
+                                    ui.label(&opp_names[i]);
                                 });
                             });
                         }
@@ -1727,6 +1903,134 @@ impl App {
 // ------------------------------------------------------ Deck verbessern ----
 
 impl App {
+    /// Öffnet bzw. pflegt das Begleitfenster (eigenes Fenster, immer im Vordergrund).
+    fn companion(&mut self, ctx: &egui::Context) {
+        if !self.settings.companion {
+            return;
+        }
+        let id = egui::ViewportId::from_hash_of("companion");
+        if self.live.is_none()
+            && let Some(db) = &self.db
+        {
+            let shared = std::sync::Arc::new(live::Shared::default());
+            live::spawn(db.clone(), shared.clone(), ctx.clone(), id);
+            self.live = Some(shared);
+        }
+        let Some(shared) = self.live.clone() else {
+            return;
+        };
+        // Turnierlisten für die Gegner-Erkennung weitergeben, wenn neue geladen wurden.
+        if self.lists.len() != self.live_meta_lists
+            && let Some(db) = &self.db
+        {
+            self.live_meta_lists = self.lists.len();
+            let shares: Vec<live::ArchShare> = self
+                .meta_archetypes()
+                .into_iter()
+                .filter(|a| !a.lists.is_empty())
+                .map(|a| {
+                    let n = a.lists.len() as f32;
+                    let mut share: HashMap<String, f32> = HashMap::new();
+                    for list in &a.lists {
+                        let keys: HashSet<String> = list
+                            .main
+                            .iter()
+                            .chain(&list.side)
+                            .filter_map(|e| db.resolve(&e.name))
+                            .collect();
+                        for k in keys {
+                            *share.entry(k).or_insert(0.0) += 1.0 / n;
+                        }
+                    }
+                    live::ArchShare {
+                        name: a.name,
+                        share,
+                    }
+                })
+                .collect();
+            *shared.meta.write().unwrap() = shares;
+        }
+        if shared
+            .close_requested
+            .swap(false, std::sync::atomic::Ordering::Relaxed)
+        {
+            self.settings.companion = false;
+            self.save_settings();
+            return;
+        }
+        let mut builder = egui::ViewportBuilder::default()
+            .with_title("MTG Begleiter")
+            .with_inner_size([360.0, 330.0])
+            .with_min_inner_size([260.0, 180.0])
+            .with_always_on_top();
+        if let Ok(icon) = eframe::icon_data::from_png_bytes(include_bytes!("../assets/icon.png")) {
+            builder = builder.with_icon(icon);
+        }
+        ctx.show_viewport_deferred(id, builder, move |ctx, _class| {
+            if ctx.input(|i| i.viewport().close_requested()) {
+                shared
+                    .close_requested
+                    .store(true, std::sync::atomic::Ordering::Relaxed);
+            }
+            egui::CentralPanel::default().show(ctx, |ui| {
+                let view = shared.view.lock().unwrap().clone();
+                live::draw(ui, &view);
+            });
+        });
+    }
+
+    /// Zeigt beim Überfahren eines Kartennamens das Kartenbild (lädt es bei Bedarf).
+    fn card_hover(
+        &self,
+        resp: egui::Response,
+        name: &str,
+        extra: Option<String>,
+    ) -> egui::Response {
+        if resp.hovered()
+            && !self.textures.contains_key(name)
+            && !self.img_missing.contains(name)
+            && self.img_requested.borrow_mut().insert(name.to_string())
+        {
+            let _ = self.img_tx.send(name.to_string());
+        }
+        resp.on_hover_ui(|ui| {
+            if let Some(tex) = self.textures.get(name) {
+                ui.add(
+                    egui::Image::new((tex.id(), tex.size_vec2()))
+                        .fit_to_exact_size(egui::vec2(244.0, 340.0)),
+                );
+            } else if self.img_missing.contains(name) {
+                ui.label(RichText::new("Kein Bild verfügbar").weak());
+            } else {
+                ui.horizontal(|ui| {
+                    ui.spinner();
+                    ui.label("Bild wird geladen …");
+                });
+            }
+            if let Some(text) = &extra {
+                ui.label(text);
+            }
+        })
+    }
+
+    /// Alle geladenen Turnierlisten des aktuellen Formats, nach Archetyp.
+    fn meta_archetypes(&self) -> Vec<deckcheck::MetaArchetype<'_>> {
+        self.archetypes
+            .iter()
+            .map(|a| deckcheck::MetaArchetype {
+                id: a.id,
+                name: a.name.clone(),
+                lists: self
+                    .decks
+                    .get(&a.id)
+                    .into_iter()
+                    .flatten()
+                    .filter_map(|d| self.lists.get(&d.id))
+                    .collect(),
+            })
+            .collect()
+    }
+
     fn deck_check_tab(&mut self, ui: &mut egui::Ui) {
         if self
             .games_scanned
@@ -1762,21 +2066,7 @@ impl App {
                 .clicked();
         });
         let group = &groups[sel];
-        let meta: Vec<deckcheck::MetaArchetype> = self
-            .archetypes
-            .iter()
-            .map(|a| deckcheck::MetaArchetype {
-                id: a.id,
-                name: a.name.clone(),
-                lists: self
-                    .decks
-                    .get(&a.id)
-                    .into_iter()
-                    .flatten()
-                    .filter_map(|d| self.lists.get(&d.id))
-                    .collect(),
-            })
-            .collect();
+        let meta = self.meta_archetypes();
         let legal = self.legal.get(&self.settings.format);
         let r = deckcheck::check(group, &self.games, db, &self.owned, legal, &meta);
         let section = |ui: &mut egui::Ui, title: &str| {
@@ -1830,13 +2120,15 @@ impl App {
                 }
                 for sw in &r.swaps {
                     ui.horizontal_wrapped(|ui| {
-                        ui.label(RichText::new(format!("Raus: {}", sw.out)).strong().color(YELLOW));
+                        let resp = ui.label(RichText::new(format!("Raus: {}", sw.out)).strong().color(YELLOW));
+                        self.card_hover(resp, &sw.out, None);
                         ui.label(format!("– {}", sw.reason));
                     });
                     if let Some((name, why)) = &sw.replacement {
                         ui.horizontal_wrapped(|ui| {
                             ui.add_space(16.0);
-                            ui.label(RichText::new(format!("Rein: {name}")).color(GREEN));
+                            let resp = ui.label(RichText::new(format!("Rein: {name}")).color(GREEN));
+                            self.card_hover(resp, name, None);
                             ui.label(RichText::new(format!("({why})")).weak());
                         });
                     }
@@ -1924,7 +2216,8 @@ impl App {
                                 });
                                 row.col(|ui| {
                                     let text = RichText::new(&c.name);
-                                    ui.label(if c.land { text.weak() } else { text.color(rarity_color(c.rarity)) });
+                                    let resp = ui.label(if c.land { text.weak() } else { text.color(rarity_color(c.rarity)) });
+                                    self.card_hover(resp, &c.name, None);
                                 });
                                 let dash = |ui: &mut egui::Ui, show: bool, v: String| {
                                     ui.label(if show { v } else { "–".into() });

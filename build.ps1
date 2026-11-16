@@ -46,7 +46,11 @@ New-Item -ItemType Directory -Force $dist | Out-Null
 # Laufende App aus dist\ beenden, sonst ist die Datei gesperrt.
 Get-Process | Where-Object { $_.Path -and $_.Path.StartsWith($dist, [StringComparison]::OrdinalIgnoreCase) } | ForEach-Object {
     Write-Host "Beende laufende App (PID $($_.Id))" -ForegroundColor Yellow
-    if (-not $_.CloseMainWindow() -or -not $_.WaitForExit(5000)) { $_ | Stop-Process -Force }
+    # Nur das Hauptfenster regulär schließen (speichert den Zustand). Hält Windows das
+    # Begleitfenster für das Hauptfenster, würde sonst nur dieses geschlossen und
+    # dauerhaft abgeschaltet – dann lieber direkt beenden.
+    $main = $_.MainWindowTitle -eq "MTG Arena Builder"
+    if (-not $main -or -not $_.CloseMainWindow() -or -not $_.WaitForExit(5000)) { $_ | Stop-Process -Force }
     $_.WaitForExit(5000) | Out-Null
 }
 
