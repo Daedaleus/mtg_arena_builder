@@ -600,6 +600,27 @@ fn main() {
                 let key = format!("{} | {:?}", view.status, view.hints);
                 if live.is_some() && key != last {
                     println!("{key}");
+                    if key.contains("Tödlich")
+                        && let Some(ls) = &live
+                    {
+                        let show = |list: &[games::LiveCreature]| -> Vec<String> {
+                            list.iter()
+                                .map(|c| {
+                                    format!(
+                                        "{}{}{}",
+                                        c.power,
+                                        if c.flying { " fliegend" } else { "" },
+                                        if c.menace { " bedrohlich" } else { "" }
+                                    )
+                                })
+                                .collect()
+                        };
+                        println!(
+                            "     Angreifer {:?} | Blocker {:?}",
+                            show(&ls.attackers),
+                            show(&ls.blockers)
+                        );
+                    }
                     last = key;
                     shown += 1;
                     if shown >= limit {

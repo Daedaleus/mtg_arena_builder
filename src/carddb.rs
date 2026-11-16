@@ -36,6 +36,8 @@ pub struct Card {
     pub back_face: bool,
     /// Grobe Rolle laut Kartentext (siehe `ROLE_*`).
     pub roles: u8,
+    /// Direkter Schaden an Spielern (nur Spontanzauber/Hexereien), z. B. 2 bei Burst Lightning.
+    pub burn: u32,
 }
 
 /// Entfernt oder neutralisiert gegnerische Karten (Zerstören, Schaden, Verbannen …).
@@ -46,6 +48,35 @@ pub const ROLE_COUNTER: u8 = 2;
 pub const ROLE_DRAW: u8 = 4;
 /// Räumt das ganze Spielfeld ab – trifft auch die eigenen Kreaturen.
 pub const ROLE_WIPE: u8 = 8;
+
+const TYPE_INSTANT: u8 = 4;
+const TYPE_SORCERY: u8 = 10;
+
+/// Schaden, den ein Fähigkeitstext einem Spieler zufügen kann (0 = keiner).
+/// Erfasst z. B. „deals 3 damage to any target“ oder „… to each opponent“.
+fn burn_of(text: &str) -> u32 {
+    let t = strip_tags(text).to_lowercase();
+    for target in [
+        "any target",
+        "target player",
+        "target opponent",
+        "each opponent",
+        "target player or planeswalker",
+    ] {
+        let needle = format!(" damage to {target}");
+        if let Some(end) = t.find(&needle) {
+            let before = &t[..end];
+            if let Some(num) = before
+                .rsplit("deals ")
+                .next()
+                .and_then(|n| n.trim().parse::<u32>().ok())
+            {
+                return num;
+            }
+        }
+    }
+    0
+}
 
 /// Leitet aus einem (englischen) Fähigkeitstext grobe Rollen ab.
 fn roles_of(text: &str) -> u8 {
@@ -259,11 +290,13 @@ impl CardDb {
                 toughness: text(r, 15),
                 regular: text(r, 16).is_empty(),
                 roles: 0,
+                burn: 0,
             })
         })?;
 
         // Fähigkeitstexte -> Rollen (Removal, Counter, Kartenziehen)
         let mut ability_roles: HashMap<u32, u8> = HashMap::new();
+        let mut ability_burn: HashMap<u32, u32> = HashMap::new();
         if let Ok(mut stmt) = conn.prepare(
             "SELECT a.Id, l.Loc FROM Abilities a
              JOIN Localizations_enUS l ON l.LocId = a.TextId AND l.Formatted = 1",
@@ -278,6 +311,10 @@ impl CardDb {
                 let roles = roles_of(&text);
                 if roles != 0 {
                     ability_roles.insert(id, roles);
+                }
+                let burn = burn_of(&text);
+                if burn > 0 {
+                    ability_burn.insert(id, burn);
                 }
             }
         }
@@ -294,6 +331,21 @@ impl CardDb {
                 .iter()
                 .filter_map(|a| ability_roles.get(a))
                 .fold(0, |m, r| m | r);
+            // Brandschaden zählt nur bei Spontanzaubern und Hexereien – bei Kreaturen
+            // steckt er oft in Fähigkeiten, die nicht sofort wirken.
+            if card
+                .types
+                .iter()
+                .any(|t| *t == TYPE_INSTANT || *t == TYPE_SORCERY)
+            {
+                card.burn = card
+                    .abilities
+                    .iter()
+                    .filter_map(|a| ability_burn.get(a))
+                    .copied()
+                    .max()
+                    .unwrap_or(0);
+            }
             by_name
                 .entry(name_key(&card.name))
                 .or_default()
@@ -374,5 +426,30 @@ pub fn rarity_label(r: u8) -> &'static str {
         4 => "Rare",
         5 => "Mythic",
         _ => "?",
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::burn_of;
+
+    #[test]
+    fn burn_from_text() {
+        assert_eq!(burn_of("Kicker {o4}"), 0);
+        assert_eq!(
+            burn_of(
+                "CARDNAME deals 2 damage to any target. If this spell was kicked, it deals 4 damage instead."
+            ),
+            2
+        );
+        assert_eq!(
+            burn_of("CARDNAME deals 3 damage to any target. Tap up to one target creature."),
+            3
+        );
+        assert_eq!(
+            burn_of("CARDNAME deals 3 damage to up to one target creature or planeswalker."),
+            0
+        );
+        assert_eq!(burn_of("Lightning deals 2 damage to each opponent."), 2);
     }
 }

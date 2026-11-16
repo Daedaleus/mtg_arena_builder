@@ -15,8 +15,8 @@ use std::time::{Duration, Instant};
 
 use eframe::egui;
 
-use crate::carddb::{CardDb, name_key};
-use crate::games::{GameRecord, LiveState, LogParser};
+use crate::carddb::{Card, CardDb, name_key};
+use crate::games::{GameRecord, LiveCreature, LiveState, LogParser};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Level {
@@ -193,6 +193,47 @@ pub fn build_view(
                 format!(" · {phase}")
             }
         );
+        // --- Siegchancen: Kann ich den Gegner jetzt besiegen? ---
+        let mut lethal = false;
+        if ls.my_turn && ls.phase != "Phase_Ending" && ls.life_opp > 0 {
+            let mana = ls.lands_untapped + (!ls.land_played && !lands_in_hand.is_empty()) as u32;
+            let combat = unblocked_damage(&ls.attackers, &ls.blockers);
+            let (burn, burn_cards) = best_burn(&hand, mana);
+            let total = combat + burn as i32;
+            let burn_text = if burn > 0 {
+                format!(" + Brand {burn} ({})", burn_cards.join(", "))
+            } else {
+                String::new()
+            };
+            if total >= ls.life_opp {
+                lethal = true;
+                v.hints.push((
+                    Level::Good,
+                    format!(
+                        "Tödlich möglich! Angriff mit allem {combat}{burn_text} ≥ {} Leben des Gegners – sofern er keinen Trick hat.",
+                        ls.life_opp
+                    ),
+                ));
+            } else if total > 0 && ls.life_opp <= total + 4 {
+                v.hints.push((
+                    Level::Info,
+                    format!(
+                        "Gegner fast besiegt: {} Leben, du schaffst jetzt mindestens {total} (Angriff {combat}{burn_text}).",
+                        ls.life_opp
+                    ),
+                ));
+            }
+        }
+        if !lethal && ls.life_opp <= 5 {
+            v.hints.push((
+                Level::Good,
+                format!(
+                    "Gegner hat nur noch {} Leben – nicht aufgeben!",
+                    ls.life_opp
+                ),
+            ));
+        }
+
         if ls.my_turn {
             if !ls.land_played
                 && let Some(land) = lands_in_hand.first()
@@ -261,6 +302,65 @@ pub fn build_view(
     seen.dedup();
     v.opp_cards = seen;
     v
+}
+
+/// Schaden, der beim Angriff mit allen Kreaturen mindestens durchkommt, wenn
+/// der Gegner bestmöglich blockt (er blockt die stärksten Angreifer, die er
+/// blocken kann). Zaubertricks und Trampelschaden bleiben unberücksichtigt.
+pub fn unblocked_damage(attackers: &[LiveCreature], blockers: &[LiveCreature]) -> i32 {
+    let mut atk: Vec<&LiveCreature> = attackers.iter().collect();
+    atk.sort_by_key(|a| std::cmp::Reverse(a.power));
+    let mut ground = blockers.iter().filter(|b| !b.reach).count();
+    let mut air = blockers.iter().filter(|b| b.reach).count();
+    let mut damage = 0;
+    for a in atk {
+        let need = if a.menace { 2 } else { 1 };
+        let blocked = if a.flying {
+            // Flieger können nur Kreaturen mit Fliegend/Reichweite blocken.
+            if air >= need {
+                air -= need;
+                true
+            } else {
+                false
+            }
+        } else if ground + air >= need {
+            // Erst Bodenblocker einsetzen, Luftabwehr für Flieger aufheben.
+            let g = need.min(ground);
+            ground -= g;
+            air -= need - g;
+            true
+        } else {
+            false
+        };
+        if !blocked {
+            damage += a.power;
+        }
+    }
+    damage
+}
+
+/// Bester Brandschaden aus der Hand, den das verfügbare Mana bezahlen kann.
+fn best_burn(hand: &[&Card], mana: u32) -> (u32, Vec<String>) {
+    let burn: Vec<&&Card> = hand
+        .iter()
+        .filter(|c| c.burn > 0 && c.cmc <= mana)
+        .take(10)
+        .collect();
+    let mut best = (0u32, Vec::new());
+    for mask in 1u32..(1 << burn.len()) {
+        let chosen: Vec<&&&Card> = burn
+            .iter()
+            .enumerate()
+            .filter(|(i, _)| mask & (1 << i) != 0)
+            .map(|(_, c)| c)
+            .collect();
+        let cost: u32 = chosen.iter().map(|c| c.cmc).sum();
+        let dmg: u32 = chosen.iter().map(|c| c.burn).sum();
+        if cost <= mana && dmg > best.0 {
+            best = (dmg, chosen.iter().map(|c| c.name.clone()).collect());
+        }
+    }
+    best
 }
 
 fn find_log() -> Option<PathBuf> {
@@ -372,5 +472,49 @@ pub fn draw(ui: &mut egui::Ui, view: &CompanionView) {
         if !view.opp_cards.is_empty() {
             ui.label(egui::RichText::new(view.opp_cards.join(", ")).weak());
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn c(power: i32, flying: bool, reach: bool, menace: bool) -> LiveCreature {
+        LiveCreature {
+            power,
+            flying,
+            reach,
+            menace,
+        }
+    }
+
+    #[test]
+    fn combat_damage() {
+        // Kein Blocker: alles kommt durch
+        assert_eq!(
+            unblocked_damage(&[c(2, false, false, false), c(3, false, false, false)], &[]),
+            5
+        );
+        // Ein Blocker hält den stärksten Angreifer auf
+        assert_eq!(
+            unblocked_damage(
+                &[c(2, false, false, false), c(3, false, false, false)],
+                &[c(1, false, false, false)]
+            ),
+            2
+        );
+        // Flieger kann vom Bodenblocker nicht geblockt werden
+        assert_eq!(
+            unblocked_damage(
+                &[c(4, true, true, false), c(1, false, false, false)],
+                &[c(5, false, false, false)]
+            ),
+            4
+        );
+        // Bedrohlich braucht zwei Blocker
+        assert_eq!(
+            unblocked_damage(&[c(3, false, false, true)], &[c(2, false, false, false)]),
+            3
+        );
     }
 }

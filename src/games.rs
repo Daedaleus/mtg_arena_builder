@@ -145,6 +145,15 @@ struct Obj {
 }
 
 impl Obj {
+    fn live(&self) -> LiveCreature {
+        LiveCreature {
+            power: self.power.max(0),
+            flying: self.has(KW_FLYING),
+            reach: self.has(KW_FLYING) || self.has(KW_REACH),
+            menace: self.has(KW_MENACE),
+        }
+    }
+
     fn has(&self, kw: u32) -> bool {
         self.keywords.contains(&kw)
     }
@@ -558,6 +567,25 @@ impl Tracker {
             },
             my_untapped_creatures: self.count(me, |o| o.creature && !o.tapped),
             opp_cards: self.seen_cards.keys().copied().collect(),
+            attackers: self
+                .battlefield()
+                .map(|(_, o)| o)
+                .filter(|o| {
+                    o.controller == me
+                        && o.creature
+                        && !o.tapped
+                        && (!o.sick || o.has(KW_HASTE))
+                        && !o.has(KW_DEFENDER)
+                        && o.power > 0
+                })
+                .map(Obj::live)
+                .collect(),
+            blockers: self
+                .battlefield()
+                .map(|(_, o)| o)
+                .filter(|o| o.controller == opp && o.creature && !o.tapped)
+                .map(Obj::live)
+                .collect(),
         }
     }
 
@@ -573,6 +601,16 @@ impl Tracker {
             .collect();
         self.rec
     }
+}
+
+/// Kreatur im Spiel, für die Angriffsrechnung des Begleitfensters.
+#[derive(Clone, Debug, Default)]
+pub struct LiveCreature {
+    pub power: i32,
+    pub flying: bool,
+    /// Kann Flieger blocken (Fliegend oder Reichweite).
+    pub reach: bool,
+    pub menace: bool,
 }
 
 /// Momentaufnahme einer laufenden Partie für das Begleitfenster.
@@ -600,6 +638,10 @@ pub struct LiveState {
     pub my_untapped_creatures: u32,
     /// Bisher gesehene Karten des Gegners (grpIds).
     pub opp_cards: Vec<u32>,
+    /// Eigene Kreaturen, die jetzt angreifen könnten.
+    pub attackers: Vec<LiveCreature>,
+    /// Ungetappte Kreaturen des Gegners (mögliche Blocker).
+    pub blockers: Vec<LiveCreature>,
 }
 
 /// Liest eine Logdatei Zeile für Zeile – für das komplette Einlesen ebenso
