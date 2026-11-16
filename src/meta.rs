@@ -132,22 +132,7 @@ impl Fetcher {
             &format!("format_{format}.html"),
             max_age,
         )?;
-        let re = Regex::new(
-            r"archetype\?a=(\d+)&meta=(\d+)&f=\w+>([^<]+)</a></div>\s*<div>\s*<div[^>]*>\s*(\d+)\s*%",
-        )?;
-        let mut seen = HashSet::new();
-        let list: Vec<Archetype> = re
-            .captures_iter(&html)
-            .filter_map(|c| {
-                let id: u32 = c[1].parse().ok()?;
-                seen.insert(id).then(|| Archetype {
-                    id,
-                    meta: c[2].parse().unwrap_or(0),
-                    name: decode_entities(&c[3]),
-                    share: c[4].parse().unwrap_or(0),
-                })
-            })
-            .collect();
+        let list = parse_archetypes(&html);
         if list.is_empty() {
             bail!("Auf MTGTop8 wurden für dieses Format keine Archetypen gefunden.");
         }
@@ -161,37 +146,19 @@ impl Fetcher {
             &format!("arch_{format}_{}.html", arch.id),
             Some(12 * HOUR),
         )?;
-        Self::parse_decks(&html)
+        Ok(parse_decks(&html))
     }
 
     /// Wie [`Fetcher::decks`], aber nur aus dem Cache – ohne Netzwerkzugriff.
     pub fn cached_decks(&self, format: &str, arch: &Archetype) -> Option<Vec<DeckRef>> {
         let html = self.cached(&format!("arch_{format}_{}.html", arch.id), Some(12 * HOUR))?;
-        Self::parse_decks(&html).ok()
+        Some(parse_decks(&html))
     }
 
     /// Bereits heruntergeladene Deckliste, falls vorhanden.
     pub fn cached_decklist(&self, deck_id: u32) -> Option<String> {
         self.cached(&format!("deck_{deck_id}.txt"), None)
             .filter(|t| !t.contains("<html") && !t.trim().is_empty())
-    }
-
-    fn parse_decks(html: &str) -> Result<Vec<DeckRef>> {
-        let re = Regex::new(
-            r"(?s)event\?e=\d+&d=(\d+)&f=\w+>[^<]*</a></td>\s*<td><a class=player[^>]*>([^<]*)</a></td>\s*<td><a[^>]*>([^<]*)</a></td>\s*<td[^>]*>.*?</td>\s*<td>([^<]*)</td>\s*<td>([^<]*)</td>",
-        )?;
-        Ok(re
-            .captures_iter(html)
-            .filter_map(|c| {
-                Some(DeckRef {
-                    id: c[1].parse().ok()?,
-                    player: decode_entities(&c[2]),
-                    event: decode_entities(&c[3]),
-                    rank: decode_entities(&c[4]),
-                    date: decode_entities(&c[5]),
-                })
-            })
-            .collect())
     }
 
     /// Deckliste als Text (MTGO-Format). Listen ändern sich nie -> dauerhaft cachen.
@@ -228,18 +195,11 @@ impl Fetcher {
                 .call()
                 .map_err(|e| anyhow!("Scryfall: {e}"))?;
             let page: serde_json::Value = serde_json::from_reader(resp.into_reader())?;
-            for card in page["data"].as_array().into_iter().flatten() {
-                if let Some(n) = card["name"].as_str() {
-                    let key = name_key(n);
-                    if let Some((front, _)) = key.split_once(" // ") {
-                        names.push(front.to_string());
-                    }
-                    names.push(key);
-                }
-            }
-            match page["next_page"].as_str() {
-                Some(next) if page["has_more"].as_bool() == Some(true) => url = next.to_string(),
-                _ => break,
+            let (found, next) = parse_scryfall_page(&page);
+            names.extend(found);
+            match next {
+                Some(next) => url = next,
+                None => break,
             }
             sleep(Duration::from_millis(120)); // Scryfall bittet um 50–100 ms Abstand
         }
@@ -250,3 +210,66 @@ impl Fetcher {
         Ok(names.into_iter().collect())
     }
 }
+
+/// Archetypen aus der MTGTop8-Formatseite (jede Kennung nur einmal).
+pub fn parse_archetypes(html: &str) -> Vec<Archetype> {
+    let re = Regex::new(
+        r"archetype\?a=(\d+)&meta=(\d+)&f=\w+>([^<]+)</a></div>\s*<div>\s*<div[^>]*>\s*(\d+)\s*%",
+    )
+    .expect("gültiger Ausdruck");
+    let mut seen = HashSet::new();
+    re.captures_iter(html)
+        .filter_map(|c| {
+            let id: u32 = c[1].parse().ok()?;
+            seen.insert(id).then(|| Archetype {
+                id,
+                meta: c[2].parse().unwrap_or(0),
+                name: decode_entities(&c[3]),
+                share: c[4].parse().unwrap_or(0),
+            })
+        })
+        .collect()
+}
+
+/// Turnierdecks aus einer MTGTop8-Archetypseite.
+pub fn parse_decks(html: &str) -> Vec<DeckRef> {
+    let re = Regex::new(
+        r"(?s)event\?e=\d+&d=(\d+)&f=\w+>[^<]*</a></td>\s*<td><a class=player[^>]*>([^<]*)</a></td>\s*<td><a[^>]*>([^<]*)</a></td>\s*<td[^>]*>.*?</td>\s*<td>([^<]*)</td>\s*<td>([^<]*)</td>",
+    )
+    .expect("gültiger Ausdruck");
+    re.captures_iter(html)
+        .filter_map(|c| {
+            Some(DeckRef {
+                id: c[1].parse().ok()?,
+                player: decode_entities(&c[2]),
+                event: decode_entities(&c[3]),
+                rank: decode_entities(&c[4]),
+                date: decode_entities(&c[5]),
+            })
+        })
+        .collect()
+}
+
+/// Kartennamen (normalisiert, bei Doppelkarten auch die Vorderseite) und
+/// Adresse der nächsten Seite einer Scryfall-Suchantwort.
+pub fn parse_scryfall_page(page: &serde_json::Value) -> (Vec<String>, Option<String>) {
+    let mut names = Vec::new();
+    for card in page["data"].as_array().into_iter().flatten() {
+        if let Some(n) = card["name"].as_str() {
+            let key = name_key(n);
+            if let Some((front, _)) = key.split_once(" // ") {
+                names.push(front.to_string());
+            }
+            names.push(key);
+        }
+    }
+    let next = match page["next_page"].as_str() {
+        Some(next) if page["has_more"].as_bool() == Some(true) => Some(next.to_string()),
+        _ => None,
+    };
+    (names, next)
+}
+
+#[cfg(test)]
+#[path = "tests/meta.rs"]
+mod tests;

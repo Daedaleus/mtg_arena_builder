@@ -33,7 +33,8 @@ fn decode(bytes: &[u8]) -> Option<ColorImage> {
     Some(ColorImage::from_rgba_unmultiplied(size, img.as_raw()))
 }
 
-fn download(agent: &ureq::Agent, name: &str) -> Option<Vec<u8>> {
+/// Scryfall-Adresse für das Kartenbild (`mode` = `exact` oder `fuzzy`).
+fn image_url(mode: &str, name: &str) -> String {
     let encoded: String = name
         .bytes()
         .map(|b| match b {
@@ -41,11 +42,13 @@ fn download(agent: &ureq::Agent, name: &str) -> Option<Vec<u8>> {
             _ => format!("%{b:02X}"),
         })
         .collect();
+    format!("https://api.scryfall.com/cards/named?{mode}={encoded}&format=image&version=normal")
+}
+
+fn download(agent: &ureq::Agent, name: &str) -> Option<Vec<u8>> {
     // Erst exakter Name, sonst unscharfe Suche (z. B. bei doppelseitigen Karten).
     for mode in ["exact", "fuzzy"] {
-        let url = format!(
-            "https://api.scryfall.com/cards/named?{mode}={encoded}&format=image&version=normal"
-        );
+        let url = image_url(mode, name);
         sleep(Duration::from_millis(120));
         match agent.get(&url).set("Accept", "image/*,*/*;q=0.8").call() {
             Ok(resp) => {
@@ -63,32 +66,61 @@ fn download(agent: &ureq::Agent, name: &str) -> Option<Vec<u8>> {
     None
 }
 
-fn load(agent: &ureq::Agent, cache: &Path, name: &str) -> Option<ColorImage> {
+/// Was der Bild-Cache zu einer Karte weiß.
+enum Cached {
+    Image(ColorImage),
+    /// Scryfall kennt kein Bild (gemerkt, damit nicht erneut gefragt wird).
+    Missing,
+    Unknown,
+}
+
+fn cache_files(cache: &Path, name: &str) -> (PathBuf, PathBuf) {
     let stem = file_stem(name);
-    let file = cache.join(format!("{stem}.jpg"));
-    let missing = cache.join(format!("{stem}.none"));
+    (
+        cache.join(format!("{stem}.jpg")),
+        cache.join(format!("{stem}.none")),
+    )
+}
+
+fn from_cache(cache: &Path, name: &str) -> Cached {
+    let (file, missing) = cache_files(cache, name);
     if let Ok(bytes) = fs::read(&file) {
         if let Some(img) = decode(&bytes) {
-            return Some(img);
+            return Cached::Image(img);
         }
+        // Beschädigte Datei verwerfen und neu laden.
         let _ = fs::remove_file(&file);
     }
     if missing.exists() {
-        return None;
+        Cached::Missing
+    } else {
+        Cached::Unknown
     }
-    match download(agent, name) {
+}
+
+/// Merkt ein heruntergeladenes Bild bzw. dass es keines gibt.
+fn store(cache: &Path, name: &str, bytes: Option<&[u8]>) -> Option<ColorImage> {
+    let (file, missing) = cache_files(cache, name);
+    match bytes {
         Some(bytes) => {
-            let img = decode(&bytes);
+            let img = decode(bytes);
             if img.is_some() {
-                let _ = fs::write(&file, &bytes);
+                let _ = fs::write(&file, bytes);
             }
             img
         }
         None => {
-            // Merken, damit nicht bei jedem Überfahren neu gefragt wird.
             let _ = fs::write(&missing, b"");
             None
         }
+    }
+}
+
+fn load(agent: &ureq::Agent, cache: &Path, name: &str) -> Option<ColorImage> {
+    match from_cache(cache, name) {
+        Cached::Image(img) => Some(img),
+        Cached::Missing => None,
+        Cached::Unknown => store(cache, name, download(agent, name).as_deref()),
     }
 }
 
@@ -112,3 +144,7 @@ pub fn spawn(
     });
     tx
 }
+
+#[cfg(test)]
+#[path = "tests/images.rs"]
+mod tests;

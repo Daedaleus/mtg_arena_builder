@@ -68,17 +68,20 @@ fn data_dir_from_log() -> Option<PathBuf> {
     for log in player_log_candidates() {
         let Ok(bytes) = fs::read(&log) else { continue };
         let head = String::from_utf8_lossy(&bytes[..bytes.len().min(4096)]).to_string();
-        for line in head.lines() {
-            if let Some(rest) = line.strip_prefix("Mono path[0] = '") {
-                let path = rest.trim_end_matches('\'').trim_end_matches("/Managed");
-                let p = PathBuf::from(path);
-                if p.is_dir() {
-                    return Some(p);
-                }
-            }
+        if let Some(p) = install_from_log_head(&head).filter(|p| p.is_dir()) {
+            return Some(p);
         }
     }
     None
+}
+
+/// `MTGA_Data`-Verzeichnis aus der Zeile `Mono path[0] = '…/MTGA_Data/Managed'`.
+fn install_from_log_head(head: &str) -> Option<PathBuf> {
+    head.lines().find_map(|line| {
+        let rest = line.strip_prefix("Mono path[0] = '")?;
+        let path = rest.trim_end_matches('\'').trim_end_matches("/Managed");
+        Some(PathBuf::from(path))
+    })
 }
 
 /// Kandidaten für `MTGA_Data` (bzw. das Verzeichnis, das `Downloads/Raw` enthält).
@@ -148,3 +151,7 @@ pub fn find_card_db(user_override: Option<&str>) -> Result<PathBuf> {
             )
         })
 }
+
+#[cfg(test)]
+#[path = "tests/paths.rs"]
+mod tests;

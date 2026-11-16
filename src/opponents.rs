@@ -43,56 +43,90 @@ pub fn color_label(letters: &str) -> String {
     }
 }
 
-/// Erkennt das gegnerische Deck einer Partie.
-pub fn classify(g: &GameRecord, db: &CardDb, meta: &[MetaArchetype]) -> String {
-    let seen: HashSet<String> = g
-        .opp_cards
-        .keys()
-        .filter_map(|grp| db.cards.get(grp))
+/// Anteil der Turnierlisten eines Archetyps, die eine Karte spielen.
+#[derive(Clone, Debug, Default)]
+pub struct ArchShare {
+    pub name: String,
+    /// Kartenschlüssel -> Anteil der Listen (0..=1).
+    pub share: HashMap<String, f32>,
+}
+
+/// Anteile je Karte für alle Archetypen mit geladenen Turnierlisten
+/// (Haupt- und Nebendeck; jede Karte zählt pro Liste einmal).
+pub fn arch_shares(archetypes: &[MetaArchetype], db: &CardDb) -> Vec<ArchShare> {
+    archetypes
+        .iter()
+        .filter(|a| !a.lists.is_empty())
+        .map(|a| {
+            let n = a.lists.len() as f32;
+            let mut share: HashMap<String, f32> = HashMap::new();
+            for list in &a.lists {
+                let keys: HashSet<String> = list
+                    .main
+                    .iter()
+                    .chain(&list.side)
+                    .filter_map(|e| db.resolve(&e.name))
+                    .collect();
+                for k in keys {
+                    *share.entry(k).or_insert(0.0) += 1.0 / n;
+                }
+            }
+            ArchShare {
+                name: a.name.clone(),
+                share,
+            }
+        })
+        .collect()
+}
+
+/// Schlüssel der gesehenen Nichtland-Karten.
+pub fn seen_keys<'a>(cards: impl IntoIterator<Item = &'a u32>, db: &CardDb) -> HashSet<String> {
+    cards
+        .into_iter()
+        .filter_map(|g| db.cards.get(g))
         .filter(|c| !c.is_land())
         .map(|c| name_key(&c.name))
-        .collect();
-    let mut best: Option<(&str, usize, f32)> = None;
-    for arch in meta.iter().filter(|a| !a.lists.is_empty()) {
-        let n = arch.lists.len() as f32;
-        let mut share: HashMap<String, f32> = HashMap::new();
-        for list in &arch.lists {
-            let keys: HashSet<String> = list
-                .main
+        .collect()
+}
+
+/// Archetyp, zu dem die gesehenen Karten am besten passen. Mindestens drei
+/// typische Karten bzw. die Hälfte der gesehenen Karten (wenigstens zwei)
+/// müssen passen.
+pub fn match_archetype<'a>(
+    seen: &HashSet<String>,
+    shares: &'a [ArchShare],
+) -> Option<&'a ArchShare> {
+    let (arch, hits, _) = shares
+        .iter()
+        .map(|a| {
+            let hits: Vec<f32> = seen
                 .iter()
-                .chain(&list.side)
-                .filter_map(|e| db.resolve(&e.name))
+                .filter_map(|k| a.share.get(k).copied())
                 .collect();
-            for k in keys {
-                *share.entry(k).or_insert(0.0) += 1.0 / n;
-            }
-        }
-        let hits: Vec<f32> = seen.iter().filter_map(|k| share.get(k).copied()).collect();
-        let score: f32 = hits.iter().sum();
-        if best.is_none_or(|b| score > b.2) {
-            best = Some((&arch.name, hits.len(), score));
-        }
-    }
-    // Mindestens drei typische Karten bzw. die Hälfte der gesehenen Karten müssen passen.
-    match best {
-        Some((name, hits, _))
-            if hits >= 3 || (seen.len() >= 2 && hits * 2 >= seen.len() && hits >= 2) =>
-        {
-            format!("{name} (erkannt)")
-        }
-        _ => color_label(&games::opp_colors(g, db)),
+            (a, hits.len(), hits.iter().sum::<f32>())
+        })
+        .max_by(|a, b| a.2.total_cmp(&b.2).then(b.0.name.cmp(&a.0.name)))?;
+    (hits >= 3 || (seen.len() >= 2 && hits * 2 >= seen.len() && hits >= 2)).then_some(arch)
+}
+
+/// Erkennt das gegnerische Deck einer Partie.
+pub fn classify(g: &GameRecord, db: &CardDb, shares: &[ArchShare]) -> String {
+    let seen = seen_keys(g.opp_cards.keys(), db);
+    match match_archetype(&seen, shares) {
+        Some(arch) => format!("{} (erkannt)", arch.name),
+        None => color_label(&games::opp_colors(g, db)),
     }
 }
 
 /// Fasst die Partien nach Gegnertyp zusammen, meiste Niederlagen zuerst.
-pub fn analyze(games: &[GameRecord], db: &CardDb, meta: &[MetaArchetype]) -> Vec<OppGroup> {
+pub fn analyze(games: &[GameRecord], db: &CardDb, shares: &[ArchShare]) -> Vec<OppGroup> {
     let mut groups: Vec<OppGroup> = Vec::new();
     let mut damage: Vec<HashMap<String, u32>> = Vec::new();
     for (i, g) in games.iter().enumerate() {
         if g.won.is_none() {
             continue;
         }
-        let name = classify(g, db, meta);
+        let name = classify(g, db, shares);
         let pos = match groups.iter().position(|x| x.name == name) {
             Some(p) => p,
             None => {
@@ -128,3 +162,7 @@ pub fn analyze(games: &[GameRecord], db: &CardDb, meta: &[MetaArchetype]) -> Vec
     });
     groups
 }
+
+#[cfg(test)]
+#[path = "tests/opponents.rs"]
+mod tests;

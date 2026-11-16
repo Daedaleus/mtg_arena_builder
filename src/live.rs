@@ -4,10 +4,9 @@
 //! Es wird nur die Logdatei gelesen, die Arena für Community-Tools schreibt
 //! („Detaillierte Logs“). Ins Spiel greift das Fenster nicht ein.
 
-use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex, RwLock};
 use std::thread::sleep;
@@ -15,7 +14,7 @@ use std::time::{Duration, Instant};
 
 use eframe::egui;
 
-use crate::carddb::{Card, CardDb, name_key};
+use crate::carddb::{Card, CardDb};
 use crate::games::{GameRecord, LiveCreature, LiveState, LogParser};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -38,11 +37,7 @@ pub struct CompanionView {
     pub opp_cards: Vec<String>,
 }
 
-/// Anteil der Turnierlisten eines Archetyps, die eine Karte spielen.
-pub struct ArchShare {
-    pub name: String,
-    pub share: HashMap<String, f32>,
-}
+pub use crate::opponents::{ArchShare, arch_shares};
 
 /// Zwischen Live-Thread, Begleitfenster und Hauptfenster geteilter Zustand.
 #[derive(Default)]
@@ -88,29 +83,10 @@ fn guess_opponent<'a>(
     db: &CardDb,
     meta: &'a [ArchShare],
 ) -> (String, Option<&'a ArchShare>) {
-    let seen: HashSet<String> = cards
-        .iter()
-        .filter_map(|g| db.cards.get(g))
-        .filter(|c| !c.is_land())
-        .map(|c| name_key(&c.name))
-        .collect();
-    let best = meta
-        .iter()
-        .map(|a| {
-            let hits: Vec<f32> = seen
-                .iter()
-                .filter_map(|k| a.share.get(k).copied())
-                .collect();
-            (a, hits.len(), hits.iter().sum::<f32>())
-        })
-        .max_by(|a, b| a.2.total_cmp(&b.2));
-    match best {
-        Some((a, hits, _))
-            if hits >= 3 || (seen.len() >= 2 && hits * 2 >= seen.len() && hits >= 2) =>
-        {
-            (format!("vermutlich {}", a.name), Some(a))
-        }
-        _ => {
+    let seen = crate::opponents::seen_keys(cards, db);
+    match crate::opponents::match_archetype(&seen, meta) {
+        Some(a) => (format!("vermutlich {}", a.name), Some(a)),
+        None => {
             let ids: Vec<u32> = cards.to_vec();
             let colors = crate::games::deck_colors(&ids, db);
             let label = if colors.is_empty() {
@@ -503,69 +479,116 @@ fn best_burn(hand: &[&Card], mana: u32) -> (u32, Vec<String>) {
     best
 }
 
+/// Liest eine wachsende Logdatei zeilenweise nach.
+#[derive(Default)]
+pub struct LogTail {
+    pos: u64,
+    partial: Vec<u8>,
+}
+
+impl LogTail {
+    /// Übergibt alle seit dem letzten Aufruf vollständig geschriebenen Zeilen
+    /// (ohne Zeilenende). Ist die Datei kürzer geworden, wurde sie neu
+    /// begonnen: Dann wird nichts gelesen, der Zustand zurückgesetzt und
+    /// `true` zurückgegeben.
+    pub fn read(&mut self, path: &Path, mut on_line: impl FnMut(&[u8])) -> bool {
+        let len = std::fs::metadata(path).map(|m| m.len()).unwrap_or(0);
+        if len < self.pos {
+            self.pos = 0;
+            self.partial.clear();
+            return true;
+        }
+        if len > self.pos
+            && let Ok(mut file) = File::open(path)
+            && file.seek(SeekFrom::Start(self.pos)).is_ok()
+        {
+            let mut buf = Vec::new();
+            if let Ok(n) = file.take(len - self.pos).read_to_end(&mut buf) {
+                self.pos += n as u64;
+                self.partial.extend_from_slice(&buf);
+                if let Some(cut) = self.partial.iter().rposition(|b| *b == b'\n') {
+                    let rest = self.partial.split_off(cut + 1);
+                    for line in self.partial.split(|b| *b == b'\n') {
+                        if !line.is_empty() {
+                            on_line(line.strip_suffix(b"\r").unwrap_or(line));
+                        }
+                    }
+                    self.partial = rest;
+                }
+            }
+        }
+        false
+    }
+}
+
 fn find_log() -> Option<PathBuf> {
     crate::paths::player_log_candidates()
         .into_iter()
         .find(|p| p.is_file())
 }
 
+/// Verfolgt das Arena-Log und merkt sich die zuletzt beendete Partie.
+pub struct Follower {
+    parser: LogParser,
+    tail: LogTail,
+    last: Option<(GameRecord, Instant)>,
+    last_id: String,
+    catching_up: bool,
+}
+
+impl Default for Follower {
+    fn default() -> Follower {
+        Follower {
+            parser: LogParser::default(),
+            tail: LogTail::default(),
+            last: None,
+            last_id: String::new(),
+            catching_up: true,
+        }
+    }
+}
+
+impl Follower {
+    /// Liest neue Logzeilen und berechnet die Anzeige.
+    pub fn poll(&mut self, path: &Path, db: &CardDb, meta: &[ArchShare]) -> CompanionView {
+        let parser = &mut self.parser;
+        if self.tail.read(path, |line| parser.feed(line)) {
+            // Arena wurde neu gestartet und hat ein neues Log begonnen.
+            self.parser = LogParser::default();
+            self.catching_up = true;
+            let parser = &mut self.parser;
+            self.tail.read(path, |line| parser.feed(line));
+        }
+        self.parser.take_finished();
+        if let Some(g) = &self.parser.last_finished
+            && g.id != self.last_id
+        {
+            self.last_id = g.id.clone();
+            // Beim ersten Nachlesen des Logs beendete Partien nicht als „gerade vorbei“ melden.
+            if !self.catching_up {
+                self.last = Some((g.clone(), Instant::now()));
+            }
+        }
+        self.catching_up = false;
+        let live = self.parser.live();
+        build_view(live.as_ref(), self.last.as_ref(), db, meta)
+    }
+}
+
 /// Startet das Mitlesen im Hintergrund.
 pub fn spawn(db: Arc<CardDb>, shared: Arc<Shared>, ctx: egui::Context, viewport: egui::ViewportId) {
     std::thread::spawn(move || {
-        let mut parser = LogParser::default();
-        let mut pos = 0u64;
-        let mut partial: Vec<u8> = Vec::new();
-        let mut last: Option<(GameRecord, Instant)> = None;
-        let mut last_id = String::new();
-        let mut catching_up = true;
+        let mut follower = Follower::default();
         loop {
-            let Some(path) = find_log() else {
-                let mut view = shared.view.lock().unwrap();
-                view.status = "Arena-Log nicht gefunden".into();
-                drop(view);
-                sleep(Duration::from_secs(3));
-                continue;
-            };
-            let len = std::fs::metadata(&path).map(|m| m.len()).unwrap_or(0);
-            if len < pos {
-                // Arena wurde neu gestartet und hat ein neues Log begonnen.
-                parser = LogParser::default();
-                pos = 0;
-                partial.clear();
-                catching_up = true;
-            }
-            if len > pos
-                && let Ok(mut file) = File::open(&path)
-                && file.seek(SeekFrom::Start(pos)).is_ok()
-            {
-                let mut buf = Vec::new();
-                if let Ok(n) = file.take(len - pos).read_to_end(&mut buf) {
-                    pos += n as u64;
-                    partial.extend_from_slice(&buf);
-                    if let Some(cut) = partial.iter().rposition(|b| *b == b'\n') {
-                        let rest = partial.split_off(cut + 1);
-                        for line in partial.split(|b| *b == b'\n') {
-                            parser.feed(line.strip_suffix(b"\r").unwrap_or(line));
-                        }
-                        partial = rest;
-                    }
-                    parser.take_finished();
+            let view = match find_log() {
+                Some(path) => {
+                    let meta = shared.meta.read().unwrap();
+                    follower.poll(&path, &db, &meta)
                 }
-            }
-            if let Some(g) = &parser.last_finished
-                && g.id != last_id
-            {
-                last_id = g.id.clone();
-                // Beim ersten Nachlesen des Logs beendete Partien nicht als „gerade vorbei“ melden.
-                if !catching_up {
-                    last = Some((g.clone(), Instant::now()));
-                }
-            }
-            catching_up = false;
-            let live = parser.live();
-            let view = {
-                let meta = shared.meta.read().unwrap();
-                build_view(live.as_ref(), last.as_ref(), &db, &meta)
+                None => CompanionView {
+                    status: "Arena-Log nicht gefunden".into(),
+                    ..Default::default()
+                },
             };
             let changed = {
                 let mut cur = shared.view.lock().unwrap();
@@ -616,46 +639,5 @@ pub fn draw(ui: &mut egui::Ui, view: &CompanionView) {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn c(power: i32, flying: bool, reach: bool, menace: bool) -> LiveCreature {
-        LiveCreature {
-            power,
-            flying,
-            reach,
-            menace,
-            ..Default::default()
-        }
-    }
-
-    #[test]
-    fn combat_damage() {
-        // Kein Blocker: alles kommt durch
-        assert_eq!(
-            unblocked_damage(&[c(2, false, false, false), c(3, false, false, false)], &[]),
-            5
-        );
-        // Ein Blocker hält den stärksten Angreifer auf
-        assert_eq!(
-            unblocked_damage(
-                &[c(2, false, false, false), c(3, false, false, false)],
-                &[c(1, false, false, false)]
-            ),
-            2
-        );
-        // Flieger kann vom Bodenblocker nicht geblockt werden
-        assert_eq!(
-            unblocked_damage(
-                &[c(4, true, true, false), c(1, false, false, false)],
-                &[c(5, false, false, false)]
-            ),
-            4
-        );
-        // Bedrohlich braucht zwei Blocker
-        assert_eq!(
-            unblocked_damage(&[c(3, false, false, true)], &[c(2, false, false, false)]),
-            3
-        );
-    }
-}
+#[path = "tests/live.rs"]
+mod tests;

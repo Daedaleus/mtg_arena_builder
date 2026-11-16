@@ -96,7 +96,7 @@ pub struct DeckEval {
     pub lines: Vec<LineEval>,
 }
 
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Summary {
     pub total: u32,
     pub missing: u32,
@@ -247,22 +247,5 @@ pub fn export_arena(
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn parses_mtgo_and_arena_formats() {
-        let d = parse("4 Dream Beavers\n3 Swamp\nSideboard\n2 Duress\n");
-        assert_eq!((d.main.len(), d.side.len()), (2, 1));
-
-        let d = parse(
-            "Deck\n4 Watery Grave (EOE) 261\n2 Fire // Ice (MH2) 290\n\nSideboard\n1 Ghost Vacuum (DSK) 248\n",
-        );
-        assert_eq!(d.main[0].name, "Watery Grave");
-        assert_eq!(d.main[1].name, "Fire // Ice");
-        assert_eq!(d.side[0].name, "Ghost Vacuum");
-
-        let d = parse("4 Island\n\n2 Negate\n");
-        assert_eq!((d.main.len(), d.side.len()), (1, 1));
-    }
-}
+#[path = "tests/deck.rs"]
+mod tests;

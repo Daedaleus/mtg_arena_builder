@@ -51,9 +51,9 @@ pub const ROLE_DRAW: u8 = 4;
 /// Räumt das ganze Spielfeld ab – trifft auch die eigenen Kreaturen.
 pub const ROLE_WIPE: u8 = 8;
 
-const TYPE_INSTANT: u8 = 4;
-const TYPE_CREATURE: u8 = 2;
-const TYPE_SORCERY: u8 = 10;
+pub const TYPE_INSTANT: u8 = 4;
+pub const TYPE_CREATURE: u8 = 2;
+pub const TYPE_SORCERY: u8 = 10;
 
 /// Schaden, den ein Fähigkeitstext einem Spieler zufügen kann (0 = keiner).
 /// Erfasst z. B. „deals 3 damage to any target“ oder „… to each opponent“.
@@ -235,6 +235,42 @@ fn pretty_mana(mana: &str) -> String {
         .collect()
 }
 
+/// Leitet Rollen, Brandschaden und „kommt getappt“ aus den Fähigkeiten ab.
+fn apply_abilities(
+    card: &mut Card,
+    roles: &HashMap<u32, u8>,
+    burn: &HashMap<u32, u32>,
+    tapped: &HashSet<u32>,
+) {
+    card.roles = card
+        .abilities
+        .iter()
+        .filter_map(|a| roles.get(a))
+        .fold(0, |m, r| m | r);
+    card.enters_tapped = card.abilities.iter().any(|a| tapped.contains(a));
+    // Brandschaden zählt nur bei Spontanzaubern und Hexereien – bei Kreaturen
+    // steckt er oft in Fähigkeiten, die nicht sofort wirken.
+    if card
+        .types
+        .iter()
+        .any(|t| *t == TYPE_INSTANT || *t == TYPE_SORCERY)
+    {
+        card.burn = card
+            .abilities
+            .iter()
+            .filter_map(|a| burn.get(a))
+            .copied()
+            .max()
+            .unwrap_or(0);
+    }
+}
+
+/// Kommt ein Land laut Fähigkeitstext immer getappt ins Spiel?
+fn enters_tapped_of(text: &str) -> bool {
+    let lower = text.to_lowercase();
+    lower.contains("enters tapped") && !lower.contains("unless")
+}
+
 impl CardDb {
     pub fn load(path: &Path) -> Result<CardDb> {
         let conn = Connection::open_with_flags(
@@ -344,8 +380,7 @@ impl CardDb {
                 if roles != 0 {
                     ability_roles.insert(id, roles);
                 }
-                let lower = text.to_lowercase();
-                if lower.contains("enters tapped") && !lower.contains("unless") {
+                if enters_tapped_of(&text) {
                     ability_tapped.insert(id);
                 }
                 let burn = burn_of(&text);
@@ -355,34 +390,23 @@ impl CardDb {
             }
         }
 
-        let mut cards = HashMap::new();
-        let mut by_name: HashMap<String, Vec<u32>> = HashMap::new();
+        let mut cards = Vec::new();
         for card in rows {
             let mut card = card?;
             if card.name.is_empty() {
                 continue;
             }
-            card.roles = card
-                .abilities
-                .iter()
-                .filter_map(|a| ability_roles.get(a))
-                .fold(0, |m, r| m | r);
-            card.enters_tapped = card.abilities.iter().any(|a| ability_tapped.contains(a));
-            // Brandschaden zählt nur bei Spontanzaubern und Hexereien – bei Kreaturen
-            // steckt er oft in Fähigkeiten, die nicht sofort wirken.
-            if card
-                .types
-                .iter()
-                .any(|t| *t == TYPE_INSTANT || *t == TYPE_SORCERY)
-            {
-                card.burn = card
-                    .abilities
-                    .iter()
-                    .filter_map(|a| ability_burn.get(a))
-                    .copied()
-                    .max()
-                    .unwrap_or(0);
-            }
+            apply_abilities(&mut card, &ability_roles, &ability_burn, &ability_tapped);
+            cards.push(card);
+        }
+        Ok(CardDb::from_cards(cards, version))
+    }
+
+    /// Baut die Datenbank aus fertigen Karten (z. B. für Tests).
+    pub fn from_cards(list: Vec<Card>, version: impl Into<String>) -> CardDb {
+        let mut cards = HashMap::new();
+        let mut by_name: HashMap<String, Vec<u32>> = HashMap::new();
+        for card in list {
             by_name
                 .entry(name_key(&card.name))
                 .or_default()
@@ -396,12 +420,12 @@ impl CardDb {
                 front_names.insert(front.to_string(), key.clone());
             }
         }
-        Ok(CardDb {
+        CardDb {
             cards,
             by_name,
             front_names,
-            version,
-        })
+            version: version.into(),
+        }
     }
 
     /// Löst einen Kartennamen (auch nur die Vorderseite) in den DB-Schlüssel auf.
@@ -467,26 +491,5 @@ pub fn rarity_label(r: u8) -> &'static str {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::burn_of;
-
-    #[test]
-    fn burn_from_text() {
-        assert_eq!(burn_of("Kicker {o4}"), 0);
-        assert_eq!(
-            burn_of(
-                "CARDNAME deals 2 damage to any target. If this spell was kicked, it deals 4 damage instead."
-            ),
-            2
-        );
-        assert_eq!(
-            burn_of("CARDNAME deals 3 damage to any target. Tap up to one target creature."),
-            3
-        );
-        assert_eq!(
-            burn_of("CARDNAME deals 3 damage to up to one target creature or planeswalker."),
-            0
-        );
-        assert_eq!(burn_of("Lightning deals 2 damage to each opponent."), 2);
-    }
-}
+#[path = "tests/carddb.rs"]
+mod tests;

@@ -178,3 +178,33 @@ pub fn plan(
     }
     plan
 }
+
+/// Wie viele fehlende Exemplare deckt die Ersatzkarte `rep` ab?
+/// Standardländer gibt es in Arena unbegrenzt.
+pub fn replaced_qty(db: &CardDb, owned: &HashMap<String, u32>, rep: &str, missing: u32) -> u32 {
+    if db.representative(rep).is_some_and(|c| c.basic) {
+        missing
+    } else {
+        owned.get(rep).copied().unwrap_or(0).min(missing)
+    }
+}
+
+/// Zusammenfassung einer Budget-Version für die Statuszeile.
+pub fn plan_text(plan: &BudgetPlan) -> String {
+    let c = plan.crafted;
+    let mut text = format!(
+        "Budget-Version: {} Karten durch eigene ersetzt, mit Wildcards herzustellen: {} Common, {} Uncommon, {} Rare, {} Mythic.",
+        plan.replaced, c[0], c[1], c[2], c[3]
+    );
+    if !plan.unresolved.is_empty() {
+        text.push_str(&format!(
+            " Ohne passenden Ersatz: {}.",
+            plan.unresolved.join(", ")
+        ));
+    }
+    text
+}
+
+#[cfg(test)]
+#[path = "tests/budget.rs"]
+mod tests;

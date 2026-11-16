@@ -6,7 +6,6 @@ use std::sync::mpsc::{Receiver, Sender, channel};
 
 use eframe::egui::{self, Color32, RichText};
 use egui_extras::{Column, TableBuilder};
-use serde::{Deserialize, Serialize};
 
 use crate::budget;
 use crate::builder::{self, Built};
@@ -20,6 +19,8 @@ use crate::live;
 use crate::meta::{Archetype, DeckRef, FORMATS, Fetcher};
 use crate::opponents;
 use crate::paths;
+use crate::present::{self, Fit, ago, cost_key, cost_tooltip, event_label, ratio};
+use crate::settings::{Settings, SettingsFile};
 use crate::similar::{self, Suggestion};
 
 const GREEN: Color32 = Color32::from_rgb(110, 200, 120);
@@ -38,82 +39,6 @@ fn rarity_color(r: u8) -> Color32 {
         4 => Color32::from_rgb(230, 195, 100),
         5 => Color32::from_rgb(240, 130, 60),
         _ => Color32::GRAY,
-    }
-}
-
-/// Sortierschlüssel „wie teuer ist das Deck für mich“: erst nicht verfügbare
-/// Karten, dann ob die Wildcards reichen, dann Rares/Mythics (Mythic zählt doppelt).
-fn cost_key(s: &Summary, wildcards: [u32; 4]) -> (u32, bool, u32, u32, u32) {
-    (
-        s.unavailable,
-        !s.craftable(wildcards),
-        s.need[2] + 2 * s.need[3],
-        s.need[1],
-        s.need[0],
-    )
-}
-
-fn cost_tooltip(s: &Summary) -> String {
-    let mut text = format!(
-        "{:.0} % vorhanden ({} von {} Karten)\nFehlt: {} Common, {} Uncommon, {} Rare, {} Mythic",
-        s.percent().floor(),
-        s.total - s.missing,
-        s.total,
-        s.need[0],
-        s.need[1],
-        s.need[2],
-        s.need[3]
-    );
-    if s.unavailable > 0 {
-        text.push_str(&format!(
-            "\n{} Karten gibt es in Arena nicht",
-            s.unavailable
-        ));
-    }
-    text
-}
-
-/// Alles, was einen Neustart überleben soll (`settings.json`).
-#[derive(Serialize, Deserialize)]
-#[serde(default)]
-struct Settings {
-    mtga_dir: String,
-    /// Begleitfenster geöffnet?
-    companion: bool,
-    /// Textgröße (Zoomfaktor der Oberfläche).
-    zoom: f32,
-    /// „Erste Schritte“ ausgeblendet?
-    onboarding_hidden: bool,
-    format: usize,
-    include_side: bool,
-    with_sets: bool,
-    sort_by_fit: bool,
-    /// Aktiver Reiter: 0 = Turnierdecks, 1 = eigene Liste, 2 = aus Sammlung.
-    tab: u8,
-    paste_text: String,
-    sel_arch: Option<u32>,
-    sel_deck: Option<u32>,
-    /// Gewählte Ersatzkarten: (Deck, Kartenschlüssel, Ersatz).
-    replacements: Vec<(u32, String, String)>,
-}
-
-impl Default for Settings {
-    fn default() -> Settings {
-        Settings {
-            mtga_dir: String::new(),
-            companion: false,
-            zoom: 1.0,
-            onboarding_hidden: false,
-            format: 0,
-            include_side: true,
-            with_sets: true,
-            sort_by_fit: false,
-            tab: 0,
-            paste_text: String::new(),
-            sel_arch: None,
-            sel_deck: None,
-            replacements: Vec::new(),
-        }
     }
 }
 
@@ -264,8 +189,7 @@ pub struct App {
     pending: usize,
     syncing: bool,
     sort_by_fit: bool,
-    /// Zuletzt geschriebener Stand von `settings.json`.
-    saved_json: Vec<u8>,
+    settings_file: SettingsFile,
     /// Aus der Sammlung gebaute Deckvorschläge (None = noch nicht berechnet).
     built: Option<Vec<Built>>,
     sel_built: usize,
@@ -298,15 +222,14 @@ pub struct App {
 impl App {
     pub fn new(cc: &eframe::CreationContext<'_>) -> App {
         let data_dir = paths::data_dir();
-        let settings: Settings =
-            paths::read_json(&data_dir.join("settings.json")).unwrap_or_default();
+        let (settings_file, settings) = SettingsFile::load(&data_dir);
 
         // Etwas großzügigere Abstände und die gewählte Textgröße.
         cc.egui_ctx.style_mut(|style| {
             style.spacing.item_spacing = egui::vec2(8.0, 6.0);
             style.spacing.button_padding = egui::vec2(8.0, 4.0);
         });
-        cc.egui_ctx.set_zoom_factor(settings.zoom.clamp(0.8, 1.6));
+        cc.egui_ctx.set_zoom_factor(settings.zoom());
 
         let (tx_job, rx_job) = channel();
         let (tx_msg, rx_msg) = channel();
@@ -322,12 +245,7 @@ impl App {
             })
         };
 
-        let repl = settings
-            .replacements
-            .iter()
-            .cloned()
-            .map(|(deck, key, rep)| ((deck, key), rep))
-            .collect();
+        let repl = settings.replacement_map();
         let mut app = App {
             sort_by_fit: settings.sort_by_fit,
             tab: match settings.tab {
@@ -361,7 +279,7 @@ impl App {
             status: String::new(),
             pending: 0,
             syncing: false,
-            saved_json: Vec::new(),
+            settings_file,
             built: None,
             sel_built: 0,
             built_lists: 0,
@@ -434,19 +352,8 @@ impl App {
         self.settings.paste_text = self.paste_text.clone();
         self.settings.sel_arch = self.sel_arch;
         self.settings.sel_deck = self.sel_deck;
-        let mut replacements: Vec<(u32, String, String)> = self
-            .repl
-            .iter()
-            .map(|((deck, key), rep)| (*deck, key.clone(), rep.clone()))
-            .collect();
-        replacements.sort();
-        self.settings.replacements = replacements;
-        if let Ok(json) = serde_json::to_vec_pretty(&self.settings)
-            && json != self.saved_json
-            && paths::write_atomic(&self.data_dir.join("settings.json"), &json).is_ok()
-        {
-            self.saved_json = json;
-        }
+        self.settings.set_replacements(&self.repl);
+        self.settings_file.save(&self.settings);
     }
 
     fn load_db(&mut self) {
@@ -681,16 +588,9 @@ impl App {
         let Some(rep) = self.repl.get(&(deck_id, key.clone())) else {
             return 0;
         };
-        // Standardländer gibt es in Arena unbegrenzt.
-        let basic = self
-            .db
-            .as_ref()
-            .and_then(|db| db.representative(rep))
-            .is_some_and(|c| c.basic);
-        if basic {
-            line.missing
-        } else {
-            self.owned.get(rep).copied().unwrap_or(0).min(line.missing)
+        match &self.db {
+            Some(db) => budget::replaced_qty(db, &self.owned, rep, line.missing),
+            None => 0,
         }
     }
 
@@ -728,20 +628,10 @@ impl App {
             }
         }
         self.repl.retain(|k, _| k.0 != deck_id);
-        for (key, rep) in plan.replacements {
-            self.repl.insert((deck_id, key), rep);
+        for (key, rep) in &plan.replacements {
+            self.repl.insert((deck_id, key.clone()), rep.clone());
         }
-        let c = plan.crafted;
-        let mut text = format!(
-            "Budget-Version: {} Karten durch eigene ersetzt, mit Wildcards herzustellen: {} Common, {} Uncommon, {} Rare, {} Mythic.",
-            plan.replaced, c[0], c[1], c[2], c[3]
-        );
-        if !plan.unresolved.is_empty() {
-            text.push_str(&format!(
-                " Ohne passenden Ersatz: {}.",
-                plan.unresolved.join(", ")
-            ));
-        }
+        let text = budget::plan_text(&plan);
         self.status = text;
     }
 
@@ -761,28 +651,14 @@ impl App {
 
     /// Farbe + Kurztext: was das Deck an Wildcards kostet.
     fn fit_text(&self, s: &Summary) -> (Color32, String) {
-        if self.collection.is_none() {
-            return (Color32::GRAY, "–".into());
-        }
-        if s.complete() {
-            return (GREEN, "komplett".into());
-        }
-        let mut text = if s.need[2] + s.need[3] > 0 {
-            format!("{} R / {} M", s.need[2], s.need[3])
-        } else {
-            format!("nur {} C/U", s.need[0] + s.need[1])
+        let (fit, text) = present::fit(s, self.collection.is_some(), self.wildcards());
+        let color = match fit {
+            Fit::Unknown => Color32::GRAY,
+            Fit::Complete => GREEN,
+            Fit::Craftable => YELLOW,
+            Fit::TooExpensive => RED,
         };
-        if s.unavailable > 0 {
-            text.push_str(&format!(" (+{} n. v.)", s.unavailable));
-        }
-        (
-            if s.craftable(self.wildcards()) {
-                YELLOW
-            } else {
-                RED
-            },
-            text,
-        )
+        (color, text)
     }
 
     /// Günstigstes bereits bewertetes Deck eines Archetyps.
@@ -1624,42 +1500,6 @@ impl eframe::App for App {
 
 // ------------------------------------------------------- Meine Partien ----
 
-fn event_label(event: &str) -> String {
-    match event {
-        "Ladder" => "Rangliste".into(),
-        "Traditional_Ladder" => "Rangliste Bo3".into(),
-        "Play" => "Spielen".into(),
-        "Traditional_Play" => "Spielen Bo3".into(),
-        "DualColorPrecons" => "Starterdecks".into(),
-        "" => "?".into(),
-        e if e.starts_with("WelcomeDeckDuels") => "Willkommens-Duelle".into(),
-        e if e.starts_with("ColorChallenge") => "Farb-Challenge".into(),
-        e => e.replace('_', " "),
-    }
-}
-
-fn ago(ms: u64) -> String {
-    let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_millis() as u64)
-        .unwrap_or(0);
-    let secs = now.saturating_sub(ms) / 1000;
-    match secs {
-        0..=89 => "gerade eben".into(),
-        90..=5399 => format!("vor {} Min.", secs / 60),
-        5400..=172_799 => format!("vor {} Std.", secs / 3600),
-        _ => format!("vor {} Tagen", secs / 86_400),
-    }
-}
-
-fn ratio(won: usize, total: usize) -> String {
-    if total == 0 {
-        "–".into()
-    } else {
-        format!("{won} von {total} gewonnen")
-    }
-}
-
 impl App {
     fn games_tab(&mut self, ui: &mut egui::Ui) {
         // Beim Öffnen des Reiters automatisch nachladen (höchstens einmal pro Minute).
@@ -1738,11 +1578,11 @@ impl App {
             return;
         }
         let r = games::report(&games, db);
-        let meta = self.meta_archetypes();
-        let opp_groups = opponents::analyze(&games, db, &meta);
+        let shares = opponents::arch_shares(&self.meta_archetypes(), db);
+        let opp_groups = opponents::analyze(&games, db, &shares);
         let opp_names: Vec<String> = games
             .iter()
-            .map(|g| opponents::classify(g, db, &meta))
+            .map(|g| opponents::classify(g, db, &shares))
             .collect();
         let mut clicked: Option<usize> = None;
 
@@ -2110,30 +1950,7 @@ impl App {
             && let Some(db) = &self.db
         {
             self.live_meta_lists = self.lists.len();
-            let shares: Vec<live::ArchShare> = self
-                .meta_archetypes()
-                .into_iter()
-                .filter(|a| !a.lists.is_empty())
-                .map(|a| {
-                    let n = a.lists.len() as f32;
-                    let mut share: HashMap<String, f32> = HashMap::new();
-                    for list in &a.lists {
-                        let keys: HashSet<String> = list
-                            .main
-                            .iter()
-                            .chain(&list.side)
-                            .filter_map(|e| db.resolve(&e.name))
-                            .collect();
-                        for k in keys {
-                            *share.entry(k).or_insert(0.0) += 1.0 / n;
-                        }
-                    }
-                    live::ArchShare {
-                        name: a.name,
-                        share,
-                    }
-                })
-                .collect();
+            let shares = opponents::arch_shares(&self.meta_archetypes(), db);
             *shared.meta.write().unwrap() = shares;
         }
         if shared

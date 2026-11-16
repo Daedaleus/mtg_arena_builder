@@ -100,3 +100,7 @@ pub fn suggest(
     out.truncate(limit);
     out
 }
+
+#[cfg(test)]
+#[path = "tests/similar.rs"]
+mod tests;

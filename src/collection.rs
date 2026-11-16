@@ -70,17 +70,7 @@ impl Collection {
     }
 
     pub fn age_text(&self) -> String {
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map(|d| d.as_secs())
-            .unwrap_or(0);
-        let secs = now.saturating_sub(self.updated_unix);
-        match secs {
-            0..=89 => "gerade eben".into(),
-            90..=5399 => format!("vor {} Min.", secs / 60),
-            5400..=172_799 => format!("vor {} Std.", secs / 3600),
-            _ => format!("vor {} Tagen", secs / 86_400),
-        }
+        crate::present::ago(self.updated_unix * 1000)
     }
 }
 
@@ -127,7 +117,19 @@ pub fn read_from_game() -> Result<Collection, String> {
         .join()
         .map_err(|_| "Speicher von MTG Arena konnte nicht gelesen werden (läuft das Spiel und ist es im Hauptmenü?)".to_string())?;
 
-    if let Some(e) = err_of(&cards) {
+    from_reader(&cards, &inv, now_unix())
+}
+
+fn now_unix() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0)
+}
+
+/// Baut die Sammlung aus den Antworten des Speicherlesers (Karten und Inventar).
+pub fn from_reader(cards: &Value, inv: &Value, now: u64) -> Result<Collection, String> {
+    if let Some(e) = err_of(cards) {
         return Err(e);
     }
     let mut out = Collection::default();
@@ -150,7 +152,7 @@ pub fn read_from_game() -> Result<Collection, String> {
     if out.cards.is_empty() {
         return Err("Arena hat keine Karten geliefert – bitte im Spiel bis ins Hauptmenü gehen und erneut versuchen.".into());
     }
-    if err_of(&inv).is_none() {
+    if err_of(inv).is_none() {
         let num = |v: &Value, k: &str| v.get(k).and_then(Value::as_i64).unwrap_or(0).max(0) as u32;
         let wc = inv.get("wildcards").cloned().unwrap_or(Value::Null);
         out.wildcards = Wildcards {
@@ -159,13 +161,10 @@ pub fn read_from_game() -> Result<Collection, String> {
             rare: num(&wc, "rare"),
             mythic: num(&wc, "mythic"),
         };
-        out.gold = num(&inv, "gold");
-        out.gems = num(&inv, "gems");
+        out.gold = num(inv, "gold");
+        out.gems = num(inv, "gems");
     }
-    out.updated_unix = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|d| d.as_secs())
-        .unwrap_or(0);
+    out.updated_unix = now;
     Ok(out)
 }
 
@@ -219,3 +218,7 @@ pub fn read_elevated(out: &Path) -> Result<Collection, String> {
 pub fn read_elevated(_out: &Path) -> Result<Collection, String> {
     Err("Bitte die App mit root-Rechten starten (sudo), um die Sammlung zu lesen.".into())
 }
+
+#[cfg(test)]
+#[path = "tests/collection.rs"]
+mod tests;

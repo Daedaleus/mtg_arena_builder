@@ -1285,36 +1285,5 @@ pub fn opp_colors(g: &GameRecord, db: &CardDb) -> String {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn creature(power: i32, toughness: i32, keywords: &[u32]) -> Obj {
-        Obj {
-            creature: true,
-            power,
-            toughness,
-            keywords: keywords.to_vec(),
-            ..Default::default()
-        }
-    }
-
-    #[test]
-    fn safe_attack_rules() {
-        let bear = creature(2, 2, &[]);
-        let wall = creature(0, 4, &[]);
-        let ogre = creature(3, 3, &[]);
-        let bird = creature(1, 1, &[KW_FLYING]);
-        // Kein Blocker -> gefahrlos
-        assert!(safe_attack(&bear, &[]));
-        // Blocker ohne Kraft kann nicht töten
-        assert!(safe_attack(&bear, &[&wall]));
-        // 3/3 tötet 2/2
-        assert!(!safe_attack(&bear, &[&ogre]));
-        // Fliegender Angreifer kann vom Oger nicht geblockt werden
-        assert!(safe_attack(&bird, &[&ogre]));
-        // Todesberührung tötet immer
-        assert!(!safe_attack(&ogre, &[&creature(1, 1, &[KW_DEATHTOUCH])]));
-        // Bedrohlich: ein einzelner Blocker reicht nicht
-        assert!(safe_attack(&creature(2, 2, &[KW_MENACE]), &[&ogre]));
-    }
-}
+#[path = "tests/games.rs"]
+mod tests;

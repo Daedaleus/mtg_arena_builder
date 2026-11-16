@@ -5,7 +5,7 @@ use std::collections::HashSet;
 
 use crate::carddb::{Card, CardDb};
 use crate::games::LiveCreature;
-use crate::live::ArchShare;
+use crate::opponents::ArchShare;
 
 /// Schlüsselwort-Fähigkeit „Aufblitzen“ in der Arena-Datenbank.
 const ABILITY_FLASH: u32 = 7;
@@ -194,51 +194,5 @@ pub fn likely_tricks(
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn cr(grp: u32, power: i32, toughness: i32) -> LiveCreature {
-        LiveCreature {
-            grp_id: grp,
-            power,
-            toughness,
-            ..Default::default()
-        }
-    }
-
-    #[test]
-    fn blocks() {
-        // 3/3 blockt 2/2 und gewinnt; 1/1 bleibt zurück.
-        let p = plan_blocks(&[cr(1, 2, 2)], &[cr(10, 1, 1), cr(11, 3, 3)], 20);
-        assert_eq!(p.blocks.len(), 1);
-        assert_eq!(p.blocks[0].blocker, 11);
-        assert_eq!(p.blocks[0].kind, BlockKind::Win);
-        assert_eq!(p.damage, 0);
-
-        // 2/2 gegen 4/4: kein lohnender Block bei viel Leben …
-        let p = plan_blocks(&[cr(1, 4, 4)], &[cr(10, 2, 2)], 20);
-        assert!(p.blocks.is_empty());
-        assert_eq!(p.damage, 4);
-        // … aber Pflicht, wenn der Schaden tödlich wäre.
-        let p = plan_blocks(&[cr(1, 4, 4)], &[cr(10, 2, 2)], 4);
-        assert_eq!(p.blocks[0].kind, BlockKind::Chump);
-        assert!(!p.lethal);
-
-        // Gleich starke Kreaturen tauschen.
-        let p = plan_blocks(&[cr(1, 3, 3)], &[cr(10, 3, 3)], 20);
-        assert_eq!(p.blocks[0].kind, BlockKind::Trade);
-
-        // Erstschlag: 2/2 mit Erstschlag gewinnt gegen 3/2.
-        let mut fs = cr(10, 2, 2);
-        fs.first_strike = true;
-        let p = plan_blocks(&[cr(1, 3, 2)], &[fs], 20);
-        assert_eq!(p.blocks[0].kind, BlockKind::Win);
-
-        // Flieger kann nicht vom Boden geblockt werden.
-        let mut flyer = cr(1, 3, 3);
-        flyer.flying = true;
-        let p = plan_blocks(&[flyer], &[cr(10, 5, 5)], 3);
-        assert!(p.blocks.is_empty());
-        assert!(p.lethal);
-    }
-}
+#[path = "tests/combat.rs"]
+mod tests;

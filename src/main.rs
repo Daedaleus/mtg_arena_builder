@@ -1,21 +1,9 @@
 #![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]
 
-mod app;
-mod budget;
-mod builder;
-mod carddb;
-mod collection;
-mod combat;
-mod deck;
-mod deckcheck;
-mod games;
-mod images;
-mod live;
-mod meta;
-mod opponents;
-mod paths;
-mod similar;
-mod turnplan;
+use mtg_arena_builder::{
+    app, budget, builder, carddb, collection, deck, deckcheck, games, images, live, meta,
+    opponents, paths, similar,
+};
 
 use std::path::Path;
 
@@ -407,7 +395,7 @@ fn decks_cli(format: &str) -> anyhow::Result<()> {
         })
         .collect();
     println!("##### Gegner");
-    for o in opponents::analyze(&games, &db, &meta) {
+    for o in opponents::analyze(&games, &db, &opponents::arch_shares(&meta, &db)) {
         println!(
             "   {:<32} {} Siege, {} Niederlagen, Ø {:.0} Züge, Schaden: {:?}",
             o.name,

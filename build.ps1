@@ -18,10 +18,13 @@
 .PARAMETER NoShortcut
     Keine Desktop-Verknüpfung anlegen.
 
+.PARAMETER Coverage
+    Zusätzlich die Testabdeckung messen (coverage.ps1, mindestens 90 %).
+
 .EXAMPLE
     .\build.ps1
 #>
-param([switch]$SkipChecks, [switch]$NoShortcut)
+param([switch]$SkipChecks, [switch]$NoShortcut, [switch]$Coverage)
 
 $ErrorActionPreference = "Stop"
 Set-Location $PSScriptRoot
@@ -36,6 +39,7 @@ if (-not $SkipChecks) {
     Step "Formatierung prüfen" { cargo fmt --all -- --check }
     Step "Clippy"              { cargo clippy --all-targets --locked -- -D warnings }
     Step "Tests"               { cargo test --locked }
+    if ($Coverage) { & (Join-Path $PSScriptRoot "coverage.ps1") }
 }
 Step "Release-Build" { cargo build --release --locked }
 

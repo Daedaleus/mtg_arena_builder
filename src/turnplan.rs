@@ -248,28 +248,5 @@ pub fn instant_removal(db: &CardDb, hand: &[u32], untapped_lands: &[u32]) -> Vec
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn card(cost: &str) -> Card {
-        Card {
-            mana_cost: cost.into(),
-            ..Default::default()
-        }
-    }
-
-    #[test]
-    fn pay_with_colors() {
-        const W: u8 = 1;
-        const U: u8 = 2;
-        const G: u8 = 16;
-        let bear = card("{1}{G}");
-        let counter = card("{U}{U}");
-        assert!(can_pay(&[&bear], &[G, U]));
-        assert!(!can_pay(&[&bear], &[U, U]));
-        assert!(!can_pay(&[&counter], &[U, G]));
-        // Duales Land muss für die richtige Farbe eingesetzt werden.
-        assert!(can_pay(&[&bear, &counter], &[U | G, U, G, W]));
-        assert!(!can_pay(&[&bear, &counter], &[U | G, G, G, W]));
-    }
-}
+#[path = "tests/turnplan.rs"]
+mod tests;

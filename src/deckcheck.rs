@@ -471,3 +471,7 @@ pub fn deck_text(deck: &[u32], db: &CardDb) -> String {
     }
     out
 }
+
+#[cfg(test)]
+#[path = "tests/deckcheck.rs"]
+mod tests;

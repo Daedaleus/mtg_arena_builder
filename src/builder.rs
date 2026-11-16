@@ -93,6 +93,8 @@ const CURVE_CAPS: [[u32; 6]; 2] = [[10, 14, 8, 4, 2, 0], [12, 16, 10, 7, 4, 2]];
 const MAX_NONCREATURE: u32 = 14;
 /// Davon höchstens so viele ohne Removal-Funktion.
 const MAX_OTHER: u32 = 4;
+/// Mindestens so viele Karten je Farbe in einem Zweifarbdeck.
+const MIN_PER_COLOR: u32 = 6;
 
 fn label_of(colors: u8) -> String {
     let names: Vec<&str> = (0..5)
@@ -206,6 +208,22 @@ fn build_one(
     if total < SPELLS || creatures < 12 {
         return None; // zu wenige spielbare Karten in diesen Farben
     }
+    // Jede Farbe eines Zweifarbdecks braucht eigene Karten – sonst wäre es ein
+    // einfarbiges Deck mit nutzlosen Ländern der zweiten Farbe.
+    let per_color = |bit: u8| -> u32 {
+        picks
+            .iter()
+            .filter(|p| p.card.colors & bit != 0)
+            .map(|p| p.qty)
+            .sum()
+    };
+    if colors.count_ones() == 2
+        && (0..5)
+            .map(|i| 1u8 << i)
+            .any(|bit| colors & bit != 0 && per_color(bit) < MIN_PER_COLOR)
+    {
+        return None;
+    }
 
     // --- Länder: eigene Zweifarbländer, Rest Standardländer nach Farbbedarf ---
     let mut pips = [0u32; 5];
@@ -317,3 +335,7 @@ pub fn build_all(
     out.sort_by(|a, b| b.score.total_cmp(&a.score));
     out
 }
+
+#[cfg(test)]
+#[path = "tests/builder.rs"]
+mod tests;
