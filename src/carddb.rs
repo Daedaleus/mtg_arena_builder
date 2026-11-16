@@ -1,6 +1,6 @@
 //! Kartendaten aus der lokalen MTG-Arena-Datenbank (SQLite).
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
 use anyhow::{Context, Result};
@@ -12,7 +12,7 @@ pub const TYPE_LAND: u8 = 5;
 /// 2 = Common, 3 = Uncommon, 4 = Rare, 5 = Mythic.
 pub const RARITY_COMMON: u8 = 2;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct Card {
     pub grp_id: u32,
     pub name: String,
@@ -38,6 +38,8 @@ pub struct Card {
     pub roles: u8,
     /// Direkter Schaden an Spielern (nur Spontanzauber/Hexereien), z. B. 2 bei Burst Lightning.
     pub burn: u32,
+    /// Land kommt immer getappt ins Spiel („enters tapped“ ohne „unless“).
+    pub enters_tapped: bool,
 }
 
 /// Entfernt oder neutralisiert gegnerische Karten (Zerstören, Schaden, Verbannen …).
@@ -50,6 +52,7 @@ pub const ROLE_DRAW: u8 = 4;
 pub const ROLE_WIPE: u8 = 8;
 
 const TYPE_INSTANT: u8 = 4;
+const TYPE_CREATURE: u8 = 2;
 const TYPE_SORCERY: u8 = 10;
 
 /// Schaden, den ein Fähigkeitstext einem Spieler zufügen kann (0 = keiner).
@@ -133,6 +136,33 @@ fn roles_of(text: &str) -> u8 {
 impl Card {
     pub fn has_role(&self, role: u8) -> bool {
         self.roles & role != 0
+    }
+
+    pub fn is_creature(&self) -> bool {
+        self.types.contains(&TYPE_CREATURE)
+    }
+
+    pub fn is_instant(&self) -> bool {
+        self.types.contains(&TYPE_INSTANT)
+    }
+
+    /// Manakosten aufgeteilt in farbloses Mana und farbige Symbole je Farbe
+    /// (W, U, B, R, G). Hybrid- und Phyrexia-Symbole zählen als farblos.
+    pub fn pips(&self) -> (u32, [u32; 5]) {
+        let mut generic = 0;
+        let mut colored = [0u32; 5];
+        for sym in self.mana_cost.split(['{', '}']).filter(|t| !t.is_empty()) {
+            match sym {
+                "W" => colored[0] += 1,
+                "U" => colored[1] += 1,
+                "B" => colored[2] += 1,
+                "R" => colored[3] += 1,
+                "G" => colored[4] += 1,
+                "X" => {}
+                n => generic += n.parse::<u32>().unwrap_or(1),
+            }
+        }
+        (generic, colored)
     }
 
     pub fn is_land(&self) -> bool {
@@ -291,12 +321,14 @@ impl CardDb {
                 regular: text(r, 16).is_empty(),
                 roles: 0,
                 burn: 0,
+                enters_tapped: false,
             })
         })?;
 
         // Fähigkeitstexte -> Rollen (Removal, Counter, Kartenziehen)
         let mut ability_roles: HashMap<u32, u8> = HashMap::new();
         let mut ability_burn: HashMap<u32, u32> = HashMap::new();
+        let mut ability_tapped: HashSet<u32> = HashSet::new();
         if let Ok(mut stmt) = conn.prepare(
             "SELECT a.Id, l.Loc FROM Abilities a
              JOIN Localizations_enUS l ON l.LocId = a.TextId AND l.Formatted = 1",
@@ -311,6 +343,10 @@ impl CardDb {
                 let roles = roles_of(&text);
                 if roles != 0 {
                     ability_roles.insert(id, roles);
+                }
+                let lower = text.to_lowercase();
+                if lower.contains("enters tapped") && !lower.contains("unless") {
+                    ability_tapped.insert(id);
                 }
                 let burn = burn_of(&text);
                 if burn > 0 {
@@ -331,6 +367,7 @@ impl CardDb {
                 .iter()
                 .filter_map(|a| ability_roles.get(a))
                 .fold(0, |m, r| m | r);
+            card.enters_tapped = card.abilities.iter().any(|a| ability_tapped.contains(a));
             // Brandschaden zählt nur bei Spontanzaubern und Hexereien – bei Kreaturen
             // steckt er oft in Fähigkeiten, die nicht sofort wirken.
             if card

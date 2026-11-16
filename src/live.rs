@@ -235,39 +235,29 @@ pub fn build_view(
         }
 
         if ls.my_turn {
-            if !ls.land_played
-                && let Some(land) = lands_in_hand.first()
-            {
-                v.hints.push((
-                    Level::Warn,
-                    format!("Land legen nicht vergessen ({}).", land.name),
-                ));
-            }
             if !ls.safe_attackers.is_empty() {
                 v.hints.push((
                     Level::Good,
                     format!("Gefahrlos angreifen: {}", names(db, &ls.safe_attackers, 4)),
                 ));
             }
-            if ls.phase != "Phase_Ending" {
-                let mana =
-                    ls.lands_untapped + (!ls.land_played && !lands_in_hand.is_empty()) as u32;
-                let playable: Vec<u32> = hand
-                    .iter()
-                    .filter(|c| !c.is_land() && c.cmc > 0 && c.cmc <= mana)
-                    .map(|c| c.grp_id)
-                    .collect();
-                if !playable.is_empty() {
-                    v.hints.push((
-                        Level::Info,
-                        format!(
-                            "Bezahlbar mit {mana} Mana: {} (Farben nicht geprüft)",
-                            names(db, &playable, 4)
-                        ),
-                    ));
-                }
+            if matches!(
+                ls.phase.as_str(),
+                "Phase_Beginning" | "Phase_Main1" | "Phase_Main2" | ""
+            ) {
+                turn_hints(&mut v, ls, db);
             }
         } else if ls.opp_attackers > 0 {
+            let removal = crate::turnplan::instant_removal(db, &ls.hand, &ls.untapped_lands);
+            if !removal.is_empty() {
+                v.hints.push((
+                    Level::Good,
+                    format!(
+                        "Jetzt spontan einsetzbar: {} – gegen einen Angreifer.",
+                        names(db, &removal, 2)
+                    ),
+                ));
+            }
             if ls.opp_attack_power >= ls.life_me {
                 v.hints.push((
                     Level::Warn,
@@ -302,6 +292,85 @@ pub fn build_view(
     seen.dedup();
     v.opp_cards = seen;
     v
+}
+
+fn card_name(db: &CardDb, grp: u32) -> String {
+    db.cards
+        .get(&grp)
+        .map(|c| c.name.clone())
+        .unwrap_or_default()
+}
+
+/// Zugvorschlag: Land, Zauber und was man zurückhalten sollte.
+fn turn_hints(v: &mut CompanionView, ls: &LiveState, db: &CardDb) {
+    let plan = crate::turnplan::plan(
+        db,
+        &ls.hand,
+        &ls.untapped_lands,
+        ls.land_played,
+        &ls.opp_creatures,
+        ls.creatures_me,
+    );
+    let mut steps: Vec<String> = Vec::new();
+    if let Some(land) = plan.land {
+        steps.push(format!(
+            "{} legen{}",
+            card_name(db, land),
+            if plan.land_tapped {
+                " (kommt getappt)"
+            } else {
+                ""
+            }
+        ));
+    }
+    for (i, g) in plan.spells.iter().enumerate() {
+        let mut text = card_name(db, *g);
+        if i == 0
+            && let Some(t) = plan.target
+            && db
+                .cards
+                .get(g)
+                .is_some_and(|c| c.has_role(crate::carddb::ROLE_REMOVAL) && !c.is_creature())
+        {
+            text.push_str(&format!(" auf {}", card_name(db, t)));
+        }
+        steps.push(text);
+    }
+    if steps.is_empty() {
+        return;
+    }
+    let mana = if plan.spells.is_empty() {
+        if plan.mana_total > 0 {
+            " – nichts Sinnvolles bezahlbar".to_string()
+        } else {
+            String::new()
+        }
+    } else {
+        format!(" ({} von {} Mana)", plan.mana_used, plan.mana_total)
+    };
+    let late = ls.phase == "Phase_Main2" && plan.land.is_some();
+    v.hints.push((
+        if late { Level::Warn } else { Level::Good },
+        format!("Vorschlag: {}{mana}", steps.join(" → ")),
+    ));
+    if !plan.hold.is_empty() {
+        v.hints.push((
+            Level::Info,
+            format!(
+                "Danach Mana offen lassen für {} im Zug des Gegners.",
+                names(db, &plan.hold, 2)
+            ),
+        ));
+    }
+    if ls.phase == "Phase_Main1"
+        && !ls.safe_attackers.is_empty()
+        && crate::turnplan::creatures_after_combat(db, &plan)
+    {
+        v.hints.push((
+            Level::Info,
+            "Tipp: Erst angreifen, die Kreaturen danach in der 2. Hauptphase spielen – so verrätst du dem Gegner weniger.".into(),
+        ));
+    }
 }
 
 /// Schaden, der beim Angriff mit allen Kreaturen mindestens durchkommt, wenn

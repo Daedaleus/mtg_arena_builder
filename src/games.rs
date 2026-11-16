@@ -543,6 +543,18 @@ impl Tracker {
             hand: self.hand(),
             lands_me: self.count(me, |o| o.land),
             lands_untapped: self.count(me, |o| o.land && !o.tapped),
+            untapped_lands: self
+                .battlefield()
+                .map(|(_, o)| o)
+                .filter(|o| o.controller == me && o.land && !o.tapped)
+                .map(|o| o.grp_id)
+                .collect(),
+            opp_creatures: self
+                .battlefield()
+                .map(|(_, o)| o)
+                .filter(|o| o.controller == opp && o.creature)
+                .map(|o| (o.grp_id, o.power.max(0)))
+                .collect(),
             land_played: self.cur.land_played,
             creatures_me: self.count(me, |o| o.creature),
             creatures_opp: self.count(opp, |o| o.creature),
@@ -625,6 +637,10 @@ pub struct LiveState {
     pub hand: Vec<u32>,
     pub lands_me: u32,
     pub lands_untapped: u32,
+    /// grpIds der eigenen ungetappten Länder (für die Farbprüfung).
+    pub untapped_lands: Vec<u32>,
+    /// Kreaturen des Gegners: (grpId, Kraft).
+    pub opp_creatures: Vec<(u32, i32)>,
     pub land_played: bool,
     pub creatures_me: u32,
     pub creatures_opp: u32,

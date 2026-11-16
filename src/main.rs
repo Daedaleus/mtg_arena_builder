@@ -14,6 +14,7 @@ mod meta;
 mod opponents;
 mod paths;
 mod similar;
+mod turnplan;
 
 use std::path::Path;
 
