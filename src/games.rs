@@ -3,6 +3,7 @@
 //! Arena schreibt mit eingeschalteten „Detaillierten Logs“ jeden Spielzustand
 //! als JSON mit. Daraus werden je Partie Zugstatistiken gewonnen und dauerhaft
 //! in `games.json` gespeichert – Arena überschreibt das Log bei jedem Start.
+//! Aus den Statistiken leitet [`report`] konkrete Verbesserungstipps ab.
 
 use std::collections::{HashMap, HashSet};
 use std::fs::File;
@@ -11,6 +12,8 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+
+use crate::carddb::{Card, CardDb};
 
 /// Stand am Ende eines Zuges.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -36,6 +39,13 @@ pub struct TurnStat {
     pub attacked: bool,
     /// Eigene Kreaturen, die zu Beginn dieses Zuges schon auf dem Feld waren.
     pub creatures_at_start: u32,
+    /// Mein Zug: einsatzbereite Kreaturen (grpIds), die gefahrlos hätten
+    /// angreifen können, es aber nicht taten.
+    pub safe_idle: Vec<u32>,
+    /// Gegnerzug: habe ich geblockt?
+    pub blocked: bool,
+    /// Gegnerzug: meine ungetappten Kreaturen vor dem Kampf.
+    pub my_untapped_creatures: u32,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -62,6 +72,10 @@ pub struct GameRecord {
     /// Vom Gegner gesehene Karten (grpId -> Anzahl Exemplare).
     pub opp_cards: HashMap<u32, u32>,
     pub discards_me: u32,
+    /// Behaltene Starthand (grpIds).
+    pub opening_hand: Vec<u32>,
+    /// Schaden an mir je Quelle (grpId -> Schaden).
+    pub damage_taken: HashMap<u32, u32>,
 }
 
 impl GameRecord {
@@ -81,6 +95,14 @@ impl GameRecord {
     }
 }
 
+// Arena-Kennungen von Schlüsselwort-Fähigkeiten (aus der Kartendatenbank).
+const KW_DEATHTOUCH: u32 = 1;
+const KW_DEFENDER: u32 = 2;
+const KW_FLYING: u32 = 8;
+const KW_HASTE: u32 = 9;
+const KW_REACH: u32 = 13;
+const KW_MENACE: u32 = 142;
+
 #[derive(Clone, Default)]
 struct Obj {
     grp_id: u32,
@@ -91,6 +113,40 @@ struct Obj {
     creature: bool,
     tapped: bool,
     attacking: bool,
+    blocking: bool,
+    sick: bool,
+    power: i32,
+    toughness: i32,
+    keywords: Vec<u32>,
+}
+
+impl Obj {
+    fn has(&self, kw: u32) -> bool {
+        self.keywords.contains(&kw)
+    }
+
+    fn can_block(&self, attacker: &Obj) -> bool {
+        !attacker.has(KW_FLYING) || self.has(KW_FLYING) || self.has(KW_REACH)
+    }
+
+    fn kills(&self, other: &Obj) -> bool {
+        self.power > 0 && (self.power >= other.toughness || self.has(KW_DEATHTOUCH))
+    }
+}
+
+/// Kann `attacker` angreifen, ohne dass ein möglicher Block ihn tötet?
+fn safe_attack(attacker: &Obj, blockers: &[&Obj]) -> bool {
+    let eligible: Vec<&&Obj> = blockers.iter().filter(|b| b.can_block(attacker)).collect();
+    if attacker.has(KW_MENACE) {
+        if eligible.len() < 2 {
+            return true;
+        }
+        let mut powers: Vec<i32> = eligible.iter().map(|b| b.power.max(0)).collect();
+        powers.sort_unstable_by(|a, b| b.cmp(a));
+        let deathtouch = eligible.iter().any(|b| b.has(KW_DEATHTOUCH) && b.power > 0);
+        return !deathtouch && powers[0] + powers[1] < attacker.toughness;
+    }
+    eligible.iter().all(|b| !b.kills(attacker))
 }
 
 /// Verfolgt den Spielzustand einer laufenden Partie.
@@ -103,11 +159,17 @@ struct Tracker {
     life: HashMap<u32, i32>,
     turn: u32,
     active: u32,
+    phase: String,
+    step: String,
     last_state_id: u64,
     seen_annotations: HashSet<u64>,
     cur: TurnStat,
     mulligan_reqs: u32,
     seen_cards: HashMap<u32, HashSet<u32>>,
+    /// Instanzen, die in diesem Zug angegriffen haben.
+    attacked_ids: HashSet<u32>,
+    /// Vor dem Kampf: (Instanz, grpId) meiner gefahrlos angreifbaren Kreaturen.
+    safe_snapshot: Vec<(u32, u32)>,
     finished: bool,
 }
 
@@ -133,24 +195,62 @@ impl Tracker {
         self.rec.my_seat
     }
 
+    fn opponent(&self) -> u32 {
+        if self.seat() == 1 { 2 } else { 1 }
+    }
+
     fn zone_type(&self, zone: u32) -> &str {
         self.zones.get(&zone).map(|z| z.0.as_str()).unwrap_or("")
     }
 
-    fn on_battlefield(&self) -> impl Iterator<Item = &Obj> {
+    fn battlefield(&self) -> impl Iterator<Item = (&u32, &Obj)> {
         self.objects
-            .values()
-            .filter(|o| self.zone_type(o.zone) == "ZoneType_Battlefield")
+            .iter()
+            .filter(|(_, o)| self.zone_type(o.zone) == "ZoneType_Battlefield")
     }
 
     fn count(&self, controller: u32, f: impl Fn(&Obj) -> bool) -> u32 {
-        self.on_battlefield()
-            .filter(|o| o.controller == controller && f(o))
+        self.battlefield()
+            .filter(|(_, o)| o.controller == controller && f(o))
             .count() as u32
     }
 
-    fn opponent(&self) -> u32 {
-        if self.seat() == 1 { 2 } else { 1 }
+    fn hand(&self) -> Vec<u32> {
+        let me = self.seat();
+        self.zones
+            .values()
+            .find(|z| z.0 == "ZoneType_Hand" && z.1 == me)
+            .map(|z| {
+                z.2.iter()
+                    .filter_map(|id| self.objects.get(id))
+                    .map(|o| o.grp_id)
+                    .filter(|g| *g > 0)
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
+    /// Vor dem Angriff: Welche meiner Kreaturen könnten gefahrlos angreifen?
+    fn snapshot_attack(&mut self) {
+        let (me, opp) = (self.seat(), self.opponent());
+        let blockers: Vec<&Obj> = self
+            .battlefield()
+            .map(|(_, o)| o)
+            .filter(|o| o.controller == opp && o.creature && !o.tapped)
+            .collect();
+        self.safe_snapshot = self
+            .battlefield()
+            .filter(|(_, o)| {
+                o.controller == me
+                    && o.creature
+                    && !o.tapped
+                    && (!o.sick || o.has(KW_HASTE))
+                    && !o.has(KW_DEFENDER)
+                    && o.power > 0
+            })
+            .filter(|(_, o)| safe_attack(o, &blockers))
+            .map(|(id, o)| (*id, o.grp_id))
+            .collect();
     }
 
     /// Schließt den laufenden Zug mit dem aktuellen Zustand ab.
@@ -169,18 +269,15 @@ impl Tracker {
         t.creatures_me = self.count(me, |o| o.creature);
         t.creatures_opp = self.count(opp, |o| o.creature);
         t.untapped_lands = self.count(me, |o| o.land && !o.tapped);
-        t.hand = self
-            .zones
-            .values()
-            .find(|z| z.0 == "ZoneType_Hand" && z.1 == me)
-            .map(|z| {
-                z.2.iter()
-                    .filter_map(|id| self.objects.get(id))
-                    .map(|o| o.grp_id)
-                    .filter(|g| *g > 0)
-                    .collect()
-            })
-            .unwrap_or_default();
+        t.hand = self.hand();
+        if t.mine {
+            t.safe_idle = self
+                .safe_snapshot
+                .iter()
+                .filter(|(id, _)| !self.attacked_ids.contains(id))
+                .map(|(_, g)| *g)
+                .collect();
+        }
         self.rec.turns.push(t);
     }
 
@@ -194,10 +291,54 @@ impl Tracker {
         }
         self.turn = turn;
         self.active = active;
+        self.attacked_ids.clear();
+        self.safe_snapshot.clear();
         self.cur = TurnStat {
             creatures_at_start: self.count(self.seat(), |o| o.creature),
             ..Default::default()
         };
+    }
+
+    /// Liegt der Zug noch vor der Angriffserklärung?
+    fn before_attacks(&self) -> bool {
+        self.attacked_ids.is_empty()
+            && (self.phase == "Phase_Main1"
+                || (self.phase == "Phase_Combat"
+                    && matches!(
+                        self.step.as_str(),
+                        "Step_BeginCombat" | "Step_DeclareAttack" | ""
+                    )))
+    }
+
+    fn read_object(o: &Value) -> Obj {
+        let state =
+            |key: &str, values: &[&str]| o[key].as_str().is_some_and(|s| values.contains(&s));
+        Obj {
+            grp_id: u(&o["grpId"]),
+            zone: u(&o["zoneId"]),
+            owner: u(&o["ownerSeatId"]),
+            controller: u(&o["controllerSeatId"]),
+            land: has_type(o, "CardType_Land"),
+            creature: has_type(o, "CardType_Creature"),
+            tapped: o["isTapped"].as_bool().unwrap_or(false),
+            attacking: state(
+                "attackState",
+                &["AttackState_Attacking", "AttackState_Declared"],
+            ),
+            blocking: state(
+                "blockState",
+                &["BlockState_Blocking", "BlockState_Declared"],
+            ),
+            sick: o["hasSummoningSickness"].as_bool().unwrap_or(false),
+            power: o["power"]["value"].as_i64().unwrap_or(0) as i32,
+            toughness: o["toughness"]["value"].as_i64().unwrap_or(0) as i32,
+            keywords: o["uniqueAbilities"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .map(|a| u(&a["grpId"]))
+                .collect(),
+        }
     }
 
     fn apply(&mut self, g: &Value) {
@@ -217,6 +358,15 @@ impl Tracker {
             && turn != self.turn
         {
             self.start_turn(turn, u(&ti["activePlayer"]));
+        }
+        if let Some(phase) = ti["phase"].as_str() {
+            if phase != self.phase {
+                self.step.clear();
+            }
+            self.phase = phase.to_string();
+        }
+        if let Some(step) = ti["step"].as_str() {
+            self.step = step.to_string();
         }
         for p in g["players"].as_array().into_iter().flatten() {
             if let Some(life) = p["lifeTotal"].as_i64() {
@@ -239,24 +389,19 @@ impl Tracker {
                 ),
             );
         }
+        let (me, opp) = (self.seat(), self.opponent());
         for o in g["gameObjects"].as_array().into_iter().flatten() {
             if o["type"].as_str() != Some("GameObjectType_Card") {
                 continue;
             }
-            let obj = Obj {
-                grp_id: u(&o["grpId"]),
-                zone: u(&o["zoneId"]),
-                owner: u(&o["ownerSeatId"]),
-                controller: u(&o["controllerSeatId"]),
-                land: has_type(o, "CardType_Land"),
-                creature: has_type(o, "CardType_Creature"),
-                tapped: o["isTapped"].as_bool().unwrap_or(false),
-                attacking: o["attackState"]
-                    .as_str()
-                    .is_some_and(|s| s == "AttackState_Attacking" || s == "AttackState_Declared"),
-            };
+            let id = u(&o["instanceId"]);
+            let obj = Tracker::read_object(o);
             if obj.attacking && obj.controller == self.active {
                 self.cur.attacked = true;
+                self.attacked_ids.insert(id);
+            }
+            if obj.blocking && obj.controller == me && self.active == opp {
+                self.cur.blocked = true;
             }
             // Gegnerische Karten merken, sobald sie öffentlich sind.
             let public = matches!(
@@ -267,48 +412,77 @@ impl Tracker {
                     | "ZoneType_Exile"
                     | "ZoneType_Revealed"
             );
-            if public && obj.owner == self.opponent() && obj.grp_id > 0 {
-                self.seen_cards
-                    .entry(obj.grp_id)
-                    .or_default()
-                    .insert(u(&o["instanceId"]));
+            if public && obj.owner == opp && obj.grp_id > 0 {
+                self.seen_cards.entry(obj.grp_id).or_default().insert(id);
             }
-            self.objects.insert(u(&o["instanceId"]), obj);
+            self.objects.insert(id, obj);
         }
         for id in g["diffDeletedInstanceIds"].as_array().into_iter().flatten() {
             self.objects.remove(&u(id));
         }
         for a in g["annotations"].as_array().into_iter().flatten() {
-            let id = a["id"].as_u64().unwrap_or(0);
-            if !self.seen_annotations.insert(id) {
-                continue;
+            self.annotation(a);
+        }
+        // Stand vor dem Kampf festhalten.
+        if self.before_attacks() {
+            if self.active == me {
+                self.snapshot_attack();
+            } else if self.active == opp {
+                self.cur.my_untapped_creatures = self.count(me, |o| o.creature && !o.tapped);
             }
-            let is_transfer = a["type"].as_array().is_some_and(|t| {
-                t.iter()
-                    .any(|x| x.as_str() == Some("AnnotationType_ZoneTransfer"))
-            });
-            if !is_transfer {
-                continue;
-            }
-            let category = a["details"]
+        }
+    }
+
+    fn annotation(&mut self, a: &Value) {
+        let id = a["id"].as_u64().unwrap_or(0);
+        if !self.seen_annotations.insert(id) {
+            return;
+        }
+        let types = a["type"].as_array().cloned().unwrap_or_default();
+        let is = |t: &str| types.iter().any(|x| x.as_str() == Some(t));
+        let detail = |key: &str| {
+            a["details"]
                 .as_array()
                 .into_iter()
                 .flatten()
-                .find(|d| d["key"].as_str() == Some("category"))
-                .and_then(|d| d["valueString"][0].as_str())
-                .unwrap_or("");
-            for target in a["affectedIds"].as_array().into_iter().flatten() {
-                let controller = self
+                .find(|d| d["key"].as_str() == Some(key))
+                .cloned()
+                .unwrap_or(Value::Null)
+        };
+        if is("AnnotationType_DamageDealt") {
+            let hits_me = a["affectedIds"]
+                .as_array()
+                .is_some_and(|t| t.iter().any(|x| u(x) == self.seat()));
+            if hits_me {
+                let source = self
                     .objects
-                    .get(&u(target))
-                    .map(|o| o.controller)
+                    .get(&u(&a["affectorId"]))
+                    .map(|o| o.grp_id)
                     .unwrap_or(0);
-                match category {
-                    "PlayLand" if controller == self.active => self.cur.land_played = true,
-                    "CastSpell" if controller == self.active => self.cur.spells += 1,
-                    "Discard" if controller == self.seat() => self.rec.discards_me += 1,
-                    _ => {}
+                let damage = u(&detail("damage")["valueInt32"][0]);
+                if source > 0 && damage > 0 {
+                    *self.rec.damage_taken.entry(source).or_insert(0) += damage;
                 }
+            }
+        }
+        if !is("AnnotationType_ZoneTransfer") {
+            return;
+        }
+        let category = detail("category")["valueString"][0]
+            .as_str()
+            .unwrap_or("")
+            .to_string();
+        for target in a["affectedIds"].as_array().into_iter().flatten() {
+            let controller = self
+                .objects
+                .get(&u(target))
+                .map(|o| o.controller)
+                .unwrap_or(0);
+            match category.as_str() {
+                "PlayLand" if controller == self.active => self.cur.land_played = true,
+                "CastSpell" if controller == self.active => self.cur.spells += 1,
+                "Discard" if controller == self.seat() => self.rec.discards_me += 1,
+                _ => {}
             }
         }
     }
@@ -388,6 +562,8 @@ pub fn parse_log(path: &Path) -> Vec<GameRecord> {
                 "GREMessageType_MulliganReq" => {
                     if let Some(t) = cur.as_mut() {
                         t.mulligan_reqs += 1;
+                        // Die zuletzt angebotene Hand ist die behaltene.
+                        t.rec.opening_hand = t.hand();
                     }
                 }
                 _ => {}
@@ -469,15 +645,37 @@ pub fn detailed_logs_disabled(path: &Path) -> bool {
         .any(|l| l.contains("DETAILED LOGS: DISABLED"))
 }
 
+/// Version der Auswertung. Wird sie erhöht, werden gespeicherte Partien beim
+/// nächsten Einlesen aus noch vorhandenen Logs neu berechnet.
+const PARSER_VERSION: u32 = 2;
+
+#[derive(Default, Serialize, Deserialize)]
+#[serde(default)]
+struct Store {
+    version: u32,
+    games: Vec<GameRecord>,
+}
+
 /// Gespeicherte Partien laden, neue aus den Logs dazunehmen und speichern.
 pub fn sync(store: &Path, logs: &[PathBuf]) -> Vec<GameRecord> {
-    let mut games: Vec<GameRecord> = crate::paths::read_json(store).unwrap_or_default();
-    let before = serde_json::to_vec(&games).unwrap_or_default();
+    // Ältere Dateien enthielten nur die Liste der Partien.
+    let saved: Store = crate::paths::read_json::<Store>(store)
+        .or_else(|| {
+            crate::paths::read_json::<Vec<GameRecord>>(store)
+                .map(|games| Store { version: 1, games })
+        })
+        .unwrap_or_default();
+    let outdated = saved.version < PARSER_VERSION;
+    let before = serde_json::to_vec(&saved.games).unwrap_or_default();
+    let mut games = saved.games;
     for log in logs {
         for rec in parse_log(log) {
             match games.iter_mut().find(|g| g.id == rec.id) {
-                // Vollständigere Aufzeichnung gewinnt.
-                Some(old) if (rec.complete, rec.turns.len()) > (old.complete, old.turns.len()) => {
+                // Vollständigere oder mit neuerer Auswertung erzeugte Aufzeichnung gewinnt.
+                Some(old)
+                    if outdated
+                        || (rec.complete, rec.turns.len()) > (old.complete, old.turns.len()) =>
+                {
                     *old = rec
                 }
                 Some(_) => {}
@@ -486,26 +684,41 @@ pub fn sync(store: &Path, logs: &[PathBuf]) -> Vec<GameRecord> {
         }
     }
     games.sort_by_key(|g| std::cmp::Reverse(g.started_ms));
-    if let Ok(json) = serde_json::to_vec(&games)
-        && json != before
-    {
-        let _ = crate::paths::write_atomic(store, &json);
+    let changed = outdated || serde_json::to_vec(&games).unwrap_or_default() != before;
+    if changed {
+        let out = Store {
+            version: PARSER_VERSION,
+            games,
+        };
+        if let Ok(json) = serde_json::to_vec(&out) {
+            let _ = crate::paths::write_atomic(store, &json);
+        }
+        return out.games;
     }
     games
 }
 
 // ------------------------------------------------------------ Auswertung ----
 
-use crate::carddb::CardDb;
-
 const TYPE_INSTANT: u8 = 4;
 
-/// Ein auffälliger Zug, z. B. „Land nicht gespielt“.
+/// Ein auffälliger Moment in einer Partie.
 #[derive(Clone, Debug)]
 pub struct Finding {
+    /// Partie-Nummer (1 = erste im übergebenen Slice).
     pub game: usize,
+    /// Zug; 0 = vor dem ersten Zug (Starthand).
     pub turn: u32,
     pub text: String,
+}
+
+/// Eine Art von Fehler mit Erklärung und allen Fundstellen.
+#[derive(Clone, Debug)]
+pub struct Category {
+    pub title: &'static str,
+    /// Was man stattdessen tun sollte.
+    pub advice: &'static str,
+    pub items: Vec<Finding>,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -518,24 +731,53 @@ pub struct Report {
     pub conceded: usize,
     pub avg_turns: f32,
     pub my_turns: u32,
-    pub missed_lands: Vec<Finding>,
-    pub unused_mana: Vec<Finding>,
-    pub no_attack: Vec<Finding>,
-    pub empty_board: Vec<Finding>,
     pub discards: u32,
+    /// Starthand mit 2–4 Ländern: (Siege, Partien); übrige Starthände ebenso.
+    pub good_keeps: (usize, usize),
+    pub bad_keeps: (usize, usize),
+    /// Fehlerarten, häufigste zuerst.
+    pub categories: Vec<Category>,
     /// (Kartenname, Anzahl Partien)
     pub opp_cards: Vec<(String, usize)>,
+    /// Was mir am meisten Schaden gemacht hat: (Kartenname, Schaden).
+    pub damage_sources: Vec<(String, u32)>,
 }
 
-/// Wertet die Partien aus. `games` ist neueste zuerst; Nummern zählen ab 1 in dieser Reihenfolge.
+fn card(db: &CardDb, grp: u32) -> Option<&Card> {
+    db.cards.get(&grp)
+}
+
+fn names(db: &CardDb, grps: &[u32]) -> String {
+    let mut list: Vec<String> = grps
+        .iter()
+        .filter_map(|g| card(db, *g))
+        .map(|c| c.name.clone())
+        .collect();
+    list.sort();
+    list.dedup();
+    list.join(", ")
+}
+
+/// Wertet die Partien aus. Partie-Nummern zählen ab 1 in der übergebenen Reihenfolge.
 pub fn report(games: &[GameRecord], db: &CardDb) -> Report {
     let mut r = Report {
         games: games.len(),
         ..Default::default()
     };
+    let mut keeps = Vec::new();
+    let mut missed_lands = Vec::new();
+    let mut safe_attacks = Vec::new();
+    let mut unused_mana = Vec::new();
+    let mut held = Vec::new();
+    let mut no_block = Vec::new();
+    let mut empty_board = Vec::new();
+    let mut concedes = Vec::new();
     let mut turn_sum = 0;
     let mut opp: HashMap<String, usize> = HashMap::new();
+    let mut damage: HashMap<String, u32> = HashMap::new();
+
     for (gi, g) in games.iter().enumerate() {
+        let nr = gi + 1;
         match g.won {
             Some(true) => r.wins += 1,
             Some(false) => r.losses += 1,
@@ -546,36 +788,103 @@ pub fn report(games: &[GameRecord], db: &CardDb) -> Report {
             slot.0 += won as usize;
             slot.1 += 1;
         }
-        r.conceded += (g.conceded() && g.won == Some(false)) as usize;
         r.discards += g.discards_me;
         turn_sum += g.last_turn();
-        let mut names: HashSet<String> = HashSet::new();
-        for grp in g.opp_cards.keys() {
-            if let Some(c) = db.cards.get(grp)
-                && !c.basic
-            {
-                names.insert(c.name.clone());
-            }
-        }
-        for n in names {
+        let seen: HashSet<String> = g
+            .opp_cards
+            .keys()
+            .filter_map(|grp| card(db, *grp))
+            .filter(|c| !c.basic)
+            .map(|c| c.name.clone())
+            .collect();
+        for n in seen {
             *opp.entry(n).or_insert(0) += 1;
         }
+        for (grp, dmg) in &g.damage_taken {
+            if let Some(c) = card(db, *grp) {
+                *damage.entry(c.name.clone()).or_insert(0) += dmg;
+            }
+        }
 
-        // Teil-Mitschnitte kennen Hand und Feld nicht vollständig -> nur zur Bilanz.
-        for t in g.turns.iter().filter(|t| t.mine && g.complete) {
+        // Aufgegeben, obwohl noch genug Leben übrig war
+        let (life_me, life_opp) = g.final_life();
+        if g.won == Some(false) && g.conceded() {
+            r.conceded += 1;
+            if life_me >= 5 && !g.turns.is_empty() {
+                concedes.push(Finding {
+                    game: nr,
+                    turn: g.last_turn(),
+                    text: format!("aufgegeben mit {life_me} Leben (Gegner {life_opp})"),
+                });
+            }
+        }
+
+        // Starthand
+        let hand: Vec<&Card> = g
+            .opening_hand
+            .iter()
+            .filter_map(|grp| card(db, *grp))
+            .collect();
+        if hand.len() >= 6 {
+            let lands = hand.iter().filter(|c| c.is_land()).count();
+            let good = (2..=4).contains(&lands);
+            let slot = if good {
+                &mut r.good_keeps
+            } else {
+                &mut r.bad_keeps
+            };
+            slot.0 += (g.won == Some(true)) as usize;
+            slot.1 += 1;
+            if !good {
+                keeps.push(Finding {
+                    game: nr,
+                    turn: 0,
+                    text: format!("{} Karten mit {lands} Ländern behalten", hand.len()),
+                });
+            }
+        }
+
+        // Zug-Auswertungen nur für vollständig mitgeschriebene Partien:
+        // Teil-Mitschnitte kennen Hand und Feld nicht vollständig.
+        if !g.complete {
+            continue;
+        }
+        let mut castable_turns: HashMap<u32, (u32, u32)> = HashMap::new();
+        let mut prev_life = 20;
+        for t in &g.turns {
+            let lost = prev_life - t.life_me;
+            prev_life = t.life_me;
+            if !t.mine {
+                let before = t.life_me + lost;
+                if !t.blocked && t.my_untapped_creatures > 0 && lost >= 3 && before <= 10 {
+                    no_block.push(Finding {
+                        game: nr,
+                        turn: t.turn,
+                        text: format!(
+                            "{lost} Schaden bei {before} Leben genommen, {} eigene Kreatur(en) hätten blocken können",
+                            t.my_untapped_creatures
+                        ),
+                    });
+                }
+                continue;
+            }
             r.my_turns += 1;
-            let hand: Vec<&crate::carddb::Card> =
-                t.hand.iter().filter_map(|grp| db.cards.get(grp)).collect();
+            let hand: Vec<&Card> = t.hand.iter().filter_map(|grp| card(db, *grp)).collect();
             let find = |text: String| Finding {
-                game: gi + 1,
+                game: nr,
                 turn: t.turn,
                 text,
             };
             if !t.land_played
                 && let Some(land) = hand.iter().find(|c| c.is_land())
             {
-                r.missed_lands
-                    .push(find(format!("{} lag auf der Hand", land.name)));
+                missed_lands.push(find(format!("{} lag auf der Hand", land.name)));
+            }
+            if !t.safe_idle.is_empty() {
+                safe_attacks.push(find(format!(
+                    "{} hätte(n) gefahrlos angreifen können",
+                    names(db, &t.safe_idle)
+                )));
             }
             // Mana übrig, obwohl eine Kreatur/Hexerei bezahlbar gewesen wäre (Farben nicht geprüft).
             if t.untapped_lands >= 1 {
@@ -589,35 +898,115 @@ pub fn report(games: &[GameRecord], db: &CardDb) -> Report {
                     })
                     .max_by_key(|c| c.cmc);
                 if let Some(c) = castable {
-                    r.unused_mana.push(find(format!(
-                        "{} Länder ungenutzt, {} ({}) auf der Hand",
+                    unused_mana.push(find(format!(
+                        "{} Länder frei, {} ({}) auf der Hand",
                         t.untapped_lands, c.name, c.mana_cost
                     )));
                 }
             }
-            if t.turn >= 3 && t.creatures_at_start > 0 && !t.attacked {
-                r.no_attack.push(find(format!(
-                    "{} Kreatur(en) bereit, Gegner hatte {}",
-                    t.creatures_at_start, t.creatures_opp
-                )));
-            }
             if (3..=6).contains(&t.turn) && t.creatures_me == 0 {
-                r.empty_board
-                    .push(find("keine eigene Kreatur auf dem Feld".into()));
+                empty_board.push(find("keine eigene Kreatur auf dem Feld".into()));
+            }
+            // Wie lange lag eine bezahlbare Karte auf der Hand? Spontanzauber
+            // (z. B. Schutz-Tricks) hält man oft bewusst zurück – die zählen nicht.
+            let mut counted = HashSet::new();
+            for c in &hand {
+                if !c.is_land()
+                    && !c.types.contains(&TYPE_INSTANT)
+                    && c.cmc > 0
+                    && c.cmc <= t.lands_me
+                    && counted.insert(c.grp_id)
+                {
+                    let e = castable_turns.entry(c.grp_id).or_insert((0, t.turn));
+                    e.0 += 1;
+                    e.1 = t.turn;
+                }
+            }
+        }
+        for (grp, (n, last)) in castable_turns {
+            if n >= 3
+                && let Some(c) = card(db, grp)
+            {
+                held.push(Finding {
+                    game: nr,
+                    turn: last,
+                    text: format!("{} lag {n} eigene Züge bezahlbar auf der Hand", c.name),
+                });
             }
         }
     }
     if !games.is_empty() {
         r.avg_turns = turn_sum as f32 / games.len() as f32;
     }
+
+    let mut cats = vec![
+        Category {
+            title: "Gefahrlosen Angriff ausgelassen",
+            advice: "Wenn keine gegnerische Kreatur deinen Angreifer blocken und dabei töten kann, greif an. \
+                     Schlimmstenfalls opfert der Gegner einen Blocker, sonst verliert er Leben. \
+                     (Fliegend, Reichweite, Todesberührung und Bedrohlich sind berücksichtigt, Zaubertricks des Gegners nicht.)",
+            items: safe_attacks,
+        },
+        Category {
+            title: "Riskante Starthand behalten",
+            advice: "Behalte nur Starthände mit 2–4 Ländern. Mit 0–1 Land fehlt dir das Mana, mit 5 oder mehr fehlen die Zauber. \
+                     Ein Mulligan auf 6 Karten ist meist besser als so eine Hand.",
+            items: keeps,
+        },
+        Category {
+            title: "Land nicht gespielt",
+            advice: "Lege jeden Zug ein Land, wenn du eins hast – auch wenn du es gerade nicht brauchst. Später fehlt es sonst.",
+            items: missed_lands,
+        },
+        Category {
+            title: "Mana ungenutzt",
+            advice: "Nutze dein Mana in jedem Zug. Eine Kreatur auf der Hand macht keinen Schaden – spiel sie, sobald du kannst. \
+                     (Die Farben prüft die App nicht; manchmal fehlte also die passende Farbe.)",
+            items: unused_mana,
+        },
+        Category {
+            title: "Karte lange nicht gespielt",
+            advice: "Diese Karten lagen mehrere Züge bezahlbar auf deiner Hand. Spiel sie früher – \
+                     oder tausch sie im Deck gegen etwas, das du wirklich spielst. (Spontanzauber zählen hier nicht mit.)",
+            items: held,
+        },
+        Category {
+            title: "Bei wenig Leben nicht geblockt",
+            advice: "Bei wenig Leben lohnt es sich zu blocken, auch wenn deine Kreatur dabei stirbt. \
+                     Dann sind deine Lebenspunkte wichtiger als die Kreatur.",
+            items: no_block,
+        },
+        Category {
+            title: "Keine Kreatur auf dem Feld",
+            advice: "In Zug 3–6 lag keine eigene Kreatur auf dem Feld – dann kannst du keinen Druck machen und nicht blocken. \
+                     Spiel früh günstige Kreaturen; ein Deck braucht genug davon für die Züge 1–3.",
+            items: empty_board,
+        },
+        Category {
+            title: "Früh aufgegeben",
+            advice: "Gerade auf niedrigen Rängen machen Gegner oft Fehler, und Partien drehen sich. \
+                     Spiel weiter, solange du noch Leben hast.",
+            items: concedes,
+        },
+    ];
+    for c in &mut cats {
+        c.items.sort_by_key(|f| (f.game, f.turn));
+    }
+    cats.sort_by_key(|c| std::cmp::Reverse(c.items.len()));
+    r.categories = cats;
+
     let mut opp: Vec<(String, usize)> = opp.into_iter().collect();
     opp.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
     opp.truncate(15);
     r.opp_cards = opp;
+    let mut damage: Vec<(String, u32)> = damage.into_iter().collect();
+    damage.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
+    damage.truncate(10);
+    r.damage_sources = damage;
     r
 }
 
-/// Farben eines Decks als Buchstaben (z. B. „UR“).
+/// Farben eines Decks als Buchstaben (z. B. „UR“), aus den Manakosten.
 pub fn deck_colors(deck: &[u32], db: &CardDb) -> String {
     let costs: String = deck
         .iter()
@@ -631,4 +1020,39 @@ pub fn deck_colors(deck: &[u32], db: &CardDb) -> String {
 pub fn opp_colors(g: &GameRecord, db: &CardDb) -> String {
     let ids: Vec<u32> = g.opp_cards.keys().copied().collect();
     deck_colors(&ids, db)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn creature(power: i32, toughness: i32, keywords: &[u32]) -> Obj {
+        Obj {
+            creature: true,
+            power,
+            toughness,
+            keywords: keywords.to_vec(),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn safe_attack_rules() {
+        let bear = creature(2, 2, &[]);
+        let wall = creature(0, 4, &[]);
+        let ogre = creature(3, 3, &[]);
+        let bird = creature(1, 1, &[KW_FLYING]);
+        // Kein Blocker -> gefahrlos
+        assert!(safe_attack(&bear, &[]));
+        // Blocker ohne Kraft kann nicht töten
+        assert!(safe_attack(&bear, &[&wall]));
+        // 3/3 tötet 2/2
+        assert!(!safe_attack(&bear, &[&ogre]));
+        // Fliegender Angreifer kann vom Oger nicht geblockt werden
+        assert!(safe_attack(&bird, &[&ogre]));
+        // Todesberührung tötet immer
+        assert!(!safe_attack(&ogre, &[&creature(1, 1, &[KW_DEATHTOUCH])]));
+        // Bedrohlich: ein einzelner Blocker reicht nicht
+        assert!(safe_attack(&creature(2, 2, &[KW_MENACE]), &[&ogre]));
+    }
 }

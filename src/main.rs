@@ -348,9 +348,20 @@ fn games_cli() -> anyhow::Result<()> {
     }
     let r = games::report(&games, &db);
     println!(
-        "
-{r:#?}"
+        "\n{} Siege, {} Niederlagen ({} aufgegeben), Ø {:.1} Züge, {} eigene Züge ausgewertet",
+        r.wins, r.losses, r.conceded, r.avg_turns, r.my_turns
     );
+    println!(
+        "Starthand 2–4 Länder: {}/{} gewonnen, andere: {}/{}",
+        r.good_keeps.0, r.good_keeps.1, r.bad_keeps.0, r.bad_keeps.1
+    );
+    for c in &r.categories {
+        println!("\n== {} ({}×)", c.title, c.items.len());
+        for f in &c.items {
+            println!("   Partie #{}, Zug {}: {}", f.game, f.turn, f.text);
+        }
+    }
+    println!("\nAm meisten Schaden: {:?}", r.damage_sources);
     Ok(())
 }
 

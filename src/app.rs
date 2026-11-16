@@ -1431,45 +1431,55 @@ impl App {
             ));
             ui.add_space(6.0);
 
-            // --- Auffälligkeiten ---
-            ui.strong("Auffälligkeiten");
+            // --- Größte Baustellen ---
+            ui.heading("Was du als Nächstes verbessern kannst");
+            let top: Vec<&games::Category> =
+                r.categories.iter().filter(|c| !c.items.is_empty()).take(3).collect();
+            if top.is_empty() {
+                ui.label(
+                    RichText::new("Keine typischen Fehler gefunden. Die App erkennt allerdings nur einfache Muster.")
+                        .color(GREEN),
+                );
+            }
+            for (n, c) in top.iter().enumerate() {
+                let in_games: HashSet<usize> = c.items.iter().map(|f| f.game).collect();
+                ui.horizontal_wrapped(|ui| {
+                    ui.label(RichText::new(format!("{}. {}", n + 1, c.title)).strong().color(YELLOW));
+                    ui.label(format!("– {}× in {} von {} Partien", c.items.len(), in_games.len(), r.games));
+                });
+                ui.label(c.advice);
+                ui.add_space(4.0);
+            }
+            if r.good_keeps.1 + r.bad_keeps.1 > 0 {
+                ui.label(
+                    RichText::new(format!(
+                        "Starthand mit 2–4 Ländern: {} · andere Starthände: {}",
+                        ratio(r.good_keeps.0, r.good_keeps.1),
+                        ratio(r.bad_keeps.0, r.bad_keeps.1)
+                    ))
+                    .weak(),
+                );
+            }
+            ui.add_space(8.0);
+
+            // --- Alle Auffälligkeiten ---
+            ui.strong("Alle Auffälligkeiten");
             ui.label(
                 RichText::new(format!(
-                    "Ausgewertet: {} eigene Züge aus vollständig mitgeschriebenen Partien. Ein Klick auf einen Eintrag öffnet die Partie.",
+                    "Zug-Auswertung über {} eigene Züge aus vollständig mitgeschriebenen Partien. Ein Klick auf einen Eintrag öffnet die Partie.",
                     r.my_turns
                 ))
                 .weak(),
             );
-            let sections = [
-                (
-                    "Land nicht gespielt",
-                    "Ein Land pro Zug zu legen ist fast immer richtig – auch wenn du es gerade nicht brauchst. Später fehlt es sonst.",
-                    &r.missed_lands,
-                ),
-                (
-                    "Mana ungenutzt",
-                    "Am Zugende waren Länder frei, obwohl eine Kreatur oder Hexerei bezahlbar gewesen wäre. Die Farben prüft die App nicht – manchmal fehlte also die passende Farbe.",
-                    &r.unused_mana,
-                ),
-                (
-                    "Nicht angegriffen",
-                    "Deine Kreaturen hätten angreifen können, haben es aber nicht. Mit einem Aggro-Deck lohnt sich Angreifen meist, solange der Gegner nicht günstig blocken kann.",
-                    &r.no_attack,
-                ),
-                (
-                    "Keine Kreatur auf dem Feld",
-                    "In Zug 3–6 lag keine eigene Kreatur auf dem Feld – das Deck kann dann keinen Druck machen.",
-                    &r.empty_board,
-                ),
-            ];
-            for (title, explain, items) in sections {
-                let color = if items.is_empty() { GREEN } else { YELLOW };
-                egui::CollapsingHeader::new(RichText::new(format!("{title}: {}×", items.len())).color(color))
-                    .id_salt(title)
+            for c in &r.categories {
+                let color = if c.items.is_empty() { GREEN } else { YELLOW };
+                egui::CollapsingHeader::new(RichText::new(format!("{}: {}×", c.title, c.items.len())).color(color))
+                    .id_salt(c.title)
                     .show(ui, |ui| {
-                        ui.label(RichText::new(explain).weak());
-                        for f in items.iter() {
-                            if ui.link(format!("Partie #{}, Zug {}: {}", f.game, f.turn, f.text)).clicked() {
+                        ui.label(RichText::new(c.advice).weak());
+                        for f in &c.items {
+                            let when = if f.turn == 0 { "Starthand".to_string() } else { format!("Zug {}", f.turn) };
+                            if ui.link(format!("Partie #{}, {when}: {}", f.game, f.text)).clicked() {
                                 clicked = Some(f.game - 1);
                             }
                         }
@@ -1478,6 +1488,16 @@ impl App {
             if r.discards > 0 {
                 ui.label(format!("Abgeworfene Karten: {} (z. B. weil die Hand am Zugende zu voll war)", r.discards));
             }
+            egui::CollapsingHeader::new(format!("Was dir am meisten Schaden gemacht hat ({})", r.damage_sources.len()))
+                .id_salt("damage_sources")
+                .show(ui, |ui| {
+                    ui.label(
+                        RichText::new("Gegen diese Karten lohnt es sich, Removal aufzuheben oder zu blocken.").weak(),
+                    );
+                    for (name, dmg) in &r.damage_sources {
+                        ui.label(format!("{name} – {dmg} Schaden"));
+                    }
+                });
             egui::CollapsingHeader::new(format!("Häufigste Karten deiner Gegner ({})", r.opp_cards.len()))
                 .id_salt("opp_cards")
                 .show(ui, |ui| {
@@ -1567,6 +1587,43 @@ impl App {
                 ui.add_space(8.0);
                 ui.separator();
                 ui.heading(format!("Partie #{} – {}", i + 1, event_label(&g.event)));
+                if !g.opening_hand.is_empty() {
+                    let hand: Vec<&crate::carddb::Card> =
+                        g.opening_hand.iter().filter_map(|grp| db.cards.get(grp)).collect();
+                    let lands = hand.iter().filter(|c| c.is_land()).count();
+                    let names: Vec<&str> = hand.iter().map(|c| c.name.as_str()).collect();
+                    ui.label(format!("Starthand ({} Karten, {lands} Länder): {}", hand.len(), names.join(", ")));
+                }
+                // Tipps nur für diese Partie
+                let single = games::report(std::slice::from_ref(g), db);
+                let found: Vec<(&str, &games::Finding)> = single
+                    .categories
+                    .iter()
+                    .flat_map(|c| c.items.iter().map(move |f| (c.title, f)))
+                    .collect();
+                if found.is_empty() {
+                    if g.complete {
+                        ui.label(
+                            RichText::new("In dieser Partie hat die App keine typischen Fehler gefunden.").color(GREEN),
+                        );
+                    }
+                } else {
+                    ui.strong("Was du in dieser Partie besser machen kannst");
+                    let mut sorted = found;
+                    sorted.sort_by_key(|(_, f)| f.turn);
+                    for (title, f) in sorted {
+                        let when = if f.turn == 0 { "Starthand".to_string() } else { format!("Zug {}", f.turn) };
+                        ui.label(format!("• {when} – {title}: {}", f.text));
+                    }
+                }
+                if let Some((name, dmg)) = {
+                    let mut d: Vec<(u32, u32)> = g.damage_taken.iter().map(|(k, v)| (*k, *v)).collect();
+                    d.sort_by_key(|(_, v)| std::cmp::Reverse(*v));
+                    d.first().and_then(|(grp, v)| db.cards.get(grp).map(|c| (c.name.clone(), *v)))
+                } {
+                    ui.label(RichText::new(format!("Am meisten Schaden an dir: {name} ({dmg})")).weak());
+                }
+                ui.add_space(4.0);
                 if g.turns.is_empty() {
                     ui.label("Für diese Partie stehen keine Zugdaten im Log.");
                     return;
