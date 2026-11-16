@@ -1,0 +1,112 @@
+# MTG Arena Builder
+
+Desktop-App (Rust, egui) für Spieler von **Magic: The Gathering Arena**, die
+nicht gern selbst Decks bauen. Sie gleicht aktuelle Turnierdecks mit der
+eigenen Sammlung ab, baut Decks aus vorhandenen Karten, wertet die eigenen
+Partien aus und gibt während einer Partie Hinweise in einem kleinen
+Begleitfenster.
+
+Die Oberfläche ist deutsch. Gebaut und getestet ist bisher nur Windows; der
+Code ist für Linux und macOS vorbereitet (siehe [ToDo.md](ToDo.md)).
+
+## Funktionen
+
+| Reiter | Was er tut |
+|---|---|
+| **Turnierdecks** | Archetypen und Decklisten von MTGTop8 je Format. Zeigt, was mit der eigenen Sammlung fehlt und ob die Wildcards reichen; Ersatzkarten aus der Sammlung, „Budget-Version bauen“, Export für den Arena-Import. |
+| **Aus meiner Sammlung** | Baut 60-Karten-Decks je Farbe/Farbpaar nur aus eigenen Karten (Manakurve, Kreaturen, Removal, passende Länder). |
+| **Eigene Liste** | Eine beliebige Deckliste einfügen und gegen die Sammlung prüfen. |
+| **Meine Partien** | Auswertung aus dem Arena-Log: typische Fehler mit Beispielen („Land nicht gespielt“, „Besserer Zug möglich“, „Gefahrlosen Angriff ausgelassen“ …), Gegner-Analyse, Partienliste und **Verlauf** (Rang und Siegquote je Deck als Diagramm). |
+| **Deck verbessern** | Kartennutzung je Deck, Länder-Check, Vergleich mit dem passenden Turnier-Archetyp und Tauschvorschläge. |
+
+**Begleitfenster** (oben rechts einschalten): liest das Arena-Log live mit und
+zeigt Mulligan-Rat, Zugvorschlag (Land und Zauber mit Farbprüfung),
+gefahrlose Angriffe, tödlichen Schaden, Blockvorschläge und Warnungen vor
+typischen Tricks des Gegners. Es greift nicht ins Spiel ein.
+
+## Voraussetzungen
+
+- MTG Arena, in den Arena-Einstellungen **Konto > „Detaillierte Logs
+  (Plugin-Unterstützung)“** eingeschaltet (danach Arena neu starten).
+- Zum Lesen der Sammlung muss Arena laufen (Hauptmenü). Windows fragt dafür
+  nach Administratorrechten.
+- Zum Bauen: Rust (Edition 2024, getestet mit 1.100) und unter Windows die
+  MSVC-Build-Tools.
+
+## Bauen und starten
+
+```powershell
+.\build.ps1             # fmt, Clippy, Tests, Release-Build, Desktop-Verknüpfung
+.\build.ps1 -Coverage   # zusätzlich Testabdeckung (mindestens 90 %)
+.\build.ps1 -SkipChecks # nur bauen
+```
+
+Ergebnis: `dist\MTG Arena Builder.exe` (statisch gelinkt, ohne Installation
+lauffähig) plus versionierte Kopie mit SHA-256. Die Verknüpfung „MTG Arena
+Builder“ auf dem Desktop zeigt immer auf die aktuelle Version. Eine laufende
+App wird beim Bauen beendet und danach neu gestartet.
+
+Für die Entwicklung: `cargo run`, `cargo test`.
+
+## Tests
+
+```powershell
+cargo test              # alle Tests
+.\coverage.ps1 -Open    # Abdeckung messen, HTML-Bericht öffnen
+```
+
+Die Tests liegen je Modul in `src/tests/`. Sie brauchen weder Arena noch
+Internet: Kartendatenbanken, Arena-Lognachrichten und Turnierseiten werden in
+`src/testutil.rs` künstlich erzeugt. Die Abdeckung wird ohne Oberfläche
+(`app.rs`) und Programmstart (`main.rs`) gemessen; `coverage.ps1` schlägt unter
+90 % fehl. Für `coverage.ps1` einmalig:
+
+```powershell
+rustup component add llvm-tools-preview
+cargo install cargo-llvm-cov --locked
+```
+
+## Kommandozeile (Diagnose)
+
+| Aufruf | Zweck |
+|---|---|
+| `--check` | Kartendaten, Sammlung und Turnierseiten prüfen |
+| `--report [FORMAT]` | alle Archetypen gegen die gespeicherte Sammlung bewerten |
+| `--variants FORMAT NAME` | alle Listen eines Archetyps bewerten |
+| `--build [FORMAT]` | Deckvorschläge aus der Sammlung |
+| `--budget FORMAT NAME` | Budget-Version eines Archetyps |
+| `--games` | Partien einlesen und auswerten |
+| `--decks [FORMAT]` | „Deck verbessern“ und Gegner-Analyse |
+| `--parse LOG…` | Logdatei einlesen, ohne gespeicherte Partien zu ändern |
+| `--replay LOG [N]` | Begleitfenster-Hinweise für ein Log nachspielen |
+| `--image NAME…` | Kartenbilder laden |
+
+`FORMAT` ist das MTGTop8-Kürzel (`ST` Standard, `PI`, `EXP`, `HI`, `ALCH`).
+Die Release-Version hat kein Konsolenfenster; für die Ausgabe `cargo run --
+--games` usw. verwenden.
+
+## Daten
+
+Alles liegt in `%APPDATA%\mtg_arena_builder\data` (Linux/macOS: der
+entsprechende Datenordner):
+
+| Datei | Inhalt |
+|---|---|
+| `settings.json` | Einstellungen und zuletzt gewählte Ansicht |
+| `collection.json` | zuletzt gelesene Sammlung und Wildcards |
+| `games.json` | alle ausgewerteten Partien (Arena überschreibt sein Log bei jedem Start) |
+| `cache\` | MTGTop8-Seiten, Decklisten, Scryfall-Legalität, Kartenbilder |
+
+## Datenquellen
+
+- Kartendaten: die lokale Arena-Datenbank `Raw_CardDatabase_*.mtga` (SQLite).
+- Sammlung: Arbeitsspeicher von Arena über
+  [mtga-reader](https://github.com/mtgatool/mtga-reader) (GPL-3.0).
+- Partien und Rang: `Player.log` von Arena („Detaillierte Logs“).
+- Turnierdecks: [MTGTop8](https://www.mtgtop8.com) (5 s Abstand je Anfrage, Cache).
+- Legalität und Kartenbilder: [Scryfall](https://scryfall.com) (ohne API-Schlüssel).
+
+## Lizenz
+
+GPL-3.0-or-later (wegen mtga-reader). Privates Werkzeug, nicht mit Wizards of
+the Coast verbunden.
