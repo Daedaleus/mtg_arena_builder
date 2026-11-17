@@ -41,6 +41,7 @@ impl App {
                 });
             if before != self.games_event {
                 self.sel_game = None;
+                self.games_page.set(0);
             }
             ui.label(RichText::new(format!("{} Partien gespeichert", self.games.len())).weak());
         });
@@ -91,14 +92,22 @@ impl App {
             .iter()
             .map(|g| opponents::classify(g, db, &shares))
             .collect();
+        let player = style::analyze(&games, db, &r);
+        let recs = style::recommend(
+            &self.style_candidates(db),
+            player.recommended,
+            self.wildcards(),
+            5,
+        );
         let mut clicked: Option<usize> = None;
+        let mut open: Option<u32> = None;
 
         egui::ScrollArea::vertical()
             .id_salt("games_scroll")
             .auto_shrink([false, false])
             .show(ui, |ui| {
                 if overview {
-                    clicked = self.games_overview(ui, &r, &opp_groups);
+                    (clicked, open) = self.games_overview(ui, &r, &opp_groups, &player, &recs);
                 } else {
                     clicked = self.game_list(ui, &games, db, &opp_names);
                     if let Some(i) = self.sel_game
@@ -108,8 +117,13 @@ impl App {
                     }
                 }
             });
+        if let Some(id) = open {
+            self.open_deck(id);
+        }
         if let Some(i) = clicked {
             self.sel_game = Some(i);
+            // Auf die Seite der angeklickten Partie springen.
+            self.games_page.set(i / present::PAGE_SIZE);
             self.games_view = 1;
         }
     }

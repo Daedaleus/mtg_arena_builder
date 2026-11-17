@@ -74,3 +74,35 @@ fn wildcard_plan_renders() {
     );
     assert_eq!(super::widgets::wildcards_text(&[0; 4]), "keine");
 }
+
+/// Wache gegen kaputte Zeilenfortsetzungen in Texten: Geht beim Bearbeiten
+/// das `\` am Zeilenende verloren, landen lange Leerzeichenfolgen mitten im
+/// angezeigten Text.
+#[test]
+fn texts_have_no_broken_line_continuations() {
+    fn visit(dir: &std::path::Path, bad: &mut Vec<String>) {
+        for entry in std::fs::read_dir(dir).unwrap().flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                visit(&path, bad);
+            } else if path.extension().is_some_and(|e| e == "rs") {
+                let text = std::fs::read_to_string(&path).unwrap();
+                for (n, line) in text.lines().enumerate() {
+                    let trimmed = line.trim_start();
+                    if trimmed.starts_with("//") || !trimmed.contains('"') {
+                        continue;
+                    }
+                    if trimmed.trim_end().contains(&" ".repeat(8)) {
+                        bad.push(format!("{}:{}", path.display(), n + 1));
+                    }
+                }
+            }
+        }
+    }
+    let mut bad = Vec::new();
+    visit(
+        &std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src"),
+        &mut bad,
+    );
+    assert!(bad.is_empty(), "Leerzeichen-Folgen in Texten: {bad:?}");
+}

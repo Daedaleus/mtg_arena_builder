@@ -12,6 +12,34 @@ impl App {
         opp_names: &[String],
     ) -> Option<usize> {
         let mut clicked = None;
+        let (start, end, pages, page) =
+            present::page_range(games.len(), self.games_page.get(), present::PAGE_SIZE);
+        self.games_page.set(page);
+        // --- Blättern ---
+        if pages > 1 {
+            ui.horizontal(|ui| {
+                if ui
+                    .add_enabled(page > 0, egui::Button::new("Zurück"))
+                    .clicked()
+                {
+                    self.games_page.set(page - 1);
+                }
+                ui.label(format!(
+                    "Seite {} von {} · Partien {}–{} von {}",
+                    page + 1,
+                    pages,
+                    start + 1,
+                    end,
+                    games.len()
+                ));
+                if ui
+                    .add_enabled(page + 1 < pages, egui::Button::new("Weiter"))
+                    .clicked()
+                {
+                    self.games_page.set(page + 1);
+                }
+            });
+        }
         // --- Partienliste ---
         ui.push_id("games_table", |ui| {
             TableBuilder::new(ui)
@@ -38,7 +66,7 @@ impl App {
                     }
                 })
                 .body(|mut body| {
-                    for (i, g) in games.iter().enumerate() {
+                    for (i, g) in games.iter().enumerate().take(end).skip(start) {
                         body.row(20.0, |mut row| {
                             row.col(|ui| {
                                 if ui

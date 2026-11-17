@@ -109,7 +109,8 @@ impl App {
             sim_clicked = ui
                 .button("Probehände testen")
                 .on_hover_text(
-                    "Spielt das Deck 1000-mal bis Zug 6 durch (mit deinen Ersatzkarten) und zeigt,                      wie oft Länder oder Farben fehlen und wie gut das Mana genutzt wird.",
+                    "Spielt das Deck 1000-mal bis Zug 6 durch (mit deinen Ersatzkarten) und zeigt, \
+                     wie oft Länder oder Farben fehlen und wie gut das Mana genutzt wird.",
                 )
                 .clicked();
             if ui.button("Für Arena kopieren").on_hover_text("In Arena: Decks > Importieren").clicked()

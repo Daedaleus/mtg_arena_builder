@@ -29,6 +29,7 @@ etwa 400 Zeilen halten, sonst nach Aufgabe teilen.
 | `meta`, `magicgg` | MTGTop8 und magic.gg (Abruf mit Cache, Parser), Scryfall-Legalität |
 | `deck`, `similar`, `budget` | Listen prüfen, Ersatzkarten, Budget-Version, Wildcard-Plan |
 | `sim` | Probehände (Deck 1000-mal bis Zug 6 durchspielen) |
+| `style` | Spielstil (Aggro/Midrange/Control) aus Decks und Partien, Deckempfehlung |
 | `builder` | Decks nur aus eigenen Karten |
 | `games/` | `record` (Datentypen, Rang), `tracker`, `live_state`, `parser`, `store` (`games.json`), `report` (Auswertung) |
 | `deckcheck/`, `opponents`, `progress` | Deck verbessern (`groups`, `mana`, `analysis`), Gegner und Archetyp-Erkennung, Verlauf |
@@ -45,6 +46,8 @@ etwa 400 Zeilen halten, sonst nach Aufgabe teilen.
   (Karten, Lognachrichten, temporäre Ordner) aus `src/testutil.rs`.
   `coverage.ps1` verlangt mindestens 90 % Zeilenabdeckung ohne `src/app/` und `main.rs`.
 - Tests dürfen weder Netzwerk noch das echte Datenverzeichnis anfassen.
+- Der Test `texts_have_no_broken_line_continuations` findet Texte, bei denen
+  beim Bearbeiten das `\` am Zeilenende verloren ging (lange Leerzeichenfolgen).
 - Ändert sich, was der Log-Parser pro Partie speichert, `PARSER_VERSION` in
   `games/store.rs` erhöhen – dann werden gespeicherte Partien aus noch vorhandenen
   Logs neu berechnet. Bessere Aufzeichnungen ersetzen schlechtere, nie

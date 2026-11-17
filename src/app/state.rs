@@ -276,4 +276,66 @@ impl App {
             })
             .collect()
     }
+
+    /// Alle geladenen Turnierlisten (MTGTop8 und magic.gg) als Kandidaten für
+    /// die Empfehlung nach Spielstil.
+    pub(super) fn style_candidates(&self, db: &CardDb) -> Vec<style::Candidate> {
+        let mut out = Vec::new();
+        for a in &self.archetypes {
+            for d in self.decks.get(&a.id).into_iter().flatten() {
+                if let (Some(list), Some(summary)) = (self.lists.get(&d.id), self.summary(d.id)) {
+                    out.push(style::Candidate {
+                        deck_id: d.id,
+                        label: a.name.clone(),
+                        source: "Turnierdecks",
+                        style: style::DeckProfile::of_deck(list, db).style(),
+                        summary,
+                    });
+                }
+            }
+        }
+        for decks in self.gg_decks.values() {
+            for (id, d) in decks {
+                let Some(summary) = self.summary(*id) else {
+                    continue;
+                };
+                let label = if d.subtitle.is_empty() {
+                    opponents::deck_label(&d.deck, db, &[])
+                } else {
+                    d.subtitle.clone()
+                };
+                out.push(style::Candidate {
+                    deck_id: *id,
+                    label,
+                    source: "Offizielle Events",
+                    style: style::DeckProfile::of_deck(&d.deck, db).style(),
+                    summary,
+                });
+            }
+        }
+        out
+    }
+
+    /// Öffnet ein Turnierdeck in seinem Reiter (MTGTop8 oder magic.gg).
+    pub(super) fn open_deck(&mut self, id: u32) {
+        if let Some(arch) = self
+            .decks
+            .iter()
+            .find(|(_, ds)| ds.iter().any(|d| d.id == id))
+            .map(|(a, _)| *a)
+        {
+            self.sel_arch = Some(arch);
+            self.sel_deck = Some(id);
+            self.tab = Tab::Meta;
+        } else if let Some(slug) = self
+            .gg_decks
+            .iter()
+            .find(|(_, ds)| ds.iter().any(|(i, _)| *i == id))
+            .map(|(s, _)| s.clone())
+        {
+            self.sel_gg_event = Some(slug);
+            self.sel_gg_deck = Some(id);
+            self.tab = Tab::Events;
+        }
+    }
 }

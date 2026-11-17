@@ -3,14 +3,18 @@
 use super::*;
 
 impl App {
-    /// Übersicht; liefert die Partie, deren Eintrag angeklickt wurde.
+    /// Übersicht; liefert die angeklickte Partie und das angeklickte
+    /// empfohlene Deck.
     pub(super) fn games_overview(
         &self,
         ui: &mut egui::Ui,
         r: &games::Report,
         opp_groups: &[opponents::OppGroup],
-    ) -> Option<usize> {
+        player: &style::PlayerStyle,
+        recs: &[style::Candidate],
+    ) -> (Option<usize>, Option<u32>) {
         let mut clicked = None;
+        let mut open = None;
         // --- Bilanz ---
         ui.add_space(4.0);
         ui.horizontal_wrapped(|ui| {
@@ -31,6 +35,57 @@ impl App {
             ratio(r.on_draw.0, r.on_draw.1),
             r.avg_turns
         ));
+        ui.add_space(6.0);
+
+        // --- Spielstil ---
+        egui::CollapsingHeader::new(RichText::new("Dein Spielstil").strong())
+            .id_salt("player_style")
+            .default_open(true)
+            .show(ui, |ui| {
+                if !player.records.is_empty() {
+                    let played: Vec<String> = player
+                        .records
+                        .iter()
+                        .map(|s| format!("{} {} Partien ({} Siege)", s.style.name(), s.games, s.wins))
+                        .collect();
+                    ui.label(format!("Gespielt: {}", played.join(" · ")));
+                }
+                for t in &player.traits {
+                    ui.label(t);
+                }
+                ui.label(
+                    RichText::new(format!(
+                        "Empfehlung: {} – {}",
+                        player.recommended.name(),
+                        player.recommended.description()
+                    ))
+                    .color(GREEN)
+                    .strong(),
+                );
+                ui.label(RichText::new(&player.reason).weak());
+                if recs.is_empty() {
+                    ui.label(
+                        RichText::new(
+                            "Passende Decks schlägt die App vor, sobald Turnierlisten geladen sind: unter \
+                             „Turnierdecks“ auf „Alle bewerten“ klicken oder unter „Offizielle Events“ ein Event öffnen.",
+                        )
+                        .weak(),
+                    );
+                } else {
+                    ui.label("Passende Turnierdecks, für deine Sammlung günstigste zuerst:");
+                    egui::Grid::new("style_recs").num_columns(3).show(ui, |ui| {
+                        for c in recs {
+                            if ui.link(&c.label).clicked() {
+                                open = Some(c.deck_id);
+                            }
+                            ui.label(RichText::new(c.source).weak());
+                            let (color, text) = self.fit_text(&c.summary);
+                            ui.label(RichText::new(text).color(color)).on_hover_text(cost_tooltip(&c.summary));
+                            ui.end_row();
+                        }
+                    });
+                }
+            });
         ui.add_space(6.0);
 
         // --- Größte Baustellen ---
@@ -175,6 +230,6 @@ impl App {
                 });
             });
         ui.add_space(6.0);
-        clicked
+        (clicked, open)
     }
 }

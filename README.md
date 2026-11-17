@@ -18,7 +18,7 @@ echten Einsatz ausprobiert (siehe [ToDo.md](ToDo.md)).
 | **Offizielle Events** | Decklisten von magic.gg: World Championship, Arena Championship, Regional Championships und jede Woche Ranglisten-Decks (Traditional). Archetyp wird aus den MTGTop8-Listen erkannt; gleiche Deckansicht wie bei den Turnierdecks. |
 | **Aus meiner Sammlung** | Baut 60-Karten-Decks je Farbe/Farbpaar nur aus eigenen Karten (Manakurve, Kreaturen, Removal, passende Länder). |
 | **Eigene Liste** | Eine beliebige Deckliste einfügen und gegen die Sammlung prüfen. |
-| **Meine Partien** | Auswertung aus dem Arena-Log: typische Fehler mit Beispielen („Land nicht gespielt“, „Besserer Zug möglich“, „Gefahrlosen Angriff ausgelassen“ …), Gegner-Analyse, Partienliste und **Verlauf** (Constructed- und Limited-Rang, Siegquote je Deck als Diagramm). |
+| **Meine Partien** | Auswertung aus dem Arena-Log: typische Fehler mit Beispielen („Land nicht gespielt“, „Besserer Zug möglich“, „Gefahrlosen Angriff ausgelassen“ …), **Spielstil** mit passenden Turnierdecks (Aggro, Midrange oder Control – je nachdem, womit du gewinnst), Gegner-Analyse, Partienliste (10 je Seite) und **Verlauf** (Constructed- und Limited-Rang, Siegquote je Deck als Diagramm). |
 | **Deck verbessern** | Kartennutzung je Deck, Länder-Check, Probehände, Vergleich mit dem passenden Turnier-Archetyp und Tauschvorschläge. |
 
 **Probehände:** spielt ein Deck 1000-mal bis Zug 6 durch (Mulligan, Land legen,

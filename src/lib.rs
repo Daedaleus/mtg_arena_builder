@@ -19,6 +19,7 @@ pub mod opponents;
 pub mod paths;
 pub mod sim;
 pub mod similar;
+pub mod style;
 pub mod turnplan;
 
 pub mod present;

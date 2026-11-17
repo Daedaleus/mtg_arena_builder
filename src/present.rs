@@ -106,6 +106,19 @@ pub fn ago(ms: u64) -> String {
     ago_at(now, ms)
 }
 
+/// Partien je Seite in „Meine Partien“.
+pub const PAGE_SIZE: usize = 10;
+
+/// Seitenaufteilung: (erster Index, Ende exklusiv, Seitenzahl, gültige Seite).
+/// Eine zu große Seite wird auf die letzte begrenzt.
+pub fn page_range(total: usize, page: usize, per_page: usize) -> (usize, usize, usize, usize) {
+    let per_page = per_page.max(1);
+    let pages = total.div_ceil(per_page).max(1);
+    let page = page.min(pages - 1);
+    let start = page * per_page;
+    (start, (start + per_page).min(total), pages, page)
+}
+
 pub fn ratio(won: usize, total: usize) -> String {
     if total == 0 {
         "–".into()

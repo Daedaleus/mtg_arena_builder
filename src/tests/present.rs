@@ -76,3 +76,14 @@ fn relative_times() {
     assert_eq!(ago_at(now, now - 4 * 86_400_000), "vor 4 Tagen");
     assert!(!ago(0).is_empty());
 }
+
+#[test]
+fn pages() {
+    assert_eq!(page_range(0, 0, 10), (0, 0, 1, 0));
+    assert_eq!(page_range(25, 0, 10), (0, 10, 3, 0));
+    assert_eq!(page_range(25, 2, 10), (20, 25, 3, 2));
+    // Zu große Seite (z. B. nach dem Filtern) wird auf die letzte begrenzt.
+    assert_eq!(page_range(25, 9, 10), (20, 25, 3, 2));
+    assert_eq!(page_range(10, 1, 10), (0, 10, 1, 0));
+    assert_eq!(page_range(3, 0, 0), (0, 1, 3, 0), "mindestens 1 je Seite");
+}

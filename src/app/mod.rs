@@ -31,6 +31,7 @@ use crate::progress;
 use crate::settings::{Settings, SettingsFile};
 use crate::sim;
 use crate::similar::{self, Suggestion};
+use crate::style;
 
 const GREEN: Color32 = Color32::from_rgb(110, 200, 120);
 const YELLOW: Color32 = Color32::from_rgb(235, 195, 80);
@@ -129,6 +130,8 @@ pub struct App {
     img_tx: Sender<String>,
     textures: HashMap<String, egui::TextureHandle>,
     img_requested: std::cell::RefCell<HashSet<String>>,
+    /// Aktuelle Seite der Partienliste (Zelle, damit die Liste sie beim Zeichnen ändern kann).
+    games_page: std::cell::Cell<usize>,
     img_missing: HashSet<String>,
     /// magic.gg: Events des Formats, für das sie geladen wurden.
     gg_events: Vec<GgEvent>,
@@ -228,6 +231,7 @@ impl App {
             img_tx,
             textures: HashMap::new(),
             img_requested: std::cell::RefCell::new(HashSet::new()),
+            games_page: std::cell::Cell::new(0),
             img_missing: HashSet::new(),
             gg_events: Vec::new(),
             gg_format: None,
