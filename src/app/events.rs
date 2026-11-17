@@ -91,12 +91,14 @@ impl App {
         let mut rows: Vec<(u32, String, String, Option<Summary>)> = decks
             .iter()
             .map(|(id, d)| {
-                let who = if d.subtitle.is_empty() {
-                    d.title.clone()
+                // Bei Championships nennt magic.gg den Archetyp im Untertitel;
+                // sonst (z. B. Ranglisten-Decks) erkennt die App ihn selbst.
+                let who = d.title.clone();
+                let label = if d.subtitle.is_empty() {
+                    opponents::deck_label(&d.deck, &db, &shares)
                 } else {
-                    format!("{} ({})", d.title, d.subtitle)
+                    d.subtitle.clone()
                 };
-                let label = opponents::deck_label(&d.deck, &db, &shares);
                 (*id, who, label, self.summary(*id))
             })
             .collect();
@@ -107,7 +109,7 @@ impl App {
         let mut clicked = None;
         egui::ScrollArea::vertical()
             .id_salt("gg_decks")
-            .max_height(260.0)
+            .max_height((ui.available_height() * 0.45).max(220.0))
             .auto_shrink([false, true])
             .show(ui, |ui| {
                 egui::Grid::new("gg_deck_grid")
