@@ -155,6 +155,22 @@ impl Fetcher {
         Ok(list)
     }
 
+    /// Bereits heruntergeladene magic.gg-Events eines Formats mit ihren Decks –
+    /// ohne Netzwerkzugriff und unabhängig vom Alter der Übersicht.
+    pub fn cached_gg(&self, format: &str) -> Vec<(GgEvent, Vec<GgDeck>)> {
+        let Some(index) = self.cached("gg_index.html", None) else {
+            return Vec::new();
+        };
+        magicgg::parse_index(&index, format)
+            .into_iter()
+            .filter_map(|e| {
+                let html = self.cached(&magicgg::cache_file(&e.slug), None)?;
+                let decks = magicgg::parse_event(&html);
+                (!decks.is_empty()).then_some((e, decks))
+            })
+            .collect()
+    }
+
     /// Decks eines magic.gg-Events. Veröffentlichte Listen ändern sich nicht
     /// mehr – dauerhaft cachen.
     pub fn gg_decks(&mut self, slug: &str) -> Result<Vec<GgDeck>> {
@@ -203,8 +219,10 @@ impl Fetcher {
     }
 
     /// Wie [`Fetcher::decks`], aber nur aus dem Cache – ohne Netzwerkzugriff.
+    /// Auch ältere Seiten zählen: Beim Start ist eine etwas ältere Deckliste
+    /// besser als keine; neu geladen wird über „Aktualisieren“/„Alle bewerten“.
     pub fn cached_decks(&self, format: &str, arch: &Archetype) -> Option<Vec<DeckRef>> {
-        let html = self.cached(&format!("arch_{format}_{}.html", arch.id), Some(12 * HOUR))?;
+        let html = self.cached(&format!("arch_{format}_{}.html", arch.id), None)?;
         Some(parse_decks(&html))
     }
 

@@ -125,6 +125,10 @@ pub(super) fn worker(rx: Receiver<Job>, tx: Sender<Msg>, ctx: egui::Context, cac
                         send(Msg::List(deck_id, Ok(text)));
                     }
                 }
+                // Schon geöffnete magic.gg-Events ebenfalls wiederherstellen.
+                for (event, decks) in fetcher.cached_gg(FORMATS[format].2) {
+                    send(Msg::GgDecks(event.slug, Ok(decks)));
+                }
                 send(Msg::Restored(format));
             }
         }

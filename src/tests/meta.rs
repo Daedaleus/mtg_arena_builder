@@ -148,3 +148,50 @@ fn magic_gg_from_cache_without_network() {
     assert!(f.gg_decks("leer").is_err());
     assert!(!dir.path(&crate::magicgg::cache_file("leer")).exists());
 }
+
+#[test]
+fn old_archetype_pages_are_restored() {
+    let dir = TempDir::new("meta");
+    let page = dir.path("arch_ST_271.html");
+    std::fs::write(&page, ARCH_HTML).unwrap();
+    // Datei zwei Tage zurückdatieren.
+    let old = std::time::SystemTime::now() - std::time::Duration::from_secs(48 * 3600);
+    std::fs::File::options()
+        .write(true)
+        .open(&page)
+        .unwrap()
+        .set_modified(old)
+        .unwrap();
+    let f = Fetcher::new(dir.0.clone());
+    let arch = Archetype {
+        id: 271,
+        name: "Jund".into(),
+        share: 10,
+        meta: 50,
+    };
+    assert_eq!(f.cached_decks("ST", &arch).unwrap().len(), 2);
+    assert!(
+        f.cached("arch_ST_271.html", Some(12 * HOUR)).is_none(),
+        "für Abrufe veraltet"
+    );
+}
+
+#[test]
+fn restores_opened_gg_events() {
+    let dir = TempDir::new("gg");
+    let f = Fetcher::new(dir.0.clone());
+    assert!(f.cached_gg("standard").is_empty(), "ohne Übersicht nichts");
+    std::fs::write(dir.path("gg_index.html"), crate::testutil::GG_INDEX_HTML).unwrap();
+    let slug = "arena-championship-13-standard-decklists-a-k";
+    std::fs::write(
+        dir.path(&crate::magicgg::cache_file(slug)),
+        crate::testutil::GG_EVENT_HTML,
+    )
+    .unwrap();
+    // Nur das geöffnete Event (mit Datei im Cache) kommt zurück.
+    let restored = f.cached_gg("standard");
+    assert_eq!(restored.len(), 1);
+    assert_eq!(restored[0].0.slug, slug);
+    assert_eq!(restored[0].1.len(), 2);
+    assert!(f.cached_gg("pioneer").is_empty());
+}

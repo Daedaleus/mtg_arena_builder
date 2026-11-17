@@ -91,6 +91,7 @@ gebauten Programme liegen als Artefakte am jeweiligen Lauf.
 | `--budget FORMAT NAME` | Budget-Version und Wildcard-Plan eines Archetyps |
 | `--sim` | Probehände für alle gespielten Decks |
 | `--gg [FORMAT]` | Events und Decks von magic.gg |
+| `--style` | Spielstil und Einteilung der zwischengespeicherten Turnierlisten |
 | `--games` | Partien einlesen und auswerten |
 | `--decks [FORMAT]` | „Deck verbessern“ und Gegner-Analyse |
 | `--parse LOG…` | Logdatei einlesen, ohne gespeicherte Partien zu ändern |

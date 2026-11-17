@@ -56,6 +56,7 @@ pub fn run(args: &[String]) -> Option<i32> {
             done(played::replay(&arg(2, ""), limit))
         }
         "--sim" => done(played::sim()),
+        "--style" => done(played::style_cli()),
         _ => return None,
     };
     Some(code)

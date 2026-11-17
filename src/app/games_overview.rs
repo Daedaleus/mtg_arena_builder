@@ -12,6 +12,7 @@ impl App {
         opp_groups: &[opponents::OppGroup],
         player: &style::PlayerStyle,
         recs: &[style::Candidate],
+        loaded: usize,
     ) -> (Option<usize>, Option<u32>) {
         let mut clicked = None;
         let mut open = None;
@@ -64,13 +65,18 @@ impl App {
                 );
                 ui.label(RichText::new(&player.reason).weak());
                 if recs.is_empty() {
-                    ui.label(
-                        RichText::new(
-                            "Passende Decks schlägt die App vor, sobald Turnierlisten geladen sind: unter \
+                    let text = if loaded == 0 {
+                        "Passende Decks schlägt die App vor, sobald Turnierlisten geladen sind: unter \
+                         „Turnierdecks“ auf „Alle bewerten“ klicken oder unter „Offizielle Events“ ein Event öffnen."
+                            .to_string()
+                    } else {
+                        format!(
+                            "Unter den {loaded} geladenen Turnierlisten ist kein {}-Deck. Weitere Listen: unter \
                              „Turnierdecks“ auf „Alle bewerten“ klicken oder unter „Offizielle Events“ ein Event öffnen.",
+                            player.recommended.name()
                         )
-                        .weak(),
-                    );
+                    };
+                    ui.label(RichText::new(text).weak());
                 } else {
                     ui.label("Passende Turnierdecks, für deine Sammlung günstigste zuerst:");
                     egui::Grid::new("style_recs").num_columns(3).show(ui, |ui| {

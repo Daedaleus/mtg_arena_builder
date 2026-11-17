@@ -93,12 +93,9 @@ impl App {
             .map(|g| opponents::classify(g, db, &shares))
             .collect();
         let player = style::analyze(&games, db, &r);
-        let recs = style::recommend(
-            &self.style_candidates(db),
-            player.recommended,
-            self.wildcards(),
-            5,
-        );
+        let candidates = self.style_candidates(db);
+        let recs = style::recommend(&candidates, player.recommended, self.wildcards(), 5);
+        let loaded = candidates.len();
         let mut clicked: Option<usize> = None;
         let mut open: Option<u32> = None;
 
@@ -107,7 +104,8 @@ impl App {
             .auto_shrink([false, false])
             .show(ui, |ui| {
                 if overview {
-                    (clicked, open) = self.games_overview(ui, &r, &opp_groups, &player, &recs);
+                    (clicked, open) =
+                        self.games_overview(ui, &r, &opp_groups, &player, &recs, loaded);
                 } else {
                     clicked = self.game_list(ui, &games, db, &opp_names);
                     if let Some(i) = self.sel_game

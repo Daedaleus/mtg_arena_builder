@@ -258,3 +258,41 @@ pub fn sim() -> anyhow::Result<()> {
     }
     Ok(())
 }
+
+/// `--style`: Spielstil und Einteilung aller zwischengespeicherten Turnierlisten.
+pub fn style_cli() -> anyhow::Result<()> {
+    let db = carddb::CardDb::load(&paths::find_card_db(None)?)?;
+    let games = games::sync(&paths::data_dir().join("games.json"), &paths::player_logs());
+    let report = games::report(&games, &db);
+    let s = mtg_arena_builder::style::analyze(&games, &db, &report);
+    for r in &s.records {
+        println!("{}: {} Partien, {} Siege", r.style.name(), r.games, r.wins);
+    }
+    for t in &s.traits {
+        println!("  {t}");
+    }
+    println!("Empfehlung: {} – {}", s.recommended.name(), s.reason);
+    // Zwischengespeicherte Listen einteilen
+    let cache = paths::data_dir().join("cache");
+    let mut counts = std::collections::HashMap::new();
+    for entry in std::fs::read_dir(&cache)?.flatten() {
+        let name = entry.file_name().to_string_lossy().to_string();
+        let text = std::fs::read_to_string(entry.path()).unwrap_or_default();
+        let decks: Vec<deck::Deck> = if name.starts_with("deck_") {
+            vec![deck::parse(&text)]
+        } else if name.starts_with("gg_") && name != "gg_index.html" {
+            mtg_arena_builder::magicgg::parse_event(&text)
+                .into_iter()
+                .map(|d| d.deck)
+                .collect()
+        } else {
+            continue;
+        };
+        for d in decks {
+            let p = mtg_arena_builder::style::DeckProfile::of_deck(&d, &db);
+            *counts.entry(p.style().name()).or_insert(0) += 1;
+        }
+    }
+    println!("Zwischengespeicherte Turnierlisten: {counts:?}");
+    Ok(())
+}

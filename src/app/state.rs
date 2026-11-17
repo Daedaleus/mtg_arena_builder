@@ -294,13 +294,14 @@ impl App {
                 }
             }
         }
+        let shares = opponents::arch_shares(&self.meta_archetypes(), db);
         for decks in self.gg_decks.values() {
             for (id, d) in decks {
                 let Some(summary) = self.summary(*id) else {
                     continue;
                 };
                 let label = if d.subtitle.is_empty() {
-                    opponents::deck_label(&d.deck, db, &[])
+                    opponents::deck_label(&d.deck, db, &shares)
                 } else {
                     d.subtitle.clone()
                 };
