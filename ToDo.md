@@ -29,6 +29,8 @@ Stand: 16.11.2026. Erledigtes steht in der Git-Historie.
 - [x] Zugvorschlag: Mana aus Kreaturen. Offen: Schätze und andere Token
       (stehen nicht in der Kartendatenbank).
 - [x] Blockvorschlag: Bedrohlich mit zwei Blockern.
+- [ ] Spieler-Typ auswerten - Dahingehend Decks empfehlen
+- [ ] UI Ändern: Meine Partien: Liste Paginieren (10)
 
 ## Technik
 
