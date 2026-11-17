@@ -16,7 +16,9 @@ Stand: 16.11.2026. Erledigtes steht in der Git-Historie.
 ## Ideen
 
 - [x] Decklisten von magic.gg: Reiter „Offizielle Events“ (`magicgg.rs`).
-- [ ] Probehände mit Gegner-Druck: wie viel Schaden bis Zug 6 (Aggro-Check).
+- [x] Probehände mit Gegner-Druck: schneller Gegner bis Zug 6 (`sim/pressure.rs`).
+- [ ] Gegner-Druck: eigene Angriffe mitsimulieren (Rennen), damit Aggro-Decks
+      nicht schlechter abschneiden, als sie sind.
 - [ ] Wildcard-Plan: geschätzte Spielzeit/Packs bis zum nächsten Schritt.
 
 - [x] Probehände: Deck 1000-mal bis Zug 6 simulieren (`sim.rs`).

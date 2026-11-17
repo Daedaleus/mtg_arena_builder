@@ -181,3 +181,35 @@ fn tricks_seen_and_typical() {
     );
     assert_eq!(likely_tricks(&flash, None, &[1], 1).len(), 1);
 }
+
+#[test]
+fn fights_resolve() {
+    // Einzelblock wie outcome
+    assert_eq!(fight(&cr(1, 3, 3), &[&cr(10, 2, 2)]), (false, vec![true]));
+    // Zwei Blocker gegen Bedrohlich: 3 Schaden töten den ersten 2/2, der zweite überlebt.
+    assert_eq!(
+        fight(&cr(1, 3, 3), &[&cr(10, 2, 2), &cr(11, 2, 2)]),
+        (true, vec![true, false])
+    );
+    // Erstschlag: der getötete Blocker schlägt nicht zurück.
+    let mut fs = cr(1, 2, 3);
+    fs.first_strike = true;
+    assert_eq!(
+        fight(&fs, &[&cr(10, 2, 2), &cr(11, 2, 2)]),
+        (false, vec![true, false])
+    );
+    // Todesberührung verteilt je 1 Schaden.
+    let mut dt = cr(1, 2, 5);
+    dt.deathtouch = true;
+    assert_eq!(
+        fight(&dt, &[&cr(10, 1, 4), &cr(11, 1, 4), &cr(12, 1, 4)]),
+        (false, vec![true, true, false])
+    );
+    // Unzerstörbare Blocker sterben nicht, ohne Kraft stirbt niemand.
+    let mut ind = cr(10, 0, 1);
+    ind.indestructible = true;
+    assert_eq!(
+        fight(&cr(1, 5, 5), &[&ind, &cr(11, 0, 1)]),
+        (false, vec![false, true])
+    );
+}

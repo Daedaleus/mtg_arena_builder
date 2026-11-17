@@ -60,6 +60,42 @@ fn outcome(blocker: &LiveCreature, attacker: &LiveCreature) -> (bool, bool) {
     }
 }
 
+/// Ergebnis eines Kampfes: (stirbt der Angreifer, stirbt welcher Blocker).
+/// Der Angreifer verteilt seinen Schaden der Reihe nach auf die Blocker;
+/// Erstschlag tötet Blocker, bevor sie zurückschlagen.
+pub fn fight(attacker: &LiveCreature, blockers: &[&LiveCreature]) -> (bool, Vec<bool>) {
+    if let [b] = blockers {
+        let (b_dies, a_dies) = outcome(b, attacker);
+        return (a_dies, vec![b_dies]);
+    }
+    let mut left = attacker.power.max(0);
+    let dies: Vec<bool> = blockers
+        .iter()
+        .map(|b| {
+            if b.indestructible || left == 0 {
+                false
+            } else if attacker.deathtouch {
+                left -= 1;
+                true
+            } else if left >= b.toughness {
+                left -= b.toughness;
+                true
+            } else {
+                false
+            }
+        })
+        .collect();
+    let hits: i32 = blockers
+        .iter()
+        .zip(&dies)
+        .filter(|(b, d)| !(**d && attacker.first_strike && !b.first_strike))
+        .map(|(b, _)| b.power.max(0))
+        .sum();
+    let deathtouch = blockers.iter().any(|b| b.deathtouch && b.power > 0);
+    let a_dies = !attacker.indestructible && hits > 0 && (deathtouch || hits >= attacker.toughness);
+    (a_dies, dies)
+}
+
 fn can_block(blocker: &LiveCreature, attacker: &LiveCreature) -> bool {
     !attacker.flying || blocker.reach
 }

@@ -6,9 +6,15 @@
 //! ([`crate::turnplan`]): Land legen, dann das Mana möglichst gut nutzen.
 //! Mulligan: Starthände mit 0–1 oder 6–7 Ländern werden einmal auf 6 Karten
 //! getauscht (London-Mulligan: 7 ziehen, eine Karte unter die Bibliothek).
+//! Gleichzeitig spielt ein schneller Gegner mit (siehe [`pressure`]).
 
 use crate::carddb::{Card, CardDb};
 use crate::turnplan;
+
+mod pressure;
+
+use pressure::Board;
+pub use pressure::{OPP_CURVE, Pressure, START_LIFE};
 
 /// Simulierte Züge je Partie.
 pub const TURNS: usize = 6;
@@ -34,6 +40,8 @@ pub struct SimReport {
     /// Durchschnittlich genutztes und verfügbares Mana je Zug.
     pub mana_used: [f32; TURNS],
     pub mana_avail: [f32; TURNS],
+    /// Wie gut das Deck einem schnellen Gegner standhält.
+    pub pressure: Pressure,
     /// Kurze Empfehlungen, wichtigste zuerst.
     pub advice: Vec<String>,
 }
@@ -82,6 +90,8 @@ pub fn simulate(deck: &[u32], db: &CardDb, games: usize, seed: u64) -> SimReport
     let mut missing = [0usize; 5];
     let mut used = [0u64; TURNS];
     let mut avail = [0u64; TURNS];
+    let mut life_sum = [0i64; TURNS];
+    let (mut low, mut dead, mut kills) = (0usize, 0usize, 0u64);
 
     for game in 0..games {
         let on_play = game % 2 == 0;
@@ -114,11 +124,31 @@ pub fn simulate(deck: &[u32], db: &CardDb, games: usize, seed: u64) -> SimReport
         let mut permanents: Vec<u32> = Vec::new();
         let mut screwed = false;
         let mut missing_here = [false; 5];
+        let mut board = Board::new();
+        // Gestorbene Manakreaturen liefern kein Mana mehr.
+        let opp_turn = |board: &mut Board, permanents: &mut Vec<u32>, turn: usize| {
+            for grp in board.opp_turn(turn) {
+                if let Some(i) = permanents.iter().position(|g| *g == grp) {
+                    permanents.remove(i);
+                }
+            }
+        };
         for turn in 1..=TURNS {
+            if !on_play {
+                opp_turn(&mut board, &mut permanents, turn);
+            }
             if (turn > 1 || !on_play) && !library.is_empty() {
                 hand.push(library.remove(0));
             }
-            let plan = turnplan::plan(db, &hand, &battlefield, &permanents, false, &[], 0);
+            let plan = turnplan::plan(
+                db,
+                &hand,
+                &battlefield,
+                &permanents,
+                false,
+                &board.opp_creatures(),
+                board.mine.len() as u32,
+            );
             if let Some(land) = plan.land
                 && let Some(i) = hand.iter().position(|g| *g == land)
             {
@@ -127,8 +157,11 @@ pub fn simulate(deck: &[u32], db: &CardDb, games: usize, seed: u64) -> SimReport
             for g in &plan.spells {
                 if let Some(i) = hand.iter().position(|h| h == g) {
                     let card = hand.remove(i);
-                    if db.cards.get(&card).is_some_and(|c| c.mana.is_some()) {
-                        permanents.push(card);
+                    if let Some(c) = db.cards.get(&card) {
+                        if c.mana.is_some() {
+                            permanents.push(card);
+                        }
+                        board.cast(c);
                     }
                 }
             }
@@ -137,6 +170,10 @@ pub fn simulate(deck: &[u32], db: &CardDb, games: usize, seed: u64) -> SimReport
             if turn <= 4 && battlefield.len() >= turn {
                 on_curve[turn - 1] += 1;
             }
+            if on_play {
+                opp_turn(&mut board, &mut permanents, turn);
+            }
+            life_sum[turn - 1] += i64::from(board.life.max(0));
             // Farbe fehlt: Karte wäre vom Manawert her bezahlbar gewesen.
             if (2..=4).contains(&turn) {
                 let left = plan.mana_total - plan.mana_used;
@@ -160,6 +197,9 @@ pub fn simulate(deck: &[u32], db: &CardDb, games: usize, seed: u64) -> SimReport
             }
         }
         screws += screwed as usize;
+        dead += (board.life <= 0) as usize;
+        low += (board.life <= 5) as usize;
+        kills += u64::from(board.kills);
         for (i, m) in missing_here.iter().enumerate() {
             missing[i] += *m as usize;
         }
@@ -179,6 +219,12 @@ pub fn simulate(deck: &[u32], db: &CardDb, games: usize, seed: u64) -> SimReport
         r.mana_used[t] = used[t] as f32 / games as f32;
         r.mana_avail[t] = avail[t] as f32 / games as f32;
     }
+    for t in 0..TURNS {
+        r.pressure.life[t] = life_sum[t] as f32 / games as f32;
+    }
+    r.pressure.low = share(low);
+    r.pressure.dead = share(dead);
+    r.pressure.kills = kills as f32 / games as f32;
     r.missing_color = (0..5)
         .filter(|i| missing[*i] > 0)
         .max_by_key(|i| missing[*i]);
@@ -210,6 +256,13 @@ fn advice(r: &SimReport) -> Vec<String> {
         out.push(format!(
             "Farben fehlen: In {} % der Partien war in Zug 2–4 eine Karte nur wegen der Farbe nicht spielbar{color}. Mehr Länder dieser Farbe oder Zweifarbländer.",
             pct(r.color_screw)
+        ));
+    }
+    if r.pressure.low >= 0.4 {
+        out.push(format!(
+            "Gegen schnelle Decks zu langsam: In {} % der Partien hast du nach Zug 6 höchstens 5 Leben. \
+             Mehr günstige Kreaturen zum Blocken oder Entfernung mit Manawert 1–2.",
+            pct(r.pressure.low)
         ));
     }
     let used: f32 = r.mana_used[..4].iter().sum();
@@ -247,5 +300,5 @@ pub fn deck_from_entries<'a>(
 }
 
 #[cfg(test)]
-#[path = "tests/sim.rs"]
+#[path = "../tests/sim.rs"]
 mod tests;

@@ -252,6 +252,10 @@ pub fn sim() -> anyhow::Result<()> {
             "   Land rechtzeitig Z1–4 {:?} · Mulligan {:.2} · Farbe fehlte {:.2} · Flut {:.2}",
             r.on_curve, r.mulligan, r.color_screw, r.flood
         );
+        println!(
+            "   Gegner-Druck: Leben nach Zug 1–6 {:.1?} · höchstens 5 Leben {:.2} · besiegt {:.2} · ausgeschaltet {:.1}",
+            r.pressure.life, r.pressure.low, r.pressure.dead, r.pressure.kills
+        );
         for a in &r.advice {
             println!("   {a}");
         }

@@ -37,6 +37,19 @@ pub(super) fn sim_view(ui: &mut egui::Ui, r: &sim::SimReport) {
                 pct(r.color_screw),
                 pct(r.flood)
             ));
+            let p = &r.pressure;
+            ui.label(format!(
+                "Gegen einen schnellen Gegner: nach Zug 6 im Schnitt {:.0} Leben · höchstens 5 Leben in {} · \
+                 besiegt in {} · {:.1} gegnerische Kreaturen ausgeschaltet",
+                p.life[sim::TURNS - 1],
+                pct(p.low),
+                pct(p.dead),
+                p.kills
+            ))
+            .on_hover_text(
+                "Der Gegner spielt jeden Zug eine Kreatur (2/1, 2/2, 3/2, 3/3, 4/3, 4/4) und greift mit allem an. \
+                 Du blockst wie im Begleitfenster vorgeschlagen und setzt Entfernung auf die stärkste Kreatur.",
+            );
             let mana: Vec<String> = (0..sim::TURNS)
                 .map(|t| format!("Z{} {:.1}/{:.1}", t + 1, r.mana_used[t], r.mana_avail[t]))
                 .collect();
