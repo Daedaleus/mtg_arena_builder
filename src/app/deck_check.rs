@@ -91,7 +91,7 @@ impl App {
                 )
                 .clicked();
             if let Some(report) = &sim_report {
-                super::deck_view::sim_view(ui, report);
+                super::widgets::sim_view(ui, report);
             }
 
             if !group.fixed {

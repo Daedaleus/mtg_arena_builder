@@ -13,22 +13,28 @@ Offene Punkte: [ToDo.md](ToDo.md).
 
 ## Aufbau
 
-Bibliothek (`src/lib.rs`) mit dünnem Programm (`src/main.rs`: Start und
-Diagnose-Kommandozeile). `src/app/` enthält nur Oberfläche und Verdrahtung (ein Modul je Bereich) –
-Logik gehört in die Fachmodule, damit sie testbar bleibt.
+Bibliothek (`src/lib.rs`) und Programm (`src/main.rs` startet nur; die
+Diagnose-Kommandozeile liegt in `src/cli/`). `src/app/` enthält nur Oberfläche
+und Verdrahtung – Logik gehört in die Fachmodule, damit sie testbar bleibt.
+
+Große Module sind Ordner mit Teilmodulen nach Aufgabe; `mod.rs` beschreibt
+oben den Aufbau und exportiert die öffentlichen Teile, Pfade wie
+`crate::games::report` bleiben dadurch gleich. Faustregel: Dateien unter
+etwa 400 Zeilen halten, sonst nach Aufgabe teilen.
 
 | Modul | Aufgabe |
 |---|---|
-| `carddb` | Arena-Kartendatenbank (SQLite), Rollen aus Kartentext |
+| `carddb/` | Arena-Kartendatenbank: `load` (SQLite), `text` (Rollen, Brand, Mana aus Kartentext) |
 | `collection` | Sammlung aus dem Arena-Speicher (mtga-reader, Adminrechte) |
-| `meta` | MTGTop8-Abruf und -Parser, Scryfall-Legalität |
+| `meta`, `magicgg` | MTGTop8 und magic.gg (Abruf mit Cache, Parser), Scryfall-Legalität |
 | `deck`, `similar`, `budget` | Listen prüfen, Ersatzkarten, Budget-Version, Wildcard-Plan |
 | `sim` | Probehände (Deck 1000-mal bis Zug 6 durchspielen) |
 | `builder` | Decks nur aus eigenen Karten |
-| `games` | Log-Parser (`LogParser`, `Tracker`), Partie-Auswertung, Rang |
-| `deckcheck`, `opponents`, `progress` | Deck verbessern, Gegner, Verlauf |
-| `live`, `turnplan`, `combat` | Begleitfenster: Mitlesen, Zugvorschlag, Blocks/Tricks |
+| `games/` | `record` (Datentypen, Rang), `tracker`, `live_state`, `parser`, `store` (`games.json`), `report` (Auswertung) |
+| `deckcheck/`, `opponents`, `progress` | Deck verbessern (`groups`, `mana`, `analysis`), Gegner und Archetyp-Erkennung, Verlauf |
+| `live/`, `turnplan`, `combat` | Begleitfenster (`view`, `hints`, `damage`, `follow`, `draw`), Zugvorschlag, Blocks/Tricks |
 | `settings`, `present`, `paths`, `images` | Einstellungen, Anzeigetexte, Pfade, Bild-Cache |
+| `testutil/` | Testhilfen: `cards`, `log` (künstliche Lognachrichten), `pages` (Webseiten) |
 
 ## Regeln
 
@@ -40,7 +46,7 @@ Logik gehört in die Fachmodule, damit sie testbar bleibt.
   `coverage.ps1` verlangt mindestens 90 % Zeilenabdeckung ohne `src/app/` und `main.rs`.
 - Tests dürfen weder Netzwerk noch das echte Datenverzeichnis anfassen.
 - Ändert sich, was der Log-Parser pro Partie speichert, `PARSER_VERSION` in
-  `games.rs` erhöhen – dann werden gespeicherte Partien aus noch vorhandenen
+  `games/store.rs` erhöhen – dann werden gespeicherte Partien aus noch vorhandenen
   Logs neu berechnet. Bessere Aufzeichnungen ersetzen schlechtere, nie
   umgekehrt (`quality`).
 - MTGTop8: höchstens eine Anfrage alle 5 Sekunden (robots.txt), alles cachen.

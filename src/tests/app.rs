@@ -1,4 +1,3 @@
-use super::games_tab::progress_view;
 use super::*;
 use crate::games::Rank;
 use crate::testutil::*;
@@ -49,7 +48,7 @@ fn sim_page_renders() {
     let report = crate::sim::simulate(&deck, &db, 50, 1);
     let ctx = egui::Context::default();
     let _ = ctx.run(egui::RawInput::default(), |ctx| {
-        egui::CentralPanel::default().show(ctx, |ui| super::deck_view::sim_view(ui, &report));
+        egui::CentralPanel::default().show(ctx, |ui| super::widgets::sim_view(ui, &report));
     });
 }
 
@@ -66,12 +65,12 @@ fn wildcard_plan_renders() {
             egui::CollapsingHeader::new("x")
                 .default_open(true)
                 .show(ui, |_| {});
-            super::deck_view::wildcard_plan_view(ui, &plan)
+            super::widgets::wildcard_plan_view(ui, &plan)
         });
     });
     assert_eq!(
-        super::deck_view::wildcards_text(&[0, 0, 2, 1]),
+        super::widgets::wildcards_text(&[0, 0, 2, 1]),
         "2 Rare, 1 Mythic"
     );
-    assert_eq!(super::deck_view::wildcards_text(&[0; 4]), "keine");
+    assert_eq!(super::widgets::wildcards_text(&[0; 4]), "keine");
 }

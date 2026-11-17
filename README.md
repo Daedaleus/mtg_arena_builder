@@ -15,6 +15,7 @@ echten Einsatz ausprobiert (siehe [ToDo.md](ToDo.md)).
 | Reiter | Was er tut |
 |---|---|
 | **Turnierdecks** | Archetypen und Decklisten von MTGTop8 je Format. Zeigt, was mit der eigenen Sammlung fehlt und ob die Wildcards reichen; Ersatzkarten aus der Sammlung, „Budget-Version bauen“, **Wildcard-Plan** (was jetzt herstellbar ist und in welcher Reihenfolge der Rest folgt), **Probehände** und Export für den Arena-Import. |
+| **Offizielle Events** | Decklisten von magic.gg: World Championship, Arena Championship, Regional Championships und jede Woche Ranglisten-Decks (Traditional). Archetyp wird aus den MTGTop8-Listen erkannt; gleiche Deckansicht wie bei den Turnierdecks. |
 | **Aus meiner Sammlung** | Baut 60-Karten-Decks je Farbe/Farbpaar nur aus eigenen Karten (Manakurve, Kreaturen, Removal, passende Länder). |
 | **Eigene Liste** | Eine beliebige Deckliste einfügen und gegen die Sammlung prüfen. |
 | **Meine Partien** | Auswertung aus dem Arena-Log: typische Fehler mit Beispielen („Land nicht gespielt“, „Besserer Zug möglich“, „Gefahrlosen Angriff ausgelassen“ …), Gegner-Analyse, Partienliste und **Verlauf** (Constructed- und Limited-Rang, Siegquote je Deck als Diagramm). |
@@ -89,6 +90,7 @@ gebauten Programme liegen als Artefakte am jeweiligen Lauf.
 | `--build [FORMAT]` | Deckvorschläge aus der Sammlung |
 | `--budget FORMAT NAME` | Budget-Version und Wildcard-Plan eines Archetyps |
 | `--sim` | Probehände für alle gespielten Decks |
+| `--gg [FORMAT]` | Events und Decks von magic.gg |
 | `--games` | Partien einlesen und auswerten |
 | `--decks [FORMAT]` | „Deck verbessern“ und Gegner-Analyse |
 | `--parse LOG…` | Logdatei einlesen, ohne gespeicherte Partien zu ändern |
@@ -117,7 +119,8 @@ entsprechende Datenordner):
 - Sammlung: Arbeitsspeicher von Arena über
   [mtga-reader](https://github.com/mtgatool/mtga-reader) (GPL-3.0).
 - Partien und Rang: `Player.log` von Arena („Detaillierte Logs“).
-- Turnierdecks: [MTGTop8](https://www.mtgtop8.com) (5 s Abstand je Anfrage, Cache).
+- Turnierdecks: [MTGTop8](https://www.mtgtop8.com) (5 s Abstand je Anfrage, Cache)
+  und [magic.gg](https://magic.gg/decklists) (2 s Abstand, Cache).
 - Legalität und Kartenbilder: [Scryfall](https://scryfall.com) (ohne API-Schlüssel).
 
 ## Lizenz

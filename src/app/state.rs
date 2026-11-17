@@ -1,0 +1,279 @@
+//! Daten der Oberfläche: Laden, Listen, Bewertungen und Budget-Version.
+
+use super::*;
+
+impl App {
+    /// Liest die Arena-Logs im Hintergrund ein und ergänzt `games.json`.
+    pub(super) fn scan_games(&mut self) {
+        if self.games_loading {
+            return;
+        }
+        self.games_loading = true;
+        self.games_scanned = Some(std::time::Instant::now());
+        let (tx, ctx, store) = (
+            self.tx_msg.clone(),
+            self.ctx.clone(),
+            self.data_dir.join("games.json"),
+        );
+        std::thread::spawn(move || {
+            let logs = paths::player_logs();
+            let games = games::sync(&store, &logs);
+            let disabled = logs
+                .iter()
+                .find(|p| p.file_name().is_some_and(|n| n == "Player.log"))
+                .is_some_and(|p| games::detailed_logs_disabled(p));
+            let _ = tx.send(Msg::Games(games, disabled));
+            ctx.request_repaint();
+        });
+    }
+
+    /// Schreibt Einstellungen und Sitzungszustand nach `settings.json`
+    /// (nur wenn sich etwas geändert hat).
+    pub(super) fn save_settings(&mut self) {
+        self.settings.sort_by_fit = self.sort_by_fit;
+        self.settings.tab = match self.tab {
+            Tab::Meta => 0,
+            Tab::Paste => 1,
+            Tab::Built => 2,
+            Tab::Games => 3,
+            Tab::DeckCheck => 4,
+            Tab::Events => 5,
+        };
+        self.settings.paste_text = self.paste_text.clone();
+        self.settings.sel_arch = self.sel_arch;
+        self.settings.sel_deck = self.sel_deck;
+        self.settings.set_replacements(&self.repl);
+        self.settings_file.save(&self.settings);
+    }
+
+    pub(super) fn load_db(&mut self) {
+        let found =
+            paths::find_card_db(Some(&self.settings.mtga_dir)).and_then(|p| CardDb::load(&p));
+        match found {
+            Ok(db) => {
+                self.db_status = format!(
+                    "Kartendaten: {} Karten (Arena {})",
+                    db.cards.len(),
+                    db.version
+                );
+                self.db = Some(std::sync::Arc::new(db));
+            }
+            Err(e) => {
+                self.db_status = format!("{e:#}");
+                self.db = None;
+            }
+        }
+        self.refresh_owned();
+    }
+
+    /// Nach Änderungen an Sammlung/Kartendaten alles neu bewerten.
+    pub(super) fn refresh_owned(&mut self) {
+        self.owned = match (&self.collection, &self.db) {
+            (Some(c), Some(db)) => c.owned_by_name(db),
+            _ => HashMap::new(),
+        };
+        self.subs.clear();
+        self.built = None;
+        self.evals.clear();
+        if let Some(db) = &self.db {
+            for (id, list) in &self.lists {
+                self.evals
+                    .insert(*id, deck::evaluate(list, db, &self.owned));
+            }
+        }
+    }
+
+    pub(super) fn load_format(&mut self, force: bool) {
+        let format = self.settings.format;
+        let _ = self.tx_job.send(Job::Clear);
+        let _ = self.tx_job.send(Job::Archetypes { format, force });
+        self.archetypes.clear();
+        self.decks.clear();
+        self.list_requested.clear();
+        self.sel_arch = None;
+        self.sel_deck = None;
+        self.subs.clear();
+        self.built = None;
+        // magic.gg-Events beim nächsten Öffnen für das neue Format laden.
+        self.gg_events.clear();
+        self.gg_format = None;
+        self.sel_gg_event = None;
+        self.sel_gg_deck = None;
+        self.status = format!("Lade {}-Metagame von MTGTop8 …", FORMATS[format].1);
+        if self.legal_requested.insert(format) {
+            let (tx, cache) = (self.tx_msg.clone(), self.data_dir.join("cache"));
+            std::thread::spawn(move || {
+                let r = Fetcher::new(cache)
+                    .legal_names(FORMATS[format].2)
+                    .map_err(|e| format!("{e:#}"));
+                let _ = tx.send(Msg::Legal(format, r));
+            });
+        }
+    }
+
+    pub(super) fn sync_collection(&mut self, ctx: &egui::Context) {
+        self.syncing = true;
+        self.status = "Lese Sammlung aus MTG Arena …".into();
+        let (tx, ctx, path) = (
+            self.tx_msg.clone(),
+            ctx.clone(),
+            self.data_dir.join("collection.json"),
+        );
+        std::thread::spawn(move || {
+            let running = cfg!(target_os = "linux") || mtga_reader::api::find_process("MTGA");
+            let result = if !running {
+                Err(
+                    "MTG Arena läuft nicht. Bitte das Spiel starten und bis ins Hauptmenü gehen."
+                        .to_string(),
+                )
+            } else {
+                collection::read_from_game().or_else(|first| {
+                    if cfg!(windows) && !collection::is_admin() {
+                        // Arena läuft mit höheren Rechten -> einmalig per UAC nachfragen.
+                        collection::read_elevated(&path)
+                            .map_err(|e| format!("{e} (ohne Adminrechte: {first})"))
+                    } else {
+                        Err(first)
+                    }
+                })
+            };
+            if let Ok(c) = &result {
+                let _ = c.save(&path);
+            }
+            let _ = tx.send(Msg::Collection(result));
+            ctx.request_repaint();
+        });
+    }
+    /// Reiht alle noch nicht geladenen Listen eines Archetyps ein, damit die
+    /// günstigste Variante gefunden wird (eine Anfrage alle 5 s, dauerhaft gecacht).
+    pub(super) fn queue_variants(&mut self, arch: u32) {
+        let ids: Vec<u32> = self
+            .decks
+            .get(&arch)
+            .into_iter()
+            .flatten()
+            .map(|d| d.id)
+            .collect();
+        for deck_id in ids {
+            if !self.lists.contains_key(&deck_id) && self.list_requested.insert(deck_id) {
+                let _ = self.tx_job.send(Job::List {
+                    deck_id,
+                    urgent: false,
+                });
+            }
+        }
+    }
+
+    pub(super) fn set_list(&mut self, deck_id: u32, list: Deck) {
+        if let Some(db) = &self.db {
+            self.evals
+                .insert(deck_id, deck::evaluate(&list, db, &self.owned));
+        }
+        self.lists.insert(deck_id, list);
+    }
+
+    pub(super) fn replaced_qty(&self, deck_id: u32, line: &LineEval) -> u32 {
+        let Some(key) = &line.key else { return 0 };
+        let Some(rep) = self.repl.get(&(deck_id, key.clone())) else {
+            return 0;
+        };
+        match &self.db {
+            Some(db) => budget::replaced_qty(db, &self.owned, rep, line.missing),
+            None => 0,
+        }
+    }
+
+    /// Ersetzt fehlende Karten automatisch so, dass die Wildcards reichen.
+    pub(super) fn apply_budget(&mut self, deck_id: u32, eval: &DeckEval) {
+        let Some(db) = &self.db else { return };
+        let legal = self.legal.get(&self.settings.format);
+        let plan = budget::plan(
+            eval,
+            db,
+            &self.owned,
+            legal,
+            self.wildcards(),
+            self.settings.include_side,
+        );
+        // Gewählter Ersatz muss in der Auswahlliste stehen – sonst ergänzen.
+        for (key, rep) in &plan.replacements {
+            let slot = (deck_id, key.clone());
+            let listed = self
+                .subs
+                .get(&slot)
+                .is_some_and(|s| s.iter().any(|o| &o.key == rep));
+            if !listed && let Some(c) = db.representative(rep) {
+                self.subs.entry(slot).or_default().push(Suggestion {
+                    key: rep.clone(),
+                    name: c.name.clone(),
+                    owned: self.owned.get(rep).copied().unwrap_or(0),
+                    score: 0.0,
+                    info: if c.basic {
+                        "Standardland".into()
+                    } else {
+                        c.mana_cost.clone()
+                    },
+                });
+            }
+        }
+        self.repl.retain(|k, _| k.0 != deck_id);
+        for (key, rep) in &plan.replacements {
+            self.repl.insert((deck_id, key.clone()), rep.clone());
+        }
+        let text = budget::plan_text(&plan);
+        self.status = text;
+    }
+
+    pub(super) fn summary(&self, deck_id: u32) -> Option<Summary> {
+        let eval = self.evals.get(&deck_id)?;
+        Some(eval.summary(self.settings.include_side, |l| {
+            self.replaced_qty(deck_id, l)
+        }))
+    }
+
+    pub(super) fn wildcards(&self) -> [u32; 4] {
+        self.collection
+            .as_ref()
+            .map(|c| c.wildcards.as_array())
+            .unwrap_or_default()
+    }
+
+    /// Farbe + Kurztext: was das Deck an Wildcards kostet.
+    pub(super) fn fit_text(&self, s: &Summary) -> (Color32, String) {
+        let (fit, text) = present::fit(s, self.collection.is_some(), self.wildcards());
+        let color = match fit {
+            Fit::Unknown => Color32::GRAY,
+            Fit::Complete => GREEN,
+            Fit::Craftable => YELLOW,
+            Fit::TooExpensive => RED,
+        };
+        (color, text)
+    }
+
+    /// Günstigstes bereits bewertetes Deck eines Archetyps.
+    pub(super) fn best_of_arch(&self, arch: u32) -> Option<Summary> {
+        self.decks
+            .get(&arch)?
+            .iter()
+            .filter_map(|d| self.summary(d.id))
+            .min_by_key(|s| cost_key(s, self.wildcards()))
+    }
+
+    /// Alle geladenen Turnierlisten des aktuellen Formats, nach Archetyp.
+    pub(super) fn meta_archetypes(&self) -> Vec<deckcheck::MetaArchetype<'_>> {
+        self.archetypes
+            .iter()
+            .map(|a| deckcheck::MetaArchetype {
+                id: a.id,
+                name: a.name.clone(),
+                lists: self
+                    .decks
+                    .get(&a.id)
+                    .into_iter()
+                    .flatten()
+                    .filter_map(|d| self.lists.get(&d.id))
+                    .collect(),
+            })
+            .collect()
+    }
+}
