@@ -238,7 +238,7 @@ impl App {
         let deck_text = adopt.then(|| deckcheck::deck_text(&group.deck, db));
         let match_id = r.meta.as_ref().map(|m| m.id);
         if sim_clicked {
-            let report = sim::simulate(&group.deck, db, sim::DEFAULT_GAMES, 1);
+            let report = sim::trial(&group.deck, db, &self.games, sim::DEFAULT_GAMES, 1);
             self.group_sims.insert(group.label.clone(), report);
         }
         self.sel_deck_group = sel;

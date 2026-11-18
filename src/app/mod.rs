@@ -142,9 +142,9 @@ pub struct App {
     sel_gg_event: Option<String>,
     sel_gg_deck: Option<u32>,
     /// Ergebnisse der Probehände je Deck (Turnierdeck, Vorschlag, eigene Liste).
-    sims: HashMap<u32, sim::SimReport>,
+    sims: HashMap<u32, sim::Trial>,
     /// Probehände für gespielte Decks („Deck verbessern“), nach Deck-Bezeichnung.
-    group_sims: HashMap<String, sim::SimReport>,
+    group_sims: HashMap<String, sim::Trial>,
     /// Geteilter Zustand des Begleitfensters (läuft, sobald es einmal geöffnet wurde).
     live: Option<std::sync::Arc<live::Shared>>,
     /// Anzahl Turnierlisten beim letzten Abgleich mit dem Begleitfenster.

@@ -27,6 +27,9 @@ wie oft Länder zu viel sind und wie viel Mana genutzt wird – mit Empfehlungen
 Dabei spielt ein schneller Gegner mit (eine Kreatur je Zug, greift mit allem an).
 Du blockst, setzt Entfernung ein und greifst selbst an, wenn es sich lohnt: Die
 App zeigt, wer nach Zug 6 vorne liegt und ob das Deck gegen Aggro zu langsam ist.
+Mit genug eigenen Partien kommt ein persönlicher Vergleich dazu: gegen deine
+echten Gegner (wie viel Kraft sie je Zug ins Spiel bringen) – einmal mit dem
+Zugvorschlag und einmal so, wie du laut deinen Partien spielst.
 
 **Begleitfenster** (oben rechts einschalten): liest das Arena-Log live mit und
 zeigt Mulligan-Rat, Zugvorschlag (Land und Zauber mit Farbprüfung, auch Mana

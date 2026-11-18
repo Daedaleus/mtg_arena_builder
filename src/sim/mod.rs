@@ -12,9 +12,13 @@ use crate::carddb::{Card, CardDb};
 use crate::turnplan;
 
 mod pressure;
+mod profile;
 
 use pressure::Board;
 pub use pressure::{OPP_CURVE, Pressure, START_LIFE};
+pub use profile::{
+    Habits, MIN_HABIT_TURNS, MIN_PROFILE_GAMES, Opponent, Trial, habits_from, opponent_from, trial,
+};
 
 /// Simulierte Züge je Partie.
 pub const TURNS: usize = 6;
@@ -42,6 +46,10 @@ pub struct SimReport {
     pub mana_avail: [f32; TURNS],
     /// Wie gut das Deck einem schnellen Gegner standhält.
     pub pressure: Pressure,
+    /// Gegen wen gespielt wurde (z. B. „schneller Gegner“).
+    pub opponent: String,
+    /// Mit den eigenen Spielgewohnheiten gespielt?
+    pub with_habits: bool,
     /// Kurze Empfehlungen, wichtigste zuerst.
     pub advice: Vec<String>,
 }
@@ -57,6 +65,17 @@ impl Rng {
         x ^= x >> 27;
         self.0 = x;
         x.wrapping_mul(0x2545_F491_4F6C_DD1D)
+    }
+
+    /// Zufällige Rundung: 2,3 wird in 30 % der Fälle zu 3, sonst zu 2.
+    fn round(&mut self, x: f32) -> i32 {
+        let base = x.max(0.0).floor();
+        base as i32 + self.chance(x.max(0.0) - base) as i32
+    }
+
+    /// `true` mit Wahrscheinlichkeit `p`.
+    fn chance(&mut self, p: f32) -> bool {
+        (self.next() % 10_000) as f32 / 10_000.0 < p
     }
 
     fn shuffle<T>(&mut self, v: &mut [T]) {
@@ -75,8 +94,23 @@ fn is_land(db: &CardDb, grp: u32) -> bool {
 
 /// Spielt `games` Partien und wertet sie aus. `deck` = grpIds mit Wiederholung.
 pub fn simulate(deck: &[u32], db: &CardDb, games: usize, seed: u64) -> SimReport {
+    simulate_with(deck, db, games, seed, &Opponent::fast(), None)
+}
+
+/// Wie [`simulate`], aber gegen `opponent` und – falls angegeben – mit den
+/// eigenen Spielgewohnheiten (bessere Züge auslassen, Angriffe auslassen).
+pub fn simulate_with(
+    deck: &[u32],
+    db: &CardDb,
+    games: usize,
+    seed: u64,
+    opponent: &Opponent,
+    habits: Option<&Habits>,
+) -> SimReport {
     let mut r = SimReport {
         games,
+        opponent: opponent.label.clone(),
+        with_habits: habits.is_some(),
         size: deck.len(),
         lands: deck.iter().filter(|g| is_land(db, **g)).count(),
         ..Default::default()
@@ -127,16 +161,18 @@ pub fn simulate(deck: &[u32], db: &CardDb, games: usize, seed: u64) -> SimReport
         let mut missing_here = [false; 5];
         let mut board = Board::new();
         // Gestorbene Manakreaturen liefern kein Mana mehr.
-        let opp_turn = |board: &mut Board, permanents: &mut Vec<u32>, turn: usize| {
-            for grp in board.opp_turn(turn) {
-                if let Some(i) = permanents.iter().position(|g| *g == grp) {
-                    permanents.remove(i);
+        let opp_turn =
+            |board: &mut Board, permanents: &mut Vec<u32>, turn: usize, rng: &mut Rng| {
+                let new = opponent.creature(turn, rng);
+                for grp in board.opp_turn_with(new) {
+                    if let Some(i) = permanents.iter().position(|g| *g == grp) {
+                        permanents.remove(i);
+                    }
                 }
-            }
-        };
+            };
         for turn in 1..=TURNS {
             if !on_play {
-                opp_turn(&mut board, &mut permanents, turn);
+                opp_turn(&mut board, &mut permanents, turn, &mut rng);
             }
             board.start_my_turn();
             if (turn > 1 || !on_play) && !library.is_empty() {
@@ -156,7 +192,22 @@ pub fn simulate(deck: &[u32], db: &CardDb, games: usize, seed: u64) -> SimReport
             {
                 battlefield.push(hand.remove(i));
             }
-            for g in &plan.spells {
+            // Gewohnheit: manchmal den teuersten Zauber des Vorschlags nicht spielen.
+            let mut spells = plan.spells.clone();
+            let mut mana_used = plan.mana_used;
+            if let Some(h) = habits
+                && !spells.is_empty()
+                && rng.chance(h.weaker_turn)
+                && let Some((i, cmc)) = spells
+                    .iter()
+                    .enumerate()
+                    .map(|(i, g)| (i, db.cards.get(g).map_or(0, |c| c.cmc)))
+                    .max_by_key(|(_, cmc)| *cmc)
+            {
+                spells.remove(i);
+                mana_used -= cmc;
+            }
+            for g in &spells {
                 if let Some(i) = hand.iter().position(|h| h == g) {
                     let card = hand.remove(i);
                     if let Some(c) = db.cards.get(&card) {
@@ -167,18 +218,19 @@ pub fn simulate(deck: &[u32], db: &CardDb, games: usize, seed: u64) -> SimReport
                     }
                 }
             }
-            used[turn - 1] += u64::from(plan.mana_used);
+            used[turn - 1] += u64::from(mana_used);
             avail[turn - 1] += u64::from(plan.mana_total);
             if turn <= 4 && battlefield.len() >= turn {
                 on_curve[turn - 1] += 1;
             }
-            for grp in board.my_attack() {
+            let hesitant = habits.is_some_and(|h| rng.chance(h.skip_attack));
+            for grp in board.my_attack_with(hesitant) {
                 if let Some(i) = permanents.iter().position(|g| *g == grp) {
                     permanents.remove(i);
                 }
             }
             if on_play {
-                opp_turn(&mut board, &mut permanents, turn);
+                opp_turn(&mut board, &mut permanents, turn, &mut rng);
             }
             life_sum[turn - 1] += i64::from(board.life.max(0));
             opp_life_sum[turn - 1] += i64::from(board.opp_life.max(0));

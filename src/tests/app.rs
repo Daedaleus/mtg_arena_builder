@@ -45,7 +45,7 @@ fn sim_page_renders() {
     let deck: Vec<u32> = std::iter::repeat_n(FOREST, 24)
         .chain(std::iter::repeat_n(BEAR, 36))
         .collect();
-    let report = crate::sim::simulate(&deck, &db, 50, 1);
+    let report = crate::sim::trial(&deck, &db, &[], 50, 1);
     let ctx = egui::Context::default();
     let _ = ctx.run(egui::RawInput::default(), |ctx| {
         egui::CentralPanel::default().show(ctx, |ui| super::widgets::sim_view(ui, &report));
@@ -105,4 +105,36 @@ fn texts_have_no_broken_line_continuations() {
         &mut bad,
     );
     assert!(bad.is_empty(), "Leerzeichen-Folgen in Texten: {bad:?}");
+}
+
+#[test]
+fn personal_sim_renders() {
+    let db = std_db();
+    let deck: Vec<u32> = std::iter::repeat_n(FOREST, 24)
+        .chain(std::iter::repeat_n(BEAR, 36))
+        .collect();
+    let base = crate::sim::trial(&deck, &db, &[], 30, 1);
+    let habits = crate::sim::Habits {
+        weaker_turn: 0.2,
+        skip_attack: 0.1,
+        turns: 50,
+    };
+    let full = crate::sim::Trial {
+        mine: Some(base.fast.clone()),
+        mine_habits: Some(base.fast.clone()),
+        habits: Some(habits),
+        profile_games: 12,
+        ..base.clone()
+    };
+    let no_habits = crate::sim::Trial {
+        mine: Some(base.fast.clone()),
+        profile_games: 12,
+        ..base.clone()
+    };
+    let ctx = egui::Context::default();
+    for t in [&base, &full, &no_habits] {
+        let _ = ctx.run(egui::RawInput::default(), |ctx| {
+            egui::CentralPanel::default().show(ctx, |ui| super::widgets::sim_view(ui, t));
+        });
+    }
 }

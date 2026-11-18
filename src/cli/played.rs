@@ -244,10 +244,38 @@ pub fn replay(path: &str, limit: usize) -> anyhow::Result<()> {
 pub fn sim() -> anyhow::Result<()> {
     let db = carddb::CardDb::load(&paths::find_card_db(None)?)?;
     let games = games::sync(&paths::data_dir().join("games.json"), &paths::player_logs());
+    let opponent = sim::opponent_from(&games, &db);
+    let habits = sim::habits_from(&games, &db);
+    match &opponent {
+        Some(o) => println!(
+            "Gegnerprofil aus {} Partien: {} · neue Kraft je Zug {:.1?}",
+            o.games, o.label, o.power
+        ),
+        None => println!("Zu wenige Partien für ein Gegnerprofil."),
+    }
+    if let Some(h) = &habits {
+        println!(
+            "Gewohnheiten aus {} Zügen: besserer Zug möglich in {:.0} % · gefahrlosen Angriff ausgelassen in {:.0} %",
+            h.turns,
+            h.weaker_turn * 100.0,
+            h.skip_attack * 100.0
+        );
+    }
     for g in deckcheck::group_decks(&games, &db) {
         let start = std::time::Instant::now();
         let r = sim::simulate(&g.deck, &db, sim::DEFAULT_GAMES, 1);
         println!("##### {} ({} ms)", g.label, start.elapsed().as_millis());
+        if let Some(o) = &opponent {
+            let best = sim::simulate_with(&g.deck, &db, sim::DEFAULT_GAMES, 1, o, None);
+            let yours = sim::simulate_with(&g.deck, &db, sim::DEFAULT_GAMES, 1, o, habits.as_ref());
+            println!(
+                "   gegen deine Gegner – mit Zugvorschlag: vorne {:.0} %, verloren {:.0} % · so wie du spielst: vorne {:.0} %, verloren {:.0} %",
+                best.pressure.ahead * 100.0,
+                best.pressure.dead * 100.0,
+                yours.pressure.ahead * 100.0,
+                yours.pressure.dead * 100.0
+            );
+        }
         println!(
             "   Land rechtzeitig Z1–4 {:?} · Mulligan {:.2} · Farbe fehlte {:.2} · Flut {:.2}",
             r.on_curve, r.mulligan, r.color_screw, r.flood

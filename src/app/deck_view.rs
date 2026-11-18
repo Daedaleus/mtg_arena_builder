@@ -155,8 +155,10 @@ impl App {
                 })
                 .collect();
             let deck = sim::deck_from_entries(entries.iter().map(|(n, q)| (n.as_str(), *q)), db);
-            self.sims
-                .insert(deck_id, sim::simulate(&deck, db, sim::DEFAULT_GAMES, 1));
+            self.sims.insert(
+                deck_id,
+                sim::trial(&deck, db, &self.games, sim::DEFAULT_GAMES, 1),
+            );
         }
         if let Some(report) = self.sims.get(&deck_id) {
             sim_view(ui, report);

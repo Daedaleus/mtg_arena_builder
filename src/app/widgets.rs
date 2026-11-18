@@ -3,7 +3,8 @@
 use super::*;
 
 /// Ergebnis der Probehände: Empfehlungen und Kennzahlen.
-pub(super) fn sim_view(ui: &mut egui::Ui, r: &sim::SimReport) {
+pub(super) fn sim_view(ui: &mut egui::Ui, t: &sim::Trial) {
+    let r = &t.fast;
     egui::CollapsingHeader::new(RichText::new("Probehände").strong())
         .id_salt("sim_view")
         .default_open(true)
@@ -53,11 +54,79 @@ pub(super) fn sim_view(ui: &mut egui::Ui, r: &sim::SimReport) {
                  Du blockst wie im Begleitfenster vorgeschlagen, setzt Entfernung auf die stärkste Kreatur und \
                  greifst an, wenn es tödlich ist oder gefahrlos und du den Gegenschlag überlebst.",
             );
+            personal_view(ui, t);
             let mana: Vec<String> = (0..sim::TURNS)
                 .map(|t| format!("Z{} {:.1}/{:.1}", t + 1, r.mana_used[t], r.mana_avail[t]))
                 .collect();
             ui.label(RichText::new(format!("Mana genutzt/verfügbar: {}", mana.join(" · "))).weak());
         });
+}
+
+/// Probehände gegen die eigenen Gegner: mit Zugvorschlag und so, wie man spielt.
+fn personal_view(ui: &mut egui::Ui, t: &sim::Trial) {
+    let pct = |x: f32| format!("{:.0} %", x * 100.0);
+    let Some(best) = &t.mine else {
+        ui.label(
+            RichText::new(format!(
+                "Für einen Vergleich mit deinen echten Gegnern braucht es mindestens {} vollständig \
+                 mitgeschriebene Partien.",
+                sim::MIN_PROFILE_GAMES
+            ))
+            .weak(),
+        );
+        return;
+    };
+    ui.add_space(4.0);
+    ui.label(
+        RichText::new(format!(
+            "Gegen {} – aus {} deiner Partien:",
+            best.opponent, t.profile_games
+        ))
+        .strong(),
+    );
+    ui.label(format!(
+        "Mit Zugvorschlag: nach Zug 6 vorne in {} · verloren in {} · {:.0} Leben bei dir, {:.0} beim Gegner",
+        pct(best.pressure.ahead),
+        pct(best.pressure.dead),
+        best.pressure.life[sim::TURNS - 1],
+        best.pressure.opp_life[sim::TURNS - 1]
+    ));
+    match (&t.mine_habits, &t.habits) {
+        (Some(yours), Some(h)) => {
+            let gap = (best.pressure.ahead - yours.pressure.ahead) * 100.0;
+            ui.label(format!(
+                "So wie du spielst: vorne in {} · verloren in {} – aus {} deiner Züge: besserer Zug möglich in {}, \
+                 gefahrlosen Angriff ausgelassen in {}",
+                pct(yours.pressure.ahead),
+                pct(yours.pressure.dead),
+                h.turns,
+                pct(h.weaker_turn),
+                pct(h.skip_attack)
+            ));
+            let text = if gap >= 1.0 {
+                format!(
+                    "Mit dem Zugvorschlag des Begleitfensters liegst du in {gap:.0} % mehr Partien vorne – \
+                     so viel holst du an diesem Deck allein durchs Spiel heraus."
+                )
+            } else {
+                "Du spielst dieses Deck schon fast so gut wie der Zugvorschlag.".into()
+            };
+            ui.label(RichText::new(text).color(if gap >= 1.0 { YELLOW } else { GREEN }));
+        }
+        _ => {
+            ui.label(
+                RichText::new(format!(
+                    "Für „so wie du spielst“ braucht es mindestens {} ausgewertete eigene Züge.",
+                    sim::MIN_HABIT_TURNS
+                ))
+                .weak(),
+            );
+        }
+    }
+    ui.label(
+        RichText::new("Die Simulation endet nach Zug 6 – viele Partien entscheiden sich später.")
+            .weak(),
+    );
 }
 
 /// Fehlende Wildcards als Text, z. B. „2 Rare, 1 Mythic“.

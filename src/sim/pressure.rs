@@ -200,7 +200,14 @@ impl Board {
 
     /// Eigener Angriff nach dem Ausspielen. Liefert die grpIds eigener
     /// Kreaturen, die dabei gestorben sind.
+    #[cfg(test)]
     pub fn my_attack(&mut self) -> Vec<u32> {
+        self.my_attack_with(false)
+    }
+
+    /// Wie [`Board::my_attack`]; `hesitant` = nur tödliche Angriffe (Gewohnheit,
+    /// gefahrlose Angriffe auszulassen).
+    pub fn my_attack_with(&mut self, hesitant: bool) -> Vec<u32> {
         if self.over() {
             return Vec::new();
         }
@@ -221,7 +228,7 @@ impl Board {
         let threat: i32 = self.opp.iter().map(|u| u.c.power).sum();
         let attackers: Vec<LiveCreature> = if lethal {
             able
-        } else if self.life > threat {
+        } else if self.life > threat && !hesitant {
             able.into_iter()
                 .filter(|a| !blockers.iter().any(|b| threatens(b, a)))
                 .collect()
@@ -257,7 +264,13 @@ impl Board {
 
     /// Zug des Gegners: angreifen, blocken, dann die nächste Kreatur spielen.
     /// Liefert die grpIds der eigenen Kreaturen, die dabei gestorben sind.
+    #[cfg(test)]
     pub fn opp_turn(&mut self, turn: usize) -> Vec<u32> {
+        self.opp_turn_with(Some(OPP_CURVE[(turn - 1).min(TURNS - 1)]))
+    }
+
+    /// Zug des Gegners mit vorgegebener neuer Kreatur (Kraft, Widerstand).
+    pub fn opp_turn_with(&mut self, new: Option<(i32, i32)>) -> Vec<u32> {
         if self.over() {
             return Vec::new();
         }
@@ -282,7 +295,9 @@ impl Board {
             u.tapped = true;
         }
         let died = self.remove_mine(&dead_mine);
-        let (power, toughness) = OPP_CURVE[(turn - 1).min(TURNS - 1)];
+        let Some((power, toughness)) = new else {
+            return died;
+        };
         let id = self.id();
         self.opp.push(Unit {
             card: 0,

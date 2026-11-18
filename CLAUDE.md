@@ -28,7 +28,7 @@ etwa 400 Zeilen halten, sonst nach Aufgabe teilen.
 | `collection` | Sammlung aus dem Arena-Speicher (mtga-reader, Adminrechte) |
 | `meta`, `magicgg` | MTGTop8 und magic.gg (Abruf mit Cache, Parser), Scryfall-Legalität |
 | `deck`, `similar`, `budget` | Listen prüfen, Ersatzkarten, Budget-Version, Wildcard-Plan |
-| `sim/` | Probehände (Deck 1000-mal bis Zug 6 durchspielen), `pressure`: schneller Gegner |
+| `sim/` | Probehände (Deck 1000-mal bis Zug 6 durchspielen), `pressure`: Gegner und Rennen, `profile`: Gegner und Gewohnheiten aus den eigenen Partien |
 | `style` | Spielstil (Aggro/Midrange/Control) aus Decks und Partien, Deckempfehlung |
 | `builder` | Decks nur aus eigenen Karten |
 | `games/` | `record` (Datentypen, Rang), `tracker`, `live_state`, `parser`, `store` (`games.json`), `report` (Auswertung) |

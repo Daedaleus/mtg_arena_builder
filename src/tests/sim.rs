@@ -294,3 +294,169 @@ fn creatures_from_cards() {
     let c = pressure::creature_of(&odd, 1);
     assert_eq!((c.power, c.toughness), (0, 1), "Sternchen-Werte als 0/1");
 }
+
+// ------------------------------------------------- persönliche Probehände ----
+
+use crate::games::{GameRecord, TurnStat};
+
+/// Partie mit Gegnerkraft am Ende jedes Gegnerzugs und eigenen Zügen.
+fn history_game(opp_power: &[i32], my_turn: TurnStat) -> GameRecord {
+    let mut turns = Vec::new();
+    for (k, p) in opp_power.iter().enumerate() {
+        turns.push(TurnStat {
+            turn: (2 * k + 1) as u32,
+            ..my_turn.clone()
+        });
+        turns.push(TurnStat {
+            turn: (2 * k + 2) as u32,
+            mine: false,
+            opp_creatures: if *p > 0 { vec![(OGRE, *p)] } else { vec![] },
+            ..Default::default()
+        });
+    }
+    GameRecord {
+        complete: true,
+        won: Some(false),
+        opp_cards: [(SHOCK, 1)].into(),
+        turns,
+        ..Default::default()
+    }
+}
+
+fn my_turn(hand: &[u32], lands: &[u32], attacked: bool, safe_idle: &[u32]) -> TurnStat {
+    TurnStat {
+        mine: true,
+        hand: hand.to_vec(),
+        lands: lands.to_vec(),
+        attacked,
+        safe_idle: safe_idle.to_vec(),
+        ..Default::default()
+    }
+}
+
+#[test]
+fn opponent_profile_from_history() {
+    let db = std_db();
+    let ok = my_turn(&[], &[FOREST], true, &[]);
+    let few: Vec<GameRecord> = (0..2).map(|_| history_game(&[1, 2], ok.clone())).collect();
+    assert!(opponent_from(&few, &db).is_none(), "zu wenige Partien");
+    let games: Vec<GameRecord> = (0..6)
+        .map(|_| history_game(&[0, 2, 2, 5, 5, 6], ok.clone()))
+        .collect();
+    let o = opponent_from(&games, &db).unwrap();
+    assert_eq!(o.games, 6);
+    assert_eq!(
+        o.power,
+        [0.0, 2.0, 0.0, 3.0, 0.0, 1.0],
+        "Zuwachs je Zug, nie negativ"
+    );
+    assert!(o.toughness.iter().zip(&o.power).all(|(t, p)| t >= p));
+    assert_eq!(o.label, "deine Gegner (meist Mono-Rot)");
+    // Fester Gegner zum Vergleich
+    let fast = Opponent::fast();
+    assert_eq!(fast.games, 0);
+    assert_eq!(fast.power[0], 2.0);
+}
+
+#[test]
+fn habits_from_history() {
+    let db = std_db();
+    // Oger auf der Hand, 4 Länder, nichts gespielt: besserer Zug möglich.
+    let lazy = my_turn(
+        &[OGRE, ELF],
+        &[MOUNTAIN, MOUNTAIN, FOREST, FOREST],
+        false,
+        &[BEAR],
+    );
+    let good = my_turn(&[], &[FOREST], true, &[]);
+    let mut games = Vec::new();
+    for _ in 0..4 {
+        games.push(history_game(&[1, 1, 1], lazy.clone()));
+        games.push(history_game(&[1, 1, 1], good.clone()));
+    }
+    let h = habits_from(&games, &db).unwrap();
+    assert_eq!(h.turns, 24);
+    assert!((h.weaker_turn - 0.5).abs() < 0.01, "{h:?}");
+    assert!((h.skip_attack - 0.5).abs() < 0.01, "{h:?}");
+    assert!(habits_from(&games[..2], &db).is_none(), "zu wenige Züge");
+}
+
+#[test]
+fn personal_simulation() {
+    let db = std_db();
+    let d = deck(&[(FOREST, 24), (BEAR, 20), (ELF, 16)]);
+    let slow = Opponent {
+        power: [0.0, 1.0, 1.0, 1.0, 1.0, 1.0],
+        toughness: [0.0, 1.0, 1.0, 1.0, 1.0, 1.0],
+        label: "langsam".into(),
+        games: 10,
+    };
+    let fast = simulate(&d, &db, 300, 3);
+    let best = simulate_with(&d, &db, 300, 3, &slow, None);
+    assert_eq!(best.opponent, "langsam");
+    assert!(!best.with_habits);
+    assert!(
+        best.pressure.ahead > fast.pressure.ahead,
+        "{:?} / {:?}",
+        best.pressure,
+        fast.pressure
+    );
+    // Gewohnheiten: oft schwächer spielen und Angriffe auslassen kostet.
+    let bad = Habits {
+        weaker_turn: 0.8,
+        skip_attack: 0.9,
+        turns: 100,
+    };
+    let yours = simulate_with(&d, &db, 300, 3, &slow, Some(&bad));
+    assert!(yours.with_habits);
+    assert!(
+        yours.pressure.opp_life[5] > best.pressure.opp_life[5],
+        "{:?} / {:?}",
+        yours.pressure,
+        best.pressure
+    );
+    assert!(yours.mana_used.iter().sum::<f32>() < best.mana_used.iter().sum::<f32>());
+}
+
+#[test]
+fn random_rounding() {
+    let mut rng = Rng(7);
+    let total: i32 = (0..10_000).map(|_| rng.round(0.3)).sum();
+    assert!((2_700..3_300).contains(&total), "{total}");
+    assert_eq!(rng.round(2.0), 2);
+    assert_eq!(rng.round(-1.0), 0);
+    assert!(!rng.chance(0.0));
+    assert!(rng.chance(1.0));
+}
+
+#[test]
+fn trial_runs_all_variants() {
+    let db = std_db();
+    let d = deck(&[(FOREST, 24), (BEAR, 20), (ELF, 16)]);
+    // Ohne Verlauf: nur der feste Gegner.
+    let t = trial(&d, &db, &[], 50, 1);
+    assert!(t.mine.is_none() && t.mine_habits.is_none() && t.habits.is_none());
+    assert_eq!(t.profile_games, 0);
+    assert_eq!(t.fast.opponent, "schneller Gegner");
+    // Mit Verlauf: alle drei Varianten.
+    let lazy = my_turn(
+        &[OGRE],
+        &[MOUNTAIN, MOUNTAIN, FOREST, FOREST],
+        false,
+        &[BEAR],
+    );
+    let history: Vec<GameRecord> = (0..8)
+        .map(|_| history_game(&[1, 1, 2], lazy.clone()))
+        .collect();
+    let t = trial(&d, &db, &history, 50, 1);
+    assert_eq!(t.profile_games, 8);
+    assert!(
+        t.mine
+            .as_ref()
+            .unwrap()
+            .opponent
+            .starts_with("deine Gegner")
+    );
+    assert!(t.mine_habits.as_ref().unwrap().with_habits);
+    assert!(t.habits.is_some());
+}
