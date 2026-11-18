@@ -86,8 +86,9 @@ impl App {
             sim_clicked = ui
                 .button("Probehände testen")
                 .on_hover_text(
-                    "Spielt dieses Deck 1000-mal bis Zug 6 durch – unabhängig von deinen bisherigen Partien – \
-                     und zeigt, wie oft Länder oder Farben fehlen.",
+                    "Spielt dieses Deck 1000-mal durch – gegen einen schnellen Gegner bis Zug 6 und, mit genug \
+                     eigenen Partien, gegen deine echten Gegner bis Zug 10 – und zeigt, wie oft Länder oder \
+                     Farben fehlen.",
                 )
                 .clicked();
             if let Some(report) = &sim_report {
