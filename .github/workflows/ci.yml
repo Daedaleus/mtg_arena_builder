@@ -38,15 +38,22 @@ jobs:
             os: windows-latest
             artifact: mtg_arena_builder-windows-x64
             binary: target/release/mtg_arena_builder.exe
+            optional: false
           - name: Linux
             os: ubuntu-latest
             artifact: mtg_arena_builder-linux-x64
             binary: target/release/mtg_arena_builder
+            optional: false
           - name: macOS
             os: macos-latest
             artifact: mtg_arena_builder-macos-arm64
             binary: target/release/mtg_arena_builder
+            # GitHub teilt macOS-Rechner oft erst spät oder gar nicht zu – ein
+            # Ausfall dort macht den Lauf nicht rot (Windows und Linux schon).
+            optional: true
     runs-on: ${{ matrix.os }}
+    continue-on-error: ${{ matrix.optional }}
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable

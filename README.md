@@ -80,7 +80,8 @@ cargo install cargo-llvm-cov --locked
 Bei jedem Push auf `main` und bei Pull Requests prüft GitHub Actions
 ([.github/workflows/ci.yml](.github/workflows/ci.yml)) auf Windows, Linux und
 macOS: Formatierung, Clippy, Tests, Release-Build und Testabdeckung. Die
-gebauten Programme liegen als Artefakte am jeweiligen Lauf.
+gebauten Programme liegen als Artefakte am jeweiligen Lauf. Findet GitHub keinen freien macOS-Rechner,
+bleibt der Lauf trotzdem grün; Windows und Linux müssen immer bestehen.
 
 ## Kommandozeile (Diagnose)
 
