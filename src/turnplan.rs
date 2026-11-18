@@ -6,10 +6,9 @@
 //! Kartenziehen, Kreatur …) geschätzt. Mana aus anderen Quellen als Ländern
 //! bleibt unberücksichtigt.
 
-use crate::carddb::{Card, CardDb, ROLE_COUNTER, ROLE_DRAW, ROLE_REMOVAL, ROLE_WIPE};
+use crate::carddb::{Card, CardDb, ROLE_COUNTER, ROLE_DRAW, ROLE_REMOVAL, ROLE_WIPE, keyword};
 
 /// Schlüsselwort-Fähigkeit „Eile“ in der Arena-Datenbank.
-const ABILITY_HASTE: u32 = 9;
 /// Höchstens so viele Handkarten werden kombiniert (2^n Möglichkeiten).
 const MAX_CANDIDATES: usize = 12;
 
@@ -249,7 +248,7 @@ pub fn creatures_after_combat(db: &CardDb, plan: &Plan) -> bool {
     !cards.is_empty()
         && cards
             .iter()
-            .all(|c| c.is_creature() && !c.abilities.contains(&ABILITY_HASTE))
+            .all(|c| c.is_creature() && !c.has_ability(keyword::HASTE))
 }
 
 /// Spontane Entfernung, die jetzt (im Zug des Gegners) bezahlbar ist.

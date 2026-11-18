@@ -1,7 +1,9 @@
 //! Kartendaten aus der lokalen MTG-Arena-Datenbank (SQLite).
 //!
 //! Aufbau: hier Kartentyp, Datenbank und Nachschlagen; `text` wertet
-//! Fähigkeitstexte aus, `load` liest die SQLite-Datei von Arena.
+//! Fähigkeitstexte aus, `load` liest die SQLite-Datei von Arena. Fachbegriffe
+//! für alle Module: [`color`] (Farben, Standardländer) und [`keyword`]
+//! (Schlüsselwort-Fähigkeiten).
 
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
@@ -9,6 +11,8 @@ use std::path::Path;
 use anyhow::{Context, Result};
 use rusqlite::{Connection, OpenFlags};
 
+pub mod color;
+pub mod keyword;
 mod load;
 mod text;
 
@@ -70,6 +74,11 @@ pub const TYPE_SORCERY: u8 = 10;
 impl Card {
     pub fn has_role(&self, role: u8) -> bool {
         self.roles & role != 0
+    }
+
+    /// Hat die Karte die Fähigkeit (siehe [`keyword`])?
+    pub fn has_ability(&self, id: u32) -> bool {
+        self.abilities.contains(&id)
     }
 
     pub fn is_creature(&self) -> bool {

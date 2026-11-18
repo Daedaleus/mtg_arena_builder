@@ -68,15 +68,14 @@ fn game(deck: Vec<u32>, won: bool) -> GameRecord {
     }
 }
 
-fn report(my_turns: u32, mistakes: &[(&'static str, usize)]) -> Report {
+fn report(my_turns: u32, mistakes: &[(Mistake, usize)]) -> Report {
     Report {
         my_turns,
         avg_turns: 8.0,
         categories: mistakes
             .iter()
-            .map(|(title, n)| Category {
-                title,
-                advice: "",
+            .map(|(kind, n)| Category {
+                kind: *kind,
                 items: (0..*n)
                     .map(|_| Finding {
                         game: 1,
@@ -115,13 +114,7 @@ fn recommends_aggro_for_passive_players() {
     let s = analyze(
         &games,
         &db,
-        &report(
-            20,
-            &[
-                ("Mana ungenutzt", 3),
-                ("Gefahrlosen Angriff ausgelassen", 4),
-            ],
-        ),
+        &report(20, &[(Mistake::UnusedMana, 3), (Mistake::SkippedAttack, 4)]),
     );
     assert_eq!(s.recommended, Style::Aggro);
     assert!(s.reason.starts_with("Aggro-Decks sind am einfachsten"));

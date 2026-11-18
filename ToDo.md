@@ -49,3 +49,7 @@ Stand: 16.11.2026. Erledigtes steht in der Git-Historie.
 - [x] Oberfläche in Module je Bereich aufgeteilt (`src/app/`).
 - [x] Große Dateien in Teilmodule aufgeteilt (`games/`, `live/`, `carddb/`,
       `deckcheck/`, `cli/`, `testutil/`, Oberfläche je Bereich).
+- [x] Refactoring: Fachbegriffe gebündelt (`carddb::color`, `carddb::keyword`,
+      `Mistake`, `LandVerdict`), lange Funktionen in Schritte geteilt
+      (Auswertung, Simulation, Deckbau, Deckprüfung, Begleiter, Parser,
+      Spielstil, Oberfläche); Spielobjekte in fester Reihenfolge.

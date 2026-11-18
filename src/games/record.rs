@@ -2,6 +2,9 @@
 
 use super::*;
 
+/// Lebenspunkte zu Beginn einer Partie.
+pub const START_LIFE: i32 = 20;
+
 /// Stand am Ende eines Zuges.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(default)]
@@ -146,7 +149,7 @@ impl GameRecord {
         self.turns
             .last()
             .map(|t| (t.life_me, t.life_opp))
-            .unwrap_or((20, 20))
+            .unwrap_or((START_LIFE, START_LIFE))
     }
 
     pub fn conceded(&self) -> bool {

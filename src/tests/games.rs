@@ -17,7 +17,7 @@ fn safe_attack_rules() {
     let bear = creature(2, 2, &[]);
     let wall = creature(0, 4, &[]);
     let ogre = creature(3, 3, &[]);
-    let bird = creature(1, 1, &[KW_FLYING]);
+    let bird = creature(1, 1, &[kw::FLYING]);
     // Kein Blocker -> gefahrlos
     assert!(safe_attack(&bear, &[]));
     // Blocker ohne Kraft kann nicht töten
@@ -27,19 +27,19 @@ fn safe_attack_rules() {
     // Fliegender Angreifer kann vom Oger nicht geblockt werden
     assert!(safe_attack(&bird, &[&ogre]));
     // ... wohl aber von einem Blocker mit Reichweite
-    assert!(!safe_attack(&bird, &[&creature(1, 3, &[KW_REACH])]));
+    assert!(!safe_attack(&bird, &[&creature(1, 3, &[kw::REACH])]));
     // Todesberührung tötet immer
-    assert!(!safe_attack(&ogre, &[&creature(1, 1, &[KW_DEATHTOUCH])]));
+    assert!(!safe_attack(&ogre, &[&creature(1, 1, &[kw::DEATHTOUCH])]));
     // Bedrohlich: ein einzelner Blocker reicht nicht
-    assert!(safe_attack(&creature(2, 2, &[KW_MENACE]), &[&ogre]));
+    assert!(safe_attack(&creature(2, 2, &[kw::MENACE]), &[&ogre]));
     // ... zwei schwache Blocker zusammen auch nicht, zwei starke schon
-    let menace = creature(3, 3, &[KW_MENACE]);
+    let menace = creature(3, 3, &[kw::MENACE]);
     let elf = creature(1, 1, &[]);
     assert!(safe_attack(&menace, &[&elf, &elf]));
     assert!(!safe_attack(&menace, &[&ogre, &elf]));
     assert!(!safe_attack(
         &menace,
-        &[&elf, &creature(1, 1, &[KW_DEATHTOUCH])]
+        &[&elf, &creature(1, 1, &[kw::DEATHTOUCH])]
     ));
 }
 
@@ -391,13 +391,13 @@ fn key_moments_compare_with_suggestion() {
     let cat = r
         .categories
         .iter()
-        .find(|c| c.title == "Besserer Zug möglich")
+        .find(|c| c.kind == Mistake::BetterTurn)
         .unwrap();
     assert_eq!(cat.items.len(), 1);
     let unused = r
         .categories
         .iter()
-        .find(|c| c.title == "Mana ungenutzt")
+        .find(|c| c.kind == Mistake::UnusedMana)
         .unwrap();
     assert!(unused.items.is_empty(), "neue Prüfung ersetzt die alte");
 }
@@ -649,22 +649,22 @@ fn report_finds_mistakes() {
         vec![("Grizzly Bears".to_string(), 14), ("Shock".to_string(), 2)]
     );
 
-    let cat = |title: &str| {
+    let cat = |kind: Mistake| {
         r.categories
             .iter()
-            .find(|c| c.title == title)
-            .unwrap_or_else(|| panic!("{title}"))
+            .find(|c| c.kind == kind)
+            .unwrap_or_else(|| panic!("{kind:?}"))
     };
-    assert_eq!(cat("Land nicht gespielt").items.len(), 1);
-    assert_eq!(cat("Gefahrlosen Angriff ausgelassen").items[0].turn, 3);
-    assert_eq!(cat("Mana ungenutzt").items.len(), 1);
-    assert_eq!(cat("Keine Kreatur auf dem Feld").items.len(), 1);
-    assert_eq!(cat("Riskante Starthand behalten").items[0].turn, 0);
-    assert_eq!(cat("Bei wenig Leben nicht geblockt").items.len(), 1);
-    let held = &cat("Karte lange nicht gespielt").items;
+    assert_eq!(cat(Mistake::MissedLand).items.len(), 1);
+    assert_eq!(cat(Mistake::SkippedAttack).items[0].turn, 3);
+    assert_eq!(cat(Mistake::UnusedMana).items.len(), 1);
+    assert_eq!(cat(Mistake::EmptyBoard).items.len(), 1);
+    assert_eq!(cat(Mistake::RiskyKeep).items[0].turn, 0);
+    assert_eq!(cat(Mistake::NoBlock).items.len(), 1);
+    let held = &cat(Mistake::HeldCard).items;
     assert_eq!(held.len(), 1);
     assert!(held[0].text.starts_with("Hill Ogre lag 3"));
-    assert_eq!(cat("Früh aufgegeben").items.len(), 1);
+    assert_eq!(cat(Mistake::EarlyConcede).items.len(), 1);
     // Häufigste Fehlerart zuerst.
     assert!(
         r.categories

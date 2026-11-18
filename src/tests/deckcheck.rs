@@ -153,7 +153,7 @@ fn mana_screw_and_flood() {
     let r = check(group, &games, &db, &HashMap::new(), None, &[]);
     assert_eq!((r.mana.games, r.mana.screw, r.mana.flood), (3, 3, 0));
     assert_eq!((r.mana.lands, r.mana.size), (17, 30));
-    assert!(r.mana.advice.contains("fehlten oft Länder"));
+    assert_eq!(r.mana.verdict, LandVerdict::TooFew);
 
     let games = vec![
         game(false, "Ladder", flood()),
@@ -163,12 +163,14 @@ fn mana_screw_and_flood() {
     let group = &group_decks(&games, &db)[0];
     let r = check(group, &games, &db, &HashMap::new(), None, &[]);
     assert_eq!(r.mana.flood, 3);
-    assert!(r.mana.advice.contains("zu viele Länder"));
+    assert_eq!(r.mana.verdict, LandVerdict::TooMany);
 
     let few = vec![game(false, "Ladder", flood())];
     let group = &group_decks(&few, &db)[0];
     let r = check(group, &few, &db, &HashMap::new(), None, &[]);
-    assert!(r.mana.advice.contains("mindestens 3"));
+    assert_eq!(r.mana.verdict, LandVerdict::TooFewGames);
+    assert!(!r.mana.verdict.needs_change());
+    assert!(r.mana.verdict.advice().contains("mindestens 3"));
 
     let mixed = vec![
         game(false, "Ladder", flood()),
@@ -177,7 +179,7 @@ fn mana_screw_and_flood() {
     ];
     let group = &group_decks(&mixed, &db)[0];
     let r = check(group, &mixed, &db, &HashMap::new(), None, &[]);
-    assert!(r.mana.advice.contains("passt"));
+    assert_eq!(r.mana.verdict, LandVerdict::Fine);
 }
 
 #[test]

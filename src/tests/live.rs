@@ -315,7 +315,7 @@ fn recognizes_opponent_deck() {
     // Unbekannt: Farben aus den Karten.
     ls.opp_cards = vec![SPIRIT];
     let v = build_view(Some(&ls), None, &db, &meta);
-    assert_eq!(v.opponent, crate::opponents::color_label("U"));
+    assert_eq!(v.opponent, crate::carddb::color::label("U"));
     ls.opp_cards.clear();
     let v = build_view(Some(&ls), None, &db, &meta);
     assert_eq!(v.opponent, "noch unbekannt");

@@ -43,14 +43,14 @@ pub(super) fn mana_check(group: &DeckGroup, games: &[&GameRecord], db: &CardDb) 
             n as f32 / m.games as f32
         }
     };
-    m.advice = if m.games < 3 {
-        "Für eine Aussage über die Länderzahl braucht es mindestens 3 vollständige Partien.".into()
+    m.verdict = if m.games < MIN_GAMES_FOR_LANDS {
+        LandVerdict::TooFewGames
     } else if share(m.screw) >= 0.3 && m.screw >= 2 * m.flood.max(1) {
-        "Dir fehlten oft Länder: 1–2 Länder mehr spielen (statt der teuersten Karten).".into()
+        LandVerdict::TooFew
     } else if share(m.flood) >= 0.3 && m.flood >= 2 * m.screw.max(1) {
-        "Du hattest oft zu viele Länder: 1–2 Länder durch günstige Karten ersetzen.".into()
+        LandVerdict::TooMany
     } else {
-        "Die Länderzahl passt zu deinen bisherigen Partien.".into()
+        LandVerdict::Fine
     };
     m
 }

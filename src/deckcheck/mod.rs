@@ -70,7 +70,45 @@ pub struct ManaCheck {
     pub flood: usize,
     pub lands: u32,
     pub size: u32,
-    pub advice: String,
+    pub verdict: LandVerdict,
+}
+
+/// Urteil über die Länderzahl eines Decks.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum LandVerdict {
+    /// Weniger als [`MIN_GAMES_FOR_LANDS`] vollständige Partien.
+    #[default]
+    TooFewGames,
+    /// Oft zu wenige Länder.
+    TooFew,
+    /// Oft zu viele Länder.
+    TooMany,
+    Fine,
+}
+
+/// Mindestens so viele vollständige Partien für ein Urteil über die Länder.
+pub const MIN_GAMES_FOR_LANDS: usize = 3;
+
+impl LandVerdict {
+    /// Sollte man die Länderzahl ändern?
+    pub fn needs_change(self) -> bool {
+        matches!(self, LandVerdict::TooFew | LandVerdict::TooMany)
+    }
+
+    pub fn advice(self) -> &'static str {
+        match self {
+            LandVerdict::TooFewGames => {
+                "Für eine Aussage über die Länderzahl braucht es mindestens 3 vollständige Partien."
+            }
+            LandVerdict::TooFew => {
+                "Dir fehlten oft Länder: 1–2 Länder mehr spielen (statt der teuersten Karten)."
+            }
+            LandVerdict::TooMany => {
+                "Du hattest oft zu viele Länder: 1–2 Länder durch günstige Karten ersetzen."
+            }
+            LandVerdict::Fine => "Die Länderzahl passt zu deinen bisherigen Partien.",
+        }
+    }
 }
 
 #[derive(Clone, Debug, Default)]

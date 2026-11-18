@@ -3,12 +3,11 @@
 
 use std::collections::HashSet;
 
-use crate::carddb::{Card, CardDb};
+use crate::carddb::{Card, CardDb, keyword};
 use crate::games::LiveCreature;
 use crate::opponents::ArchShare;
 
 /// Schlüsselwort-Fähigkeit „Aufblitzen“ in der Arena-Datenbank.
-const ABILITY_FLASH: u32 = 7;
 /// Ab diesem Anteil der Turnierlisten gilt eine Karte als „oft gespielt“.
 const MIN_SHARE: f32 = 0.25;
 
@@ -245,7 +244,7 @@ fn menace_pair(
 }
 
 fn is_trick(c: &Card) -> bool {
-    !c.is_land() && c.cmc > 0 && (c.is_instant() || c.abilities.contains(&ABILITY_FLASH))
+    !c.is_land() && c.cmc > 0 && (c.is_instant() || c.has_ability(keyword::FLASH))
 }
 
 /// Spontane Karten, die der Gegner mit seinem offenen Mana spielen könnte:

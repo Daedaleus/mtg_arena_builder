@@ -109,7 +109,7 @@ fn builds_decks_for_owned_colors() {
             b.deck
                 .main
                 .iter()
-                .all(|e| e.qty <= 4 || BASICS.contains(&e.name.as_str()))
+                .all(|e| e.qty <= 4 || crate::carddb::color::BASIC_LANDS.contains(&e.name.as_str()))
         );
         // Flächenräumer und Rückseiten kommen nicht ins Deck.
         assert_eq!(count(b, "Wrath"), 0);
@@ -183,6 +183,4 @@ fn rating_rules() {
     assert!(rating(&big, 0, 1 << 3, 1) < rating(&fair, 0, 1 << 3, 1) + 1.0);
     assert_eq!(curve_bucket(0), 0);
     assert_eq!(curve_bucket(9), 5);
-    assert_eq!(label_of(1), "Mono-Weiß");
-    assert_eq!(label_of(0b00110), "Blau-Schwarz");
 }

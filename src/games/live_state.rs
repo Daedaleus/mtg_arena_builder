@@ -94,7 +94,7 @@ impl Tracker {
                     o.controller == me
                         && !o.land
                         && !o.tapped
-                        && !(o.creature && o.sick && !o.has(KW_HASTE))
+                        && !(o.creature && o.sick && !o.has(kw::HASTE))
                 })
                 .map(|o| o.grp_id)
                 .collect(),
@@ -120,8 +120,8 @@ impl Tracker {
                     o.controller == me
                         && o.creature
                         && !o.tapped
-                        && (!o.sick || o.has(KW_HASTE))
-                        && !o.has(KW_DEFENDER)
+                        && (!o.sick || o.has(kw::HASTE))
+                        && !o.has(kw::DEFENDER)
                         && o.power > 0
                 })
                 .map(Obj::live)

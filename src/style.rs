@@ -7,7 +7,7 @@
 
 use crate::carddb::{Card, CardDb, ROLE_COUNTER, ROLE_DRAW, ROLE_REMOVAL};
 use crate::deck::Deck;
-use crate::games::{GameRecord, Report};
+use crate::games::{GameRecord, Mistake, Report, TurnStat};
 
 /// Mindestens so viele Partien je Typ, bevor die Siegquote zählt.
 pub const MIN_GAMES: usize = 3;
@@ -141,47 +141,13 @@ pub struct PlayerStyle {
     pub reason: String,
 }
 
+/// Ab diesem Anteil der eigenen Züge gilt ein Fehler als Gewohnheit.
+const HABIT_SHARE: f32 = 0.15;
+
 /// Wertet die Partien aus. `report` ist die Auswertung derselben Partien.
 pub fn analyze(games: &[GameRecord], db: &CardDb, report: &Report) -> PlayerStyle {
-    let mut records: Vec<StyleRecord> = Vec::new();
-    for g in games
-        .iter()
-        .filter(|g| g.won.is_some() && !g.deck.is_empty())
-    {
-        let style = DeckProfile::of_ids(&g.deck, db).style();
-        let rec = match records.iter_mut().find(|r| r.style == style) {
-            Some(r) => r,
-            None => {
-                records.push(StyleRecord {
-                    style,
-                    games: 0,
-                    wins: 0,
-                });
-                records.last_mut().expect("eben angelegt")
-            }
-        };
-        rec.games += 1;
-        rec.wins += (g.won == Some(true)) as usize;
-    }
-    records.sort_by_key(|r| std::cmp::Reverse(r.games));
-
-    let my_turns: Vec<_> = games
-        .iter()
-        .filter(|g| g.complete)
-        .flat_map(|g| g.turns.iter().filter(|t| t.mine && t.turn >= 3))
-        .collect();
-    let attack_rate = if my_turns.is_empty() {
-        0.0
-    } else {
-        my_turns.iter().filter(|t| t.attacked).count() as f32 / my_turns.len() as f32
-    };
-    let count = |title: &str| {
-        report
-            .categories
-            .iter()
-            .find(|c| c.title == title)
-            .map_or(0, |c| c.items.len())
-    };
+    let records = style_records(games, db);
+    let attack_rate = attack_rate(games);
     let per_turn = |n: usize| {
         if report.my_turns == 0 {
             0.0
@@ -189,43 +155,113 @@ pub fn analyze(games: &[GameRecord], db: &CardDb, report: &Report) -> PlayerStyl
             n as f32 / report.my_turns as f32
         }
     };
-    let passive = per_turn(
-        count("Mana ungenutzt")
-            + count("Besserer Zug möglich")
-            + count("Karte lange nicht gespielt"),
-    );
-    let skipped_attacks = per_turn(count("Gefahrlosen Angriff ausgelassen"));
+    let habits = Habits {
+        passive: per_turn(
+            report.count(Mistake::UnusedMana)
+                + report.count(Mistake::BetterTurn)
+                + report.count(Mistake::HeldCard),
+        ),
+        skipped_attacks: per_turn(report.count(Mistake::SkippedAttack)),
+    };
+    let (recommended, reason) = recommend_style(&records, &habits);
+    PlayerStyle {
+        games: games.len(),
+        traits: traits(attack_rate, report.avg_turns, &habits),
+        records,
+        attack_rate: attack_rate.unwrap_or(0.0),
+        avg_turns: report.avg_turns,
+        recommended,
+        reason,
+    }
+}
 
+/// Anteile eigener Züge mit typischen Fehlern.
+struct Habits {
+    /// Mana ungenutzt, besserer Zug möglich oder Karte lange zurückgehalten.
+    passive: f32,
+    /// Gefahrlosen Angriff ausgelassen.
+    skipped_attacks: f32,
+}
+
+impl Habits {
+    fn noticeable(&self) -> bool {
+        self.passive >= HABIT_SHARE || self.skipped_attacks >= HABIT_SHARE
+    }
+}
+
+/// Bilanz je Decktyp (Partien mit bekanntem Deck und Ergebnis), meistgespielter zuerst.
+fn style_records(games: &[GameRecord], db: &CardDb) -> Vec<StyleRecord> {
+    let mut records: Vec<StyleRecord> = Vec::new();
+    for g in games
+        .iter()
+        .filter(|g| g.won.is_some() && !g.deck.is_empty())
+    {
+        let style = DeckProfile::of_ids(&g.deck, db).style();
+        let i = match records.iter().position(|r| r.style == style) {
+            Some(i) => i,
+            None => {
+                records.push(StyleRecord {
+                    style,
+                    games: 0,
+                    wins: 0,
+                });
+                records.len() - 1
+            }
+        };
+        records[i].games += 1;
+        records[i].wins += (g.won == Some(true)) as usize;
+    }
+    records.sort_by_key(|r| std::cmp::Reverse(r.games));
+    records
+}
+
+/// Anteil eigener Züge ab Zug 3 mit Angriff (`None` ohne solche Züge).
+fn attack_rate(games: &[GameRecord]) -> Option<f32> {
+    let turns: Vec<&TurnStat> = games
+        .iter()
+        .filter(|g| g.complete)
+        .flat_map(|g| g.turns.iter().filter(|t| t.mine && t.turn >= 3))
+        .collect();
+    (!turns.is_empty())
+        .then(|| turns.iter().filter(|t| t.attacked).count() as f32 / turns.len() as f32)
+}
+
+/// Auffällige Gewohnheiten in Worten.
+fn traits(attack_rate: Option<f32>, avg_turns: f32, habits: &Habits) -> Vec<String> {
     let mut traits = Vec::new();
-    if !my_turns.is_empty() {
+    if let Some(rate) = attack_rate {
         traits.push(format!(
             "Du greifst in {:.0} % deiner Züge (ab Zug 3) an.",
-            attack_rate * 100.0
+            rate * 100.0
         ));
     }
-    if report.avg_turns > 0.0 {
+    if avg_turns > 0.0 {
+        let length = if avg_turns >= 14.0 {
+            " – eher lange Partien"
+        } else if avg_turns <= 9.0 {
+            " – eher kurze Partien"
+        } else {
+            ""
+        };
         traits.push(format!(
-            "Deine Partien dauern im Schnitt {:.0} Züge{}.",
-            report.avg_turns,
-            if report.avg_turns >= 14.0 {
-                " – eher lange Partien"
-            } else if report.avg_turns <= 9.0 {
-                " – eher kurze Partien"
-            } else {
-                ""
-            }
+            "Deine Partien dauern im Schnitt {avg_turns:.0} Züge{length}."
         ));
     }
-    if passive >= 0.15 {
+    if habits.passive >= HABIT_SHARE {
         traits.push(
             "Du lässt oft Mana ungenutzt oder hältst Karten lange zurück – einfache, direkte Decks fallen dir vermutlich leichter."
                 .into(),
         );
     }
-    if skipped_attacks >= 0.15 {
+    if habits.skipped_attacks >= HABIT_SHARE {
         traits.push("Du lässt gefahrlose Angriffe öfter aus – du spielst eher vorsichtig.".into());
     }
+    traits
+}
 
+/// Empfohlener Decktyp mit Begründung: der mit klar der besten Siegquote,
+/// sonst bei passiven Gewohnheiten Aggro, sonst der meistgespielte.
+fn recommend_style(records: &[StyleRecord], habits: &Habits) -> (Style, String) {
     let best = records
         .iter()
         .filter(|r| r.games >= MIN_GAMES)
@@ -237,7 +273,7 @@ pub fn analyze(games: &[GameRecord], db: &CardDb, report: &Report) -> PlayerStyl
             .map(StyleRecord::rate)
             .fold(0.0f32, f32::max)
     };
-    let (recommended, reason) = match best {
+    match best {
         Some(b) if b.rate() >= others_best(b.style) + 0.1 => (
             b.style,
             format!(
@@ -247,7 +283,7 @@ pub fn analyze(games: &[GameRecord], db: &CardDb, report: &Report) -> PlayerStyl
                 b.games
             ),
         ),
-        _ if passive >= 0.15 || skipped_attacks >= 0.15 => (
+        _ if habits.noticeable() => (
             Style::Aggro,
             "Aggro-Decks sind am einfachsten zu spielen: Kreaturen ausspielen und angreifen. \
              Das passt zu den Stellen, an denen du bisher Mana oder Angriffe liegen lässt."
@@ -266,15 +302,6 @@ pub fn analyze(games: &[GameRecord], db: &CardDb, report: &Report) -> PlayerStyl
                 "Noch keine Partien mit bekanntem Deck. Für den Einstieg sind Aggro-Decks am einfachsten.".into(),
             ),
         },
-    };
-    PlayerStyle {
-        games: games.len(),
-        records,
-        attack_rate,
-        avg_turns: report.avg_turns,
-        traits,
-        recommended,
-        reason,
     }
 }
 

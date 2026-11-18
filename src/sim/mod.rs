@@ -1,19 +1,26 @@
-//! Probehände: spielt ein Deck viele Male gegen ein leeres Feld durch
-//! (Züge 1–6) und misst, wie oft Länder oder Farben fehlen und wie viel des
-//! verfügbaren Manas genutzt wird.
+//! Probehände: spielt ein Deck viele Male durch und misst, wie oft Länder oder
+//! Farben fehlen, wie viel des verfügbaren Manas genutzt wird und wie das Deck
+//! gegen einen Gegner besteht.
 //!
 //! Gespielt wird mit demselben Zugvorschlag wie im Begleitfenster
 //! ([`crate::turnplan`]): Land legen, dann das Mana möglichst gut nutzen.
 //! Mulligan: Starthände mit 0–1 oder 6–7 Ländern werden einmal auf 6 Karten
 //! getauscht (London-Mulligan: 7 ziehen, eine Karte unter die Bibliothek).
-//! Gleichzeitig spielt ein schneller Gegner mit (siehe [`pressure`]).
+//!
+//! Aufbau: `game` (eine simulierte Partie und die Summen), `pressure`
+//! (Spielfeld, Kampf und Rennen), `profile` (Gegner und Gewohnheiten aus den
+//! eigenen Partien), `advice` (Empfehlungen aus den Kennzahlen).
 
 use crate::carddb::{Card, CardDb};
 use crate::turnplan;
 
+mod advice;
+mod game;
 mod pressure;
 mod profile;
 
+use advice::advice;
+use game::{Game, Tally};
 use pressure::Board;
 pub use pressure::{OPP_CURVE, Pressure, START_LIFE};
 pub use profile::{
@@ -92,10 +99,12 @@ impl Rng {
     }
 }
 
-const COLOR_NAMES: [&str; 5] = ["Weiß", "Blau", "Schwarz", "Rot", "Grün"];
-
 fn is_land(db: &CardDb, grp: u32) -> bool {
     db.cards.get(&grp).is_some_and(Card::is_land)
+}
+
+fn lands_in(db: &CardDb, cards: &[u32]) -> usize {
+    cards.iter().filter(|g| is_land(db, **g)).count()
 }
 
 /// Spielt `games` Partien und wertet sie aus. `deck` = grpIds mit Wiederholung.
@@ -126,242 +135,24 @@ pub fn simulate_with(
         return r;
     }
     let mut rng = Rng(seed | 1);
-    let (mut mulligans, mut screws, mut floods) = (0usize, 0usize, 0usize);
-    let mut on_curve = [0usize; 4];
-    let mut missing = [0usize; 5];
-    let mut used = [0u64; TURNS];
-    let mut avail = [0u64; TURNS];
-    let mut life_sum = [0i64; TURNS];
-    let mut opp_life_sum = [0i64; TURNS];
-    let (mut low, mut dead, mut won, mut ahead, mut kills) = (0usize, 0usize, 0usize, 0usize, 0u64);
-
+    let mut tally = Tally::default();
     for game in 0..games {
-        let on_play = game % 2 == 0;
-        let mut library = deck.to_vec();
-        rng.shuffle(&mut library);
-        let mut hand: Vec<u32> = library.drain(..7).collect();
-        let lands_in = |h: &[u32]| h.iter().filter(|g| is_land(db, **g)).count();
-        if !(2..=5).contains(&lands_in(&hand)) {
-            mulligans += 1;
-            library.append(&mut hand);
-            rng.shuffle(&mut library);
-            hand = library.drain(..7).collect();
-            // Eine Karte unter die Bibliothek: bei vielen Ländern ein Land,
-            // sonst die teuerste Nichtland-Karte.
-            let bottom = if lands_in(&hand) >= 4 {
-                hand.iter().position(|g| is_land(db, *g))
-            } else {
-                hand.iter()
-                    .enumerate()
-                    .filter(|(_, g)| !is_land(db, **g))
-                    .max_by_key(|(_, g)| db.cards.get(g).map_or(0, |c| c.cmc))
-                    .map(|(i, _)| i)
-            };
-            if let Some(i) = bottom {
-                library.push(hand.remove(i));
-            }
-        }
-
-        let mut battlefield: Vec<u32> = Vec::new();
-        let mut permanents: Vec<u32> = Vec::new();
-        let mut screwed = false;
-        let mut missing_here = [false; 5];
-        let mut flooded = false;
-        let mut board = Board::new();
-        // Gestorbene Manakreaturen liefern kein Mana mehr.
-        let opp_turn =
-            |board: &mut Board, permanents: &mut Vec<u32>, turn: usize, rng: &mut Rng| {
-                let new = opponent.creature(turn, rng);
-                let removal = opponent.removal > 0.0 && rng.chance(opponent.removal);
-                let trick = opponent.tricks > 0.0 && rng.chance(opponent.tricks);
-                for grp in board.opp_turn_with(new, removal, trick) {
-                    if let Some(i) = permanents.iter().position(|g| *g == grp) {
-                        permanents.remove(i);
-                    }
-                }
-            };
+        let mut g = Game::deal(deck, db, game % 2 == 0, &mut rng);
         for turn in 1..=r.turns {
-            if !on_play {
-                opp_turn(&mut board, &mut permanents, turn, &mut rng);
+            if !g.on_play {
+                g.opp_turn(turn, opponent, &mut rng);
             }
-            board.start_my_turn();
-            if (turn > 1 || !on_play) && !library.is_empty() {
-                hand.push(library.remove(0));
+            g.my_turn(turn, opponent, habits, &mut rng);
+            if g.on_play {
+                g.opp_turn(turn, opponent, &mut rng);
             }
-            let plan = turnplan::plan(
-                db,
-                &hand,
-                &battlefield,
-                &permanents,
-                false,
-                &board.opp_creatures(),
-                board.mine.len() as u32,
-            );
-            if let Some(land) = plan.land
-                && let Some(i) = hand.iter().position(|g| *g == land)
-            {
-                battlefield.push(hand.remove(i));
-            }
-            // Gewohnheit: manchmal den teuersten Zauber des Vorschlags nicht spielen.
-            let mut spells = plan.spells.clone();
-            let mut mana_used = plan.mana_used;
-            if let Some(h) = habits
-                && !spells.is_empty()
-                && rng.chance(h.weaker_turn)
-                && let Some((i, cmc)) = spells
-                    .iter()
-                    .enumerate()
-                    .map(|(i, g)| (i, db.cards.get(g).map_or(0, |c| c.cmc)))
-                    .max_by_key(|(_, cmc)| *cmc)
-            {
-                spells.remove(i);
-                mana_used -= cmc;
-            }
-            for g in &spells {
-                if let Some(i) = hand.iter().position(|h| h == g) {
-                    let card = hand.remove(i);
-                    if let Some(c) = db.cards.get(&card) {
-                        if c.mana.is_some() {
-                            permanents.push(card);
-                        }
-                        board.cast(c);
-                    }
-                }
-            }
-            used[turn - 1] += u64::from(mana_used);
-            avail[turn - 1] += u64::from(plan.mana_total);
-            if turn <= 4 && battlefield.len() >= turn {
-                on_curve[turn - 1] += 1;
-            }
-            let hesitant = habits.is_some_and(|h| rng.chance(h.skip_attack));
-            let trick = opponent.tricks > 0.0 && rng.chance(opponent.tricks);
-            for grp in board.my_attack_with(hesitant, trick) {
-                if let Some(i) = permanents.iter().position(|g| *g == grp) {
-                    permanents.remove(i);
-                }
-            }
-            if on_play {
-                opp_turn(&mut board, &mut permanents, turn, &mut rng);
-            }
-            if turn == FLOOD_TURN {
-                flooded = battlefield.len() >= 5 && lands_in(&hand) >= 2;
-            }
-            life_sum[turn - 1] += i64::from(board.life.max(0));
-            opp_life_sum[turn - 1] += i64::from(board.opp_life.max(0));
-            // Farbe fehlt: Karte wäre vom Manawert her bezahlbar gewesen.
-            if (2..=4).contains(&turn) {
-                let left = plan.mana_total - plan.mana_used;
-                let sources = turnplan::sources(db, &battlefield, &permanents);
-                let have = sources.iter().fold(0u8, |m, c| m | c);
-                for c in hand.iter().filter_map(|g| db.cards.get(g)) {
-                    if !c.is_land()
-                        && c.cmc > 0
-                        && c.cmc <= left
-                        && !turnplan::can_pay(&[c], &sources)
-                    {
-                        screwed = true;
-                        let (_, pips) = c.pips();
-                        for (i, n) in pips.iter().enumerate() {
-                            if *n > 0 && have & (1 << i) == 0 {
-                                missing_here[i] = true;
-                            }
-                        }
-                    }
-                }
-            }
+            g.end_turn(turn);
         }
-        screws += screwed as usize;
-        dead += (board.life <= 0) as usize;
-        won += (board.opp_life <= 0) as usize;
-        ahead += (board.life > 0 && board.opp_life < board.life) as usize;
-        low += (board.life <= 5) as usize;
-        kills += u64::from(board.kills);
-        for (i, m) in missing_here.iter().enumerate() {
-            missing[i] += *m as usize;
-        }
-        floods += flooded as usize;
+        tally.add(&g);
     }
-
-    let share = |n: usize| n as f32 / games as f32;
-    r.mulligan = share(mulligans);
-    r.color_screw = share(screws);
-    r.flood = share(floods);
-    for t in 0..4 {
-        r.on_curve[t] = share(on_curve[t]);
-    }
-    for t in 0..TURNS {
-        r.mana_used[t] = used[t] as f32 / games as f32;
-        r.mana_avail[t] = avail[t] as f32 / games as f32;
-    }
-    for t in 0..TURNS {
-        r.pressure.life[t] = life_sum[t] as f32 / games as f32;
-        r.pressure.opp_life[t] = opp_life_sum[t] as f32 / games as f32;
-    }
-    r.pressure.low = share(low);
-    r.pressure.dead = share(dead);
-    r.pressure.won = share(won);
-    r.pressure.ahead = share(ahead);
-    r.pressure.kills = kills as f32 / games as f32;
-    r.missing_color = (0..5)
-        .filter(|i| missing[*i] > 0)
-        .max_by_key(|i| missing[*i]);
+    tally.fill(&mut r);
     r.advice = advice(&r);
     r
-}
-
-/// Empfehlungen aus den Kennzahlen.
-fn advice(r: &SimReport) -> Vec<String> {
-    let pct = |x: f32| (x * 100.0).round() as u32;
-    let mut out = Vec::new();
-    if r.on_curve[2] < 0.6 {
-        out.push(format!(
-            "Zu wenige Länder: Nur in {} % der Partien liegen im 3. Zug drei Länder. 1–2 Länder mehr spielen.",
-            pct(r.on_curve[2])
-        ));
-    }
-    if r.flood >= 0.25 {
-        out.push(format!(
-            "Zu viele Länder: In {} % der Partien liegen im 6. Zug noch zwei oder mehr Länder auf der Hand. 1–2 Länder durch günstige Karten ersetzen.",
-            pct(r.flood)
-        ));
-    }
-    if r.color_screw >= 0.2 {
-        let color = r
-            .missing_color
-            .map(|i| format!(" (meist {})", COLOR_NAMES[i]))
-            .unwrap_or_default();
-        out.push(format!(
-            "Farben fehlen: In {} % der Partien war in Zug 2–4 eine Karte nur wegen der Farbe nicht spielbar{color}. Mehr Länder dieser Farbe oder Zweifarbländer.",
-            pct(r.color_screw)
-        ));
-    }
-    // Zu langsam nur, wenn man das Rennen nicht selbst gewinnt.
-    if r.pressure.low >= 0.4 && r.pressure.ahead < r.pressure.low {
-        out.push(format!(
-            "Gegen schnelle Decks zu langsam: In {} % der Partien hast du nach Zug {} höchstens 5 Leben. \
-             Mehr günstige Kreaturen zum Blocken oder Entfernung mit Manawert 1–2.",
-            pct(r.pressure.low),
-            r.turns
-        ));
-    }
-    let used: f32 = r.mana_used[..4].iter().sum();
-    let avail: f32 = r.mana_avail[..4].iter().sum();
-    if avail > 0.0 && used / avail < 0.55 {
-        out.push(format!(
-            "Kurve zu hoch: In den Zügen 1–4 wird nur {} % des Manas genutzt. Mehr günstige Karten (Manawert 1–2).",
-            pct(used / avail)
-        ));
-    }
-    if r.mulligan >= 0.25 {
-        out.push(format!(
-            "Viele Mulligans ({} %): Die Länderzahl liegt weit weg von etwa 40 % des Decks.",
-            pct(r.mulligan)
-        ));
-    }
-    if out.is_empty() {
-        out.push("Das Deck läuft in den Probehänden rund – Länder und Kurve passen.".into());
-    }
-    out
 }
 
 /// Deckliste (Namen) in grpIds umwandeln; unbekannte Karten fallen weg.

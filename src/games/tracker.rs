@@ -2,84 +2,12 @@
 
 use super::*;
 
-// Arena-Kennungen von Schlüsselwort-Fähigkeiten (aus der Kartendatenbank).
-pub(super) const KW_DEATHTOUCH: u32 = 1;
-pub(super) const KW_DEFENDER: u32 = 2;
-pub(super) const KW_DOUBLE_STRIKE: u32 = 3;
-pub(super) const KW_FIRST_STRIKE: u32 = 6;
-pub(super) const KW_TRAMPLE: u32 = 14;
-pub(super) const KW_INDESTRUCTIBLE: u32 = 104;
-pub(super) const KW_FLYING: u32 = 8;
-pub(super) const KW_HASTE: u32 = 9;
-pub(super) const KW_REACH: u32 = 13;
-pub(super) const KW_MENACE: u32 = 142;
-
-#[derive(Clone, Default)]
-pub(super) struct Obj {
-    pub(super) grp_id: u32,
-    pub(super) zone: u32,
-    pub(super) owner: u32,
-    pub(super) controller: u32,
-    pub(super) land: bool,
-    pub(super) creature: bool,
-    pub(super) tapped: bool,
-    pub(super) attacking: bool,
-    pub(super) blocking: bool,
-    pub(super) sick: bool,
-    pub(super) power: i32,
-    pub(super) toughness: i32,
-    pub(super) keywords: Vec<u32>,
-}
-
-impl Obj {
-    pub(super) fn live(&self) -> LiveCreature {
-        LiveCreature {
-            grp_id: self.grp_id,
-            power: self.power.max(0),
-            toughness: self.toughness,
-            flying: self.has(KW_FLYING),
-            reach: self.has(KW_FLYING) || self.has(KW_REACH),
-            menace: self.has(KW_MENACE),
-            deathtouch: self.has(KW_DEATHTOUCH),
-            first_strike: self.has(KW_FIRST_STRIKE) || self.has(KW_DOUBLE_STRIKE),
-            trample: self.has(KW_TRAMPLE),
-            indestructible: self.has(KW_INDESTRUCTIBLE),
-        }
-    }
-
-    pub(super) fn has(&self, kw: u32) -> bool {
-        self.keywords.contains(&kw)
-    }
-
-    pub(super) fn can_block(&self, attacker: &Obj) -> bool {
-        !attacker.has(KW_FLYING) || self.has(KW_FLYING) || self.has(KW_REACH)
-    }
-
-    pub(super) fn kills(&self, other: &Obj) -> bool {
-        self.power > 0 && (self.power >= other.toughness || self.has(KW_DEATHTOUCH))
-    }
-}
-
-/// Kann `attacker` angreifen, ohne dass ein möglicher Block ihn tötet?
-pub(super) fn safe_attack(attacker: &Obj, blockers: &[&Obj]) -> bool {
-    let eligible: Vec<&&Obj> = blockers.iter().filter(|b| b.can_block(attacker)).collect();
-    if attacker.has(KW_MENACE) {
-        if eligible.len() < 2 {
-            return true;
-        }
-        let mut powers: Vec<i32> = eligible.iter().map(|b| b.power.max(0)).collect();
-        powers.sort_unstable_by(|a, b| b.cmp(a));
-        let deathtouch = eligible.iter().any(|b| b.has(KW_DEATHTOUCH) && b.power > 0);
-        return !deathtouch && powers[0] + powers[1] < attacker.toughness;
-    }
-    eligible.iter().all(|b| !b.kills(attacker))
-}
-
 /// Verfolgt den Spielzustand einer laufenden Partie.
 #[derive(Default)]
 pub(super) struct Tracker {
     pub(super) rec: GameRecord,
-    pub(super) objects: HashMap<u32, Obj>,
+    /// Spielobjekte nach Instanz-Kennung (sortiert: feste Reihenfolge in Anzeigen).
+    pub(super) objects: BTreeMap<u32, Obj>,
     /// zoneId -> (Typ, Besitzer, Objekte)
     pub(super) zones: HashMap<u32, (String, u32, Vec<u32>)>,
     pub(super) life: HashMap<u32, i32>,
@@ -96,7 +24,6 @@ pub(super) struct Tracker {
     pub(super) attacked_ids: HashSet<u32>,
     /// Vor dem Kampf: (Instanz, grpId) meiner gefahrlos angreifbaren Kreaturen.
     pub(super) safe_snapshot: Vec<(u32, u32)>,
-    pub(super) finished: bool,
 }
 
 pub(super) fn u(v: &Value) -> u32 {
@@ -170,8 +97,8 @@ impl Tracker {
                 o.controller == me
                     && o.creature
                     && !o.tapped
-                    && (!o.sick || o.has(KW_HASTE))
-                    && !o.has(KW_DEFENDER)
+                    && (!o.sick || o.has(kw::HASTE))
+                    && !o.has(kw::DEFENDER)
                     && o.power > 0
             })
             .filter(|(_, o)| safe_attack(o, &blockers))

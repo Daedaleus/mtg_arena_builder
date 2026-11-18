@@ -19,21 +19,15 @@ pub struct LogParser {
 }
 
 impl LogParser {
+    /// Verarbeitet eine Zeile der `Player.log`. Ausgewertet werden nur
+    /// JSON-Zeilen: Rang, Spielraum (Event) und Nachrichten der Spiel-Engine.
     pub fn feed(&mut self, line: &[u8]) {
         if line.first() != Some(&b'{') {
             return;
         }
         let text = String::from_utf8_lossy(line);
         if text.contains("\"constructedSeasonOrdinal\"") {
-            if let Some(rank) = Rank::parse(&text) {
-                if self.rank_pending
-                    && let Some(last) = self.out.last_mut()
-                {
-                    last.rank_after = Some(rank.clone());
-                }
-                self.rank_pending = false;
-                self.rank = Some(rank);
-            }
+            self.on_rank(&text);
             return;
         }
         let is_gre = text.contains("\"greToClientEvent\"");
@@ -44,125 +38,160 @@ impl LogParser {
         let Ok(o) = serde_json::from_str::<Value>(&text) else {
             return;
         };
+        if is_room {
+            self.on_room(&o);
+            return;
+        }
         let ts = o["timestamp"]
             .as_str()
             .and_then(|s| s.parse().ok())
             .unwrap_or(0u64);
-
-        if is_room {
-            let cfg = &o["matchGameRoomStateChangedEvent"]["gameRoomInfo"]["gameRoomConfig"];
-            if let Some(match_id) = cfg["matchId"].as_str() {
-                let seat = self.cur.as_ref().map(|t| t.seat()).unwrap_or(1);
-                for p in cfg["reservedPlayers"].as_array().into_iter().flatten() {
-                    if u(&p["systemSeatId"]) == seat
-                        && let Some(ev) = p["eventId"].as_str()
-                    {
-                        self.events.insert(match_id.to_string(), ev.to_string());
-                    }
-                }
-            }
-            return;
-        }
-
         for m in o["greToClientEvent"]["greToClientMessages"]
             .as_array()
             .into_iter()
             .flatten()
         {
-            let seat = m["systemSeatIds"][0].as_u64().unwrap_or(1) as u32;
-            match m["type"].as_str().unwrap_or("") {
-                "GREMessageType_ConnectResp" => {
-                    self.deck = m["connectResp"]["deckMessage"]["deckCards"]
-                        .as_array()
-                        .into_iter()
-                        .flatten()
-                        .map(u)
-                        .collect();
-                }
-                "GREMessageType_MulliganReq" => {
-                    if let Some(t) = self.cur.as_mut() {
-                        t.mulligan_reqs += 1;
-                        // Die zuletzt angebotene Hand ist die behaltene.
-                        t.rec.opening_hand = t.hand();
-                    }
-                }
-                _ => {}
+            self.on_message(m, ts);
+        }
+    }
+
+    /// Rang laut Arena; nach einer Partie gehört er zu ihr.
+    fn on_rank(&mut self, text: &str) {
+        let Some(rank) = Rank::parse(text) else {
+            return;
+        };
+        if self.rank_pending
+            && let Some(last) = self.out.last_mut()
+        {
+            last.rank_after = Some(rank.clone());
+        }
+        self.rank_pending = false;
+        self.rank = Some(rank);
+    }
+
+    /// Spielraum: Event der Partie (z. B. Rangliste) für den eigenen Sitz merken.
+    fn on_room(&mut self, o: &Value) {
+        let cfg = &o["matchGameRoomStateChangedEvent"]["gameRoomInfo"]["gameRoomConfig"];
+        let Some(match_id) = cfg["matchId"].as_str() else {
+            return;
+        };
+        let seat = self.cur.as_ref().map(|t| t.seat()).unwrap_or(1);
+        for p in cfg["reservedPlayers"].as_array().into_iter().flatten() {
+            if u(&p["systemSeatId"]) == seat
+                && let Some(ev) = p["eventId"].as_str()
+            {
+                self.events.insert(match_id.to_string(), ev.to_string());
             }
-            let g = &m["gameStateMessage"];
-            if g.is_null() {
-                continue;
-            }
-            let info = &g["gameInfo"];
-            let known = info["matchID"]
-                .as_str()
-                .map(|m| format!("{m}#{}", info["gameNumber"].as_u64().unwrap_or(1)));
-            // Arena schickt die Partie-Kennung nicht in jeder Nachricht mit. Beginnt
-            // das Log mitten in einer Partie, steht sie erst am Ende fest.
-            let new_game = match (&self.cur, &known) {
-                (None, _) => true,
-                (Some(t), Some(id)) if t.rec.id.is_empty() => {
-                    // Nach Spielende schickt Arena noch Nachrichten ohne Kennung; der
-                    // daraus entstandene Tracker trägt den hohen Zählerstand der alten
-                    // Partie. Springt der Zähler zurück, beginnt eine neue Partie.
-                    g["gameStateId"].as_u64().unwrap_or(0) < t.last_state_id
-                }
-                (Some(t), Some(id)) => &t.rec.id != id,
-                (Some(t), None) => t.seat() != seat,
-            };
-            if new_game {
-                // Eine vorige Partie ohne Ergebnis wird verworfen.
-                let mut t = Tracker::new(seat, ts);
-                t.rec.deck = std::mem::take(&mut self.deck);
-                self.cur = Some(t);
-            }
-            if let (Some(t), Some(id)) = (self.cur.as_mut(), known) {
-                t.rec.id = id;
-            }
-            let Some(t) = self.cur.as_mut() else { continue };
-            if t.finished {
-                continue;
-            }
-            t.apply(g);
-            if info["stage"].as_str() == Some("GameStage_GameOver") {
-                let result = info["results"]
+        }
+    }
+
+    /// Eine Nachricht der Spiel-Engine (GRE).
+    fn on_message(&mut self, m: &Value, ts: u64) {
+        let seat = m["systemSeatIds"][0].as_u64().unwrap_or(1) as u32;
+        match m["type"].as_str().unwrap_or("") {
+            "GREMessageType_ConnectResp" => {
+                self.deck = m["connectResp"]["deckMessage"]["deckCards"]
                     .as_array()
                     .into_iter()
                     .flatten()
-                    .find(|r| r["scope"].as_str() == Some("MatchScope_Game"));
-                if let Some(r) = result {
-                    t.finished = true;
-                    let my_team = g["players"]
-                        .as_array()
-                        .into_iter()
-                        .flatten()
-                        .find(|p| u(&p["systemSeatNumber"]) == t.seat())
-                        .map(|p| u(&p["teamId"]))
-                        .filter(|team| *team > 0)
-                        .unwrap_or(t.seat());
-                    let won = match r["result"].as_str() {
-                        Some("ResultType_WinLoss") => Some(u(&r["winningTeamId"]) == my_team),
-                        _ => None,
-                    };
-                    let reason = r["reason"].as_str().unwrap_or("").to_string();
-                    let done = self.cur.take().unwrap();
-                    if !done.rec.id.is_empty() {
-                        let mut rec = done.finish(won, &reason);
-                        let match_id = rec.id.split('#').next().unwrap_or("");
-                        rec.event = self.events.get(match_id).cloned().unwrap_or_default();
-                        self.last_finished = Some(rec.clone());
-                        self.out.push(rec);
-                        self.rank_pending = true;
-                    }
+                    .map(u)
+                    .collect();
+            }
+            "GREMessageType_MulliganReq" => {
+                if let Some(t) = self.cur.as_mut() {
+                    t.mulligan_reqs += 1;
+                    // Die zuletzt angebotene Hand ist die behaltene.
+                    t.rec.opening_hand = t.hand();
                 }
             }
+            _ => {}
         }
+        let g = &m["gameStateMessage"];
+        if !g.is_null() {
+            self.on_game_state(g, seat, ts);
+        }
+    }
+
+    /// Neuer Spielstand: Partie zuordnen (oder neu beginnen) und anwenden.
+    fn on_game_state(&mut self, g: &Value, seat: u32, ts: u64) {
+        let info = &g["gameInfo"];
+        let known = info["matchID"]
+            .as_str()
+            .map(|m| format!("{m}#{}", info["gameNumber"].as_u64().unwrap_or(1)));
+        if self.is_new_game(g, known.as_deref(), seat) {
+            // Eine vorige Partie ohne Ergebnis wird verworfen.
+            let mut t = Tracker::new(seat, ts);
+            t.rec.deck = std::mem::take(&mut self.deck);
+            self.cur = Some(t);
+        }
+        let Some(t) = self.cur.as_mut() else { return };
+        if let Some(id) = known {
+            t.rec.id = id;
+        }
+        t.apply(g);
+        if info["stage"].as_str() == Some("GameStage_GameOver") {
+            self.on_game_over(g, info);
+        }
+    }
+
+    /// Gehört der Spielstand zu einer neuen Partie? Arena schickt die
+    /// Partie-Kennung nicht in jeder Nachricht mit. Beginnt das Log mitten in
+    /// einer Partie, steht sie erst am Ende fest.
+    fn is_new_game(&self, g: &Value, known: Option<&str>, seat: u32) -> bool {
+        match (&self.cur, known) {
+            (None, _) => true,
+            (Some(t), Some(_)) if t.rec.id.is_empty() => {
+                // Nach Spielende schickt Arena noch Nachrichten ohne Kennung; der
+                // daraus entstandene Tracker trägt den hohen Zählerstand der alten
+                // Partie. Springt der Zähler zurück, beginnt eine neue Partie.
+                g["gameStateId"].as_u64().unwrap_or(0) < t.last_state_id
+            }
+            (Some(t), Some(id)) => t.rec.id != id,
+            (Some(t), None) => t.seat() != seat,
+        }
+    }
+
+    /// Spielende: Ergebnis bestimmen und die Partie abschließen.
+    fn on_game_over(&mut self, g: &Value, info: &Value) {
+        let Some(r) = info["results"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .find(|r| r["scope"].as_str() == Some("MatchScope_Game"))
+        else {
+            return;
+        };
+        let Some(done) = self.cur.take() else { return };
+        let my_team = g["players"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .find(|p| u(&p["systemSeatNumber"]) == done.seat())
+            .map(|p| u(&p["teamId"]))
+            .filter(|team| *team > 0)
+            .unwrap_or(done.seat());
+        let won = match r["result"].as_str() {
+            Some("ResultType_WinLoss") => Some(u(&r["winningTeamId"]) == my_team),
+            _ => None,
+        };
+        // Ohne Kennung (Log begann mitten in einer Partie) wird sie verworfen.
+        if done.rec.id.is_empty() {
+            return;
+        }
+        let reason = r["reason"].as_str().unwrap_or("");
+        let mut rec = done.finish(won, reason);
+        let match_id = rec.id.split('#').next().unwrap_or("");
+        rec.event = self.events.get(match_id).cloned().unwrap_or_default();
+        self.last_finished = Some(rec.clone());
+        self.out.push(rec);
+        self.rank_pending = true;
     }
 
     /// Zustand der laufenden Partie, falls gerade eine läuft.
     pub fn live(&self) -> Option<LiveState> {
         self.cur
             .as_ref()
-            .filter(|t| !t.finished && t.turn + t.mulligan_reqs > 0)
+            .filter(|t| t.turn + t.mulligan_reqs > 0)
             .map(|t| t.live())
     }
 

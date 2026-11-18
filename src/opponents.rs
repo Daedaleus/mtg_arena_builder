@@ -6,7 +6,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use crate::carddb::{CardDb, name_key};
+use crate::carddb::{CardDb, color, name_key};
 use crate::deckcheck::MetaArchetype;
 use crate::games::{self, GameRecord};
 
@@ -24,22 +24,6 @@ pub struct OppGroup {
 impl OppGroup {
     pub fn losses(&self) -> usize {
         self.games.len() - self.wins
-    }
-}
-
-pub fn color_label(letters: &str) -> String {
-    let name = |c: char| match c {
-        'W' => "Weiß",
-        'U' => "Blau",
-        'B' => "Schwarz",
-        'R' => "Rot",
-        'G' => "Grün",
-        _ => "?",
-    };
-    match letters.len() {
-        0 => "Unbekannt".into(),
-        1 => format!("Mono-{}", name(letters.chars().next().unwrap())),
-        _ => letters.chars().map(name).collect::<Vec<_>>().join("-"),
     }
 }
 
@@ -138,7 +122,7 @@ pub fn deck_label(deck: &crate::deck::Deck, db: &CardDb, shares: &[ArchShare]) -
         }
     }
     let ids: Vec<u32> = cards.iter().map(|c| c.grp_id).collect();
-    let colors = color_label(&games::deck_colors(&ids, db));
+    let colors = color::label(&games::deck_colors(&ids, db));
     match cards.iter().max_by_key(|c| (c.rarity, c.cmc)) {
         Some(c) => format!("{colors} – {}", c.name),
         None => colors,
@@ -150,7 +134,7 @@ pub fn classify(g: &GameRecord, db: &CardDb, shares: &[ArchShare]) -> String {
     let seen = seen_keys(g.opp_cards.keys(), db);
     match match_archetype(&seen, shares) {
         Some(arch) => format!("{} (erkannt)", arch.name),
-        None => color_label(&games::opp_colors(g, db)),
+        None => color::label(&games::opp_colors(g, db)),
     }
 }
 

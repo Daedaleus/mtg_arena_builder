@@ -12,6 +12,7 @@
 //! bekommt eine seiner Kreaturen +2/+2.
 
 use super::*;
+use crate::carddb::keyword as kw;
 use crate::carddb::{ROLE_REMOVAL, ROLE_WIPE};
 use crate::combat;
 use crate::games::LiveCreature;
@@ -30,7 +31,7 @@ pub const OPP_CURVE: [(i32, i32); TURNS] = [
     (2, 2),
     (2, 2),
 ];
-pub const START_LIFE: i32 = 20;
+pub use crate::games::START_LIFE;
 /// Bonus eines gegnerischen Kampftricks (+X/+X bis Zugende).
 pub const TRICK_BONUS: i32 = 2;
 
@@ -43,17 +44,6 @@ enum Trick {
     /// Auf einen Blocker.
     Blocker,
 }
-
-// Schlüsselwort-Fähigkeiten in der Kartendatenbank
-const KW_DEATHTOUCH: u32 = 1;
-const KW_DOUBLE_STRIKE: u32 = 3;
-const KW_FIRST_STRIKE: u32 = 6;
-const KW_FLYING: u32 = 8;
-const KW_HASTE: u32 = 9;
-const KW_REACH: u32 = 13;
-const KW_TRAMPLE: u32 = 14;
-const KW_INDESTRUCTIBLE: u32 = 104;
-const KW_MENACE: u32 = 142;
 
 /// Wie gut hält das Deck einem schnellen Gegner stand?
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
@@ -77,18 +67,18 @@ pub struct Pressure {
 
 /// Kreatur aus einer Karte (Werte und Schlüsselwörter), mit eindeutiger Kennung.
 pub(super) fn creature_of(card: &Card, id: u32) -> LiveCreature {
-    let has = |k: u32| card.abilities.contains(&k);
+    let has = |k: u32| card.has_ability(k);
     LiveCreature {
         grp_id: id,
         power: card.power.parse().unwrap_or(0),
         toughness: card.toughness.parse().unwrap_or(1),
-        flying: has(KW_FLYING),
-        reach: has(KW_FLYING) || has(KW_REACH),
-        menace: has(KW_MENACE),
-        deathtouch: has(KW_DEATHTOUCH),
-        first_strike: has(KW_FIRST_STRIKE) || has(KW_DOUBLE_STRIKE),
-        trample: has(KW_TRAMPLE),
-        indestructible: has(KW_INDESTRUCTIBLE),
+        flying: has(kw::FLYING),
+        reach: has(kw::FLYING) || has(kw::REACH),
+        menace: has(kw::MENACE),
+        deathtouch: has(kw::DEATHTOUCH),
+        first_strike: has(kw::FIRST_STRIKE) || has(kw::DOUBLE_STRIKE),
+        trample: has(kw::TRAMPLE),
+        indestructible: has(kw::INDESTRUCTIBLE),
     }
 }
 
@@ -219,7 +209,7 @@ impl Board {
             self.mine.push(Unit {
                 card: card.grp_id,
                 c: creature_of(card, id),
-                ready: card.abilities.contains(&KW_HASTE),
+                ready: card.has_ability(kw::HASTE),
                 tapped: false,
             });
         } else if card.has_role(ROLE_WIPE) {

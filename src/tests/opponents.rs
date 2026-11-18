@@ -17,14 +17,6 @@ fn opp_game(won: Option<bool>, cards: &[u32], turns: u32) -> GameRecord {
 }
 
 #[test]
-fn color_labels() {
-    assert_eq!(color_label(""), "Unbekannt");
-    assert_eq!(color_label("R"), "Mono-Rot");
-    assert_eq!(color_label("WUBG"), "Weiß-Blau-Schwarz-Grün");
-    assert_eq!(color_label("X"), "Mono-?");
-}
-
-#[test]
 fn shares_and_matching() {
     let db = std_db();
     let gruul =

@@ -14,31 +14,32 @@ impl App {
         recs: &[style::Candidate],
         loaded: usize,
     ) -> (Option<usize>, Option<u32>) {
-        let mut clicked = None;
-        let mut open = None;
-        // --- Bilanz ---
         ui.add_space(4.0);
-        ui.horizontal_wrapped(|ui| {
-            let color = if r.wins >= r.losses { GREEN } else { RED };
-            ui.label(
-                RichText::new(format!("{} Siege, {} Niederlagen", r.wins, r.losses))
-                    .color(color)
-                    .strong(),
-            );
-            ui.label(format!("aus {} Partien", r.games));
-            if r.conceded > 0 {
-                ui.label(format!("· {} davon aufgegeben", r.conceded));
-            }
-        });
-        ui.label(format!(
-            "Als Erster: {} · Als Zweiter: {} · Partien dauern im Schnitt {:.0} Züge",
-            ratio(r.on_play.0, r.on_play.1),
-            ratio(r.on_draw.0, r.on_draw.1),
-            r.avg_turns
-        ));
+        balance(ui, r);
         ui.add_space(6.0);
+        let open = self.style_section(ui, player, recs, loaded);
+        ui.add_space(6.0);
+        top_mistakes(ui, r);
+        ui.add_space(8.0);
+        let clicked = all_findings(ui, r);
+        self.card_lists(ui, r);
+        ui.add_space(6.0);
+        ui.separator();
+        opponents_section(ui, opp_groups);
+        ui.add_space(6.0);
+        (clicked, open)
+    }
 
-        // --- Spielstil ---
+    /// Spielstil, Empfehlung und passende Turnierdecks. Liefert das
+    /// angeklickte Deck.
+    fn style_section(
+        &self,
+        ui: &mut egui::Ui,
+        player: &style::PlayerStyle,
+        recs: &[style::Candidate],
+        loaded: usize,
+    ) -> Option<u32> {
+        let mut open = None;
         egui::CollapsingHeader::new(RichText::new("Dein Spielstil").strong())
             .id_salt("player_style")
             .default_open(true)
@@ -77,105 +78,26 @@ impl App {
                         )
                     };
                     ui.label(RichText::new(text).weak());
-                } else {
-                    ui.label("Passende Turnierdecks, für deine Sammlung günstigste zuerst:");
-                    egui::Grid::new("style_recs").num_columns(3).show(ui, |ui| {
-                        for c in recs {
-                            if ui.link(&c.label).clicked() {
-                                open = Some(c.deck_id);
-                            }
-                            ui.label(RichText::new(c.source).weak());
-                            let (color, text) = self.fit_text(&c.summary);
-                            ui.label(RichText::new(text).color(color)).on_hover_text(cost_tooltip(&c.summary));
-                            ui.end_row();
+                    return;
+                }
+                ui.label("Passende Turnierdecks, für deine Sammlung günstigste zuerst:");
+                egui::Grid::new("style_recs").num_columns(3).show(ui, |ui| {
+                    for c in recs {
+                        if ui.link(&c.label).clicked() {
+                            open = Some(c.deck_id);
                         }
-                    });
-                }
-            });
-        ui.add_space(6.0);
-
-        // --- Größte Baustellen ---
-        ui.heading("Was du als Nächstes verbessern kannst");
-        let top: Vec<&games::Category> = r
-            .categories
-            .iter()
-            .filter(|c| !c.items.is_empty())
-            .take(3)
-            .collect();
-        if top.is_empty() {
-            ui.label(
-                RichText::new("Keine typischen Fehler gefunden. Die App erkennt allerdings nur einfache Muster.")
-                    .color(GREEN),
-            );
-        }
-        for (n, c) in top.iter().enumerate() {
-            let in_games: HashSet<usize> = c.items.iter().map(|f| f.game).collect();
-            ui.horizontal_wrapped(|ui| {
-                ui.label(
-                    RichText::new(format!("{}. {}", n + 1, c.title))
-                        .strong()
-                        .color(YELLOW),
-                );
-                ui.label(format!(
-                    "– {}× in {} von {} Partien",
-                    c.items.len(),
-                    in_games.len(),
-                    r.games
-                ));
-            });
-            ui.label(c.advice);
-            ui.add_space(4.0);
-        }
-        if r.good_keeps.1 + r.bad_keeps.1 > 0 {
-            ui.label(
-                RichText::new(format!(
-                    "Starthand mit 2–4 Ländern: {} · andere Starthände: {}",
-                    ratio(r.good_keeps.0, r.good_keeps.1),
-                    ratio(r.bad_keeps.0, r.bad_keeps.1)
-                ))
-                .weak(),
-            );
-        }
-        ui.add_space(8.0);
-
-        // --- Alle Auffälligkeiten ---
-        ui.strong("Alle Auffälligkeiten");
-        ui.label(
-            RichText::new(format!(
-                "Zug-Auswertung über {} eigene Züge aus vollständig mitgeschriebenen Partien. Ein Klick auf einen Eintrag öffnet die Partie.",
-                r.my_turns
-            ))
-            .weak(),
-        );
-        for c in &r.categories {
-            let color = if c.items.is_empty() { GREEN } else { YELLOW };
-            egui::CollapsingHeader::new(
-                RichText::new(format!("{}: {}×", c.title, c.items.len())).color(color),
-            )
-            .id_salt(c.title)
-            .show(ui, |ui| {
-                ui.label(RichText::new(c.advice).weak());
-                for f in &c.items {
-                    let when = if f.turn == 0 {
-                        "Starthand".to_string()
-                    } else {
-                        format!("Zug {}", f.turn)
-                    };
-                    if ui
-                        .link(format!("Partie #{}, {when}: {}", f.game, f.text))
-                        .clicked()
-                    {
-                        clicked = Some(f.game - 1);
+                        ui.label(RichText::new(c.source).weak());
+                        let (color, text) = self.fit_text(&c.summary);
+                        ui.label(RichText::new(text).color(color)).on_hover_text(cost_tooltip(&c.summary));
+                        ui.end_row();
                     }
-                }
+                });
             });
-        }
-        if r.discards > 0 {
-            ui.label(format!(
-                "Abgeworfene Karten: {} (z. B. weil die Hand am Zugende zu voll war)",
-                r.discards
-            ));
-        }
+        open
+    }
+
+    /// Wer am meisten Schaden gemacht hat und häufige Gegnerkarten.
+    fn card_lists(&self, ui: &mut egui::Ui, r: &games::Report) {
         egui::CollapsingHeader::new(format!(
             "Was dir am meisten Schaden gemacht hat ({})",
             r.damage_sources.len()
@@ -204,38 +126,148 @@ impl App {
                 self.card_hover(resp, name, None);
             }
         });
-        ui.add_space(6.0);
-        ui.separator();
-
-        // --- Gegner ---
-        egui::CollapsingHeader::new(RichText::new("Gegen wen du gewinnst und verlierst").strong())
-            .id_salt("opponents")
-            .default_open(true)
-            .show(ui, |ui| {
-                ui.label(
-                    RichText::new(
-                        "Das gegnerische Deck erkennt die App an den Karten, die du gesehen hast: passend zu einem geladenen Turnier-Archetyp („erkannt“), sonst nach Farben.",
-                    )
-                    .weak(),
-                );
-                egui::Grid::new("opp_grid").striped(true).num_columns(4).show(ui, |ui| {
-                    for t in ["Gegner", "Bilanz", "Ø Züge", "Hat dir den meisten Schaden gemacht"] {
-                        ui.strong(t);
-                    }
-                    ui.end_row();
-                    for o in opp_groups {
-                        ui.label(&o.name);
-                        let color = if o.wins >= o.losses() { GREEN } else { RED };
-                        ui.label(RichText::new(format!("{} Siege, {} Niederlagen", o.wins, o.losses())).color(color));
-                        ui.label(format!("{:.0}", o.avg_turns));
-                        let threats: Vec<String> =
-                            o.threats.iter().map(|(n, d)| format!("{n} ({d})")).collect();
-                        ui.label(if threats.is_empty() { "–".into() } else { threats.join(", ") });
-                        ui.end_row();
-                    }
-                });
-            });
-        ui.add_space(6.0);
-        (clicked, open)
     }
+}
+
+/// Siege, Niederlagen, Anfangen/Ziehen und Partielänge.
+fn balance(ui: &mut egui::Ui, r: &games::Report) {
+    ui.horizontal_wrapped(|ui| {
+        let color = if r.wins >= r.losses { GREEN } else { RED };
+        ui.label(
+            RichText::new(format!("{} Siege, {} Niederlagen", r.wins, r.losses))
+                .color(color)
+                .strong(),
+        );
+        ui.label(format!("aus {} Partien", r.games));
+        if r.conceded > 0 {
+            ui.label(format!("· {} davon aufgegeben", r.conceded));
+        }
+    });
+    ui.label(format!(
+        "Als Erster: {} · Als Zweiter: {} · Partien dauern im Schnitt {:.0} Züge",
+        ratio(r.on_play.0, r.on_play.1),
+        ratio(r.on_draw.0, r.on_draw.1),
+        r.avg_turns
+    ));
+}
+
+/// Die drei häufigsten Fehlerarten mit Rat.
+fn top_mistakes(ui: &mut egui::Ui, r: &games::Report) {
+    ui.heading("Was du als Nächstes verbessern kannst");
+    let top: Vec<&games::Category> = r
+        .categories
+        .iter()
+        .filter(|c| !c.items.is_empty())
+        .take(3)
+        .collect();
+    if top.is_empty() {
+        ui.label(
+            RichText::new(
+                "Keine typischen Fehler gefunden. Die App erkennt allerdings nur einfache Muster.",
+            )
+            .color(GREEN),
+        );
+    }
+    for (n, c) in top.iter().enumerate() {
+        let in_games: HashSet<usize> = c.items.iter().map(|f| f.game).collect();
+        ui.horizontal_wrapped(|ui| {
+            ui.label(
+                RichText::new(format!("{}. {}", n + 1, c.title()))
+                    .strong()
+                    .color(YELLOW),
+            );
+            ui.label(format!(
+                "– {}× in {} von {} Partien",
+                c.items.len(),
+                in_games.len(),
+                r.games
+            ));
+        });
+        ui.label(c.advice());
+        ui.add_space(4.0);
+    }
+    if r.good_keeps.1 + r.bad_keeps.1 > 0 {
+        ui.label(
+            RichText::new(format!(
+                "Starthand mit 2–4 Ländern: {} · andere Starthände: {}",
+                ratio(r.good_keeps.0, r.good_keeps.1),
+                ratio(r.bad_keeps.0, r.bad_keeps.1)
+            ))
+            .weak(),
+        );
+    }
+}
+
+/// Alle Fehlerarten mit allen Fundstellen. Liefert die angeklickte Partie (Index).
+fn all_findings(ui: &mut egui::Ui, r: &games::Report) -> Option<usize> {
+    let mut clicked = None;
+    ui.strong("Alle Auffälligkeiten");
+    ui.label(
+        RichText::new(format!(
+            "Zug-Auswertung über {} eigene Züge aus vollständig mitgeschriebenen Partien. Ein Klick auf einen Eintrag öffnet die Partie.",
+            r.my_turns
+        ))
+        .weak(),
+    );
+    for c in &r.categories {
+        let color = if c.items.is_empty() { GREEN } else { YELLOW };
+        egui::CollapsingHeader::new(
+            RichText::new(format!("{}: {}×", c.title(), c.items.len())).color(color),
+        )
+        .id_salt(c.title())
+        .show(ui, |ui| {
+            ui.label(RichText::new(c.advice()).weak());
+            for f in &c.items {
+                let when = if f.turn == 0 {
+                    "Starthand".to_string()
+                } else {
+                    format!("Zug {}", f.turn)
+                };
+                if ui
+                    .link(format!("Partie #{}, {when}: {}", f.game, f.text))
+                    .clicked()
+                {
+                    clicked = Some(f.game - 1);
+                }
+            }
+        });
+    }
+    if r.discards > 0 {
+        ui.label(format!(
+            "Abgeworfene Karten: {} (z. B. weil die Hand am Zugende zu voll war)",
+            r.discards
+        ));
+    }
+    clicked
+}
+
+/// Bilanz gegen die erkannten Gegnerdecks.
+fn opponents_section(ui: &mut egui::Ui, opp_groups: &[opponents::OppGroup]) {
+    egui::CollapsingHeader::new(RichText::new("Gegen wen du gewinnst und verlierst").strong())
+        .id_salt("opponents")
+        .default_open(true)
+        .show(ui, |ui| {
+            ui.label(
+                RichText::new(
+                    "Das gegnerische Deck erkennt die App an den Karten, die du gesehen hast: passend zu einem geladenen Turnier-Archetyp („erkannt“), sonst nach Farben.",
+                )
+                .weak(),
+            );
+            egui::Grid::new("opp_grid").striped(true).num_columns(4).show(ui, |ui| {
+                for t in ["Gegner", "Bilanz", "Ø Züge", "Hat dir den meisten Schaden gemacht"] {
+                    ui.strong(t);
+                }
+                ui.end_row();
+                for o in opp_groups {
+                    ui.label(&o.name);
+                    let color = if o.wins >= o.losses() { GREEN } else { RED };
+                    ui.label(RichText::new(format!("{} Siege, {} Niederlagen", o.wins, o.losses())).color(color));
+                    ui.label(format!("{:.0}", o.avg_turns));
+                    let threats: Vec<String> =
+                        o.threats.iter().map(|(n, d)| format!("{n} ({d})")).collect();
+                    ui.label(if threats.is_empty() { "–".into() } else { threats.join(", ") });
+                    ui.end_row();
+                }
+            });
+        });
 }

@@ -148,7 +148,7 @@ fn creatures_after_combat_rule() {
             crate::testutil::card(1, "Raging Goblin")
                 .cost("{R}")
                 .creature(1, 1)
-                .abilities(&[ABILITY_HASTE])
+                .abilities(&[crate::carddb::keyword::HASTE])
                 .build(),
         ],
         "t",

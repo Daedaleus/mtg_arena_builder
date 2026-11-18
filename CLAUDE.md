@@ -20,18 +20,21 @@ und Verdrahtung – Logik gehört in die Fachmodule, damit sie testbar bleibt.
 Große Module sind Ordner mit Teilmodulen nach Aufgabe; `mod.rs` beschreibt
 oben den Aufbau und exportiert die öffentlichen Teile, Pfade wie
 `crate::games::report` bleiben dadurch gleich. Faustregel: Dateien unter
-etwa 400 Zeilen halten, sonst nach Aufgabe teilen.
+etwa 400 Zeilen, Funktionen unter etwa 100 Zeilen halten, sonst nach Aufgabe
+teilen. Fachbegriffe (Farben, Schlüsselwörter, Lebenspunkte, Fehlerarten)
+einmal definieren und nicht über Anzeigetexte vergleichen – dafür gibt es
+Aufzählungen wie `Mistake` oder `LandVerdict`.
 
 | Modul | Aufgabe |
 |---|---|
-| `carddb/` | Arena-Kartendatenbank: `load` (SQLite), `text` (Rollen, Brand, Mana aus Kartentext) |
+| `carddb/` | Arena-Kartendatenbank: `load` (SQLite), `text` (Rollen, Brand, Mana aus Kartentext); Fachbegriffe für alle: `color` (Farben, Standardländer), `keyword` (Schlüsselwörter wie Fliegend) |
 | `collection` | Sammlung aus dem Arena-Speicher (mtga-reader, Adminrechte) |
 | `meta`, `magicgg` | MTGTop8 und magic.gg (Abruf mit Cache, Parser), Scryfall-Legalität |
 | `deck`, `similar`, `budget` | Listen prüfen, Ersatzkarten, Budget-Version, Wildcard-Plan |
-| `sim/` | Probehände (Deck 1000-mal bis Zug 6 durchspielen), `pressure`: Gegner und Rennen, `profile`: Gegner und Gewohnheiten aus den eigenen Partien |
+| `sim/` | Probehände (Deck 1000-mal durchspielen): `game` (eine Partie, Summen), `pressure` (Spielfeld, Kampf, Rennen), `profile` (Gegner und Gewohnheiten aus den eigenen Partien), `advice` |
 | `style` | Spielstil (Aggro/Midrange/Control) aus Decks und Partien, Deckempfehlung |
 | `builder` | Decks nur aus eigenen Karten |
-| `games/` | `record` (Datentypen, Rang), `tracker`, `live_state`, `parser`, `store` (`games.json`), `report` (Auswertung) |
+| `games/` | Mitschreiben: `object`, `tracker`, `live_state`, `parser`; Speichern: `record` (Datentypen, Rang), `store` (`games.json`); Auswerten: `moments` (einzelne Züge), `mistake` (Fehlerarten), `report` |
 | `deckcheck/`, `opponents`, `progress` | Deck verbessern (`groups`, `mana`, `analysis`), Gegner und Archetyp-Erkennung, Verlauf |
 | `live/`, `turnplan`, `combat` | Begleitfenster (`view`, `hints`, `damage`, `follow`, `draw`), Zugvorschlag, Blocks/Tricks |
 | `settings`, `present`, `paths`, `images` | Einstellungen, Anzeigetexte, Pfade, Bild-Cache |

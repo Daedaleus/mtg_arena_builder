@@ -2,8 +2,6 @@
 
 use super::*;
 
-pub(super) const TYPE_INSTANT: u8 = 4;
-
 pub(super) fn nonland_keys(names: impl Iterator<Item = String>, db: &CardDb) -> HashSet<String> {
     names
         .filter_map(|n| db.resolve(&n))
@@ -25,18 +23,33 @@ pub fn check(
     meta: &[MetaArchetype],
 ) -> DeckCheck {
     let games: Vec<&GameRecord> = group.games.iter().map(|i| &all_games[*i]).collect();
-    let mut r = DeckCheck {
+    let mut stats = deck_stats(&group.deck, db);
+    let tracked = count_usage(&mut stats, &games, db);
+    let meta = meta_match(&mut stats, db, owned, meta);
+    let swaps = swaps(&stats, spell_colors(&group.deck, db), db, owned, legal);
+    let mut cards: Vec<CardStat> = stats.into_values().collect();
+    cards.sort_by(|a, b| {
+        a.land
+            .cmp(&b.land)
+            .then(a.cmc.cmp(&b.cmc))
+            .then_with(|| a.name.cmp(&b.name))
+    });
+    DeckCheck {
         games: games.len(),
         complete: games.iter().filter(|g| g.complete).count(),
         wins: group.wins,
+        tracked,
         mana: mana_check(group, &games, db),
-        ..Default::default()
-    };
+        meta,
+        swaps,
+        cards,
+    }
+}
 
-    // --- Kartenstatistik (nach Name, Drucke zusammengefasst) ---
+/// Karten des Decks nach Name (Drucke zusammengefasst), mit Anzahl.
+fn deck_stats(deck: &[u32], db: &CardDb) -> HashMap<String, CardStat> {
     let mut stats: HashMap<String, CardStat> = HashMap::new();
-    for grp in &group.deck {
-        let Some(c) = db.cards.get(grp) else { continue };
+    for c in deck.iter().filter_map(|grp| db.cards.get(grp)) {
         let key = name_key(&c.name);
         let s = stats.entry(key.clone()).or_insert_with(|| CardStat {
             key,
@@ -48,15 +61,28 @@ pub fn check(
         });
         s.copies += 1;
     }
+    stats
+}
+
+/// Farben der Nichtland-Karten als Bitmaske.
+fn spell_colors(deck: &[u32], db: &CardDb) -> u8 {
+    deck.iter()
+        .filter_map(|g| db.cards.get(g))
+        .filter(|c| !c.is_land())
+        .fold(0u8, |m, c| m | c.colors)
+}
+
+/// Gezogen, gespielt, Schaden und „lange auf der Hand“ je Karte. Liefert die
+/// Zahl der Partien mit Kartendaten: Gewirkte Karten werden erst seit
+/// Version 3 der Auswertung mitgeschrieben; ältere Partien (Log schon
+/// überschrieben) zählen für die Kartennutzung nicht.
+fn count_usage(stats: &mut HashMap<String, CardStat>, games: &[&GameRecord], db: &CardDb) -> usize {
     let key_of = |grp: &u32| db.cards.get(grp).map(|c| name_key(&c.name));
-    // Gewirkte Karten werden erst seit Version 3 der Auswertung mitgeschrieben;
-    // ältere Partien (Log schon überschrieben) zählen für die Kartennutzung nicht.
     let tracked: Vec<&&GameRecord> = games
         .iter()
         .filter(|g| g.turns.iter().any(|t| !t.cast.is_empty()))
         .collect();
-    r.tracked = tracked.len();
-    for g in tracked {
+    for g in &tracked {
         let seen: HashSet<String> = g.seen_cards().iter().filter_map(key_of).collect();
         let cast: HashSet<String> = g.cast_cards().iter().filter_map(key_of).collect();
         for (key, s) in stats.iter_mut() {
@@ -71,36 +97,28 @@ pub fn check(
                 s.damage += dmg;
             }
         }
-        if !g.complete {
-            continue;
-        }
-        // Bezahlbar, aber mindestens drei eigene Züge lang nicht gespielt
-        let mut castable: HashMap<String, u32> = HashMap::new();
-        for t in g.turns.iter().filter(|t| t.mine) {
-            let mut counted = HashSet::new();
-            for c in t.hand.iter().filter_map(|grp| db.cards.get(grp)) {
-                if !c.is_land()
-                    && !c.types.contains(&TYPE_INSTANT)
-                    && c.cmc > 0
-                    && c.cmc <= t.lands_me
-                    && counted.insert(name_key(&c.name))
-                {
-                    *castable.entry(name_key(&c.name)).or_insert(0) += 1;
+        if g.complete {
+            for h in crate::games::held_cards(g, db) {
+                if let Some(s) = stats.get_mut(&name_key(&h.card.name)) {
+                    s.held += 1;
                 }
             }
         }
-        for (key, n) in castable {
-            if n >= 3
-                && let Some(s) = stats.get_mut(&key)
-            {
-                s.held += 1;
-            }
-        }
     }
+    tracked.len()
+}
 
-    // --- Vergleich mit dem ähnlichsten Turnier-Archetyp ---
+/// Vergleich mit dem ähnlichsten Turnier-Archetyp (mindestens 20 %
+/// Übereinstimmung der Nichtland-Karten). Trägt den Anteil der Turnierlisten
+/// je Karte in `stats` ein.
+fn meta_match(
+    stats: &mut HashMap<String, CardStat>,
+    db: &CardDb,
+    owned: &HashMap<String, u32>,
+    meta: &[MetaArchetype],
+) -> Option<MetaMatch> {
     let mine = nonland_keys(stats.values().map(|s| s.name.clone()), db);
-    let best = meta
+    let (arch, overlap) = meta
         .iter()
         .filter(|a| !a.lists.is_empty())
         .map(|a| {
@@ -109,68 +127,53 @@ pub fn check(
             let union = mine.union(&first).count().max(1) as f32;
             (a, inter / union)
         })
-        .max_by(|a, b| a.1.total_cmp(&b.1));
-    if let Some((arch, overlap)) = best.filter(|(_, o)| *o >= 0.2) {
-        let n = arch.lists.len() as f32;
-        let mut share: HashMap<String, f32> = HashMap::new();
-        for list in &arch.lists {
-            let keys: HashSet<String> = list
-                .main
-                .iter()
-                .filter_map(|e| db.resolve(&e.name))
-                .collect();
-            for k in keys {
-                *share.entry(k).or_insert(0.0) += 1.0 / n;
-            }
-        }
-        for s in stats.values_mut() {
-            s.meta_share = Some(share.get(&s.key).copied().unwrap_or(0.0));
-        }
-        let mut missing: Vec<(String, f32, u32)> = share
+        .max_by(|a, b| a.1.total_cmp(&b.1))
+        .filter(|(_, o)| *o >= 0.2)?;
+    let n = arch.lists.len() as f32;
+    let mut share: HashMap<String, f32> = HashMap::new();
+    for list in &arch.lists {
+        let keys: HashSet<String> = list
+            .main
             .iter()
-            .filter(|(k, sh)| **sh >= 0.5 && !stats.contains_key(*k))
-            .filter_map(|(k, sh)| {
-                let c = db.representative(k)?;
-                (!c.basic).then(|| (c.name.clone(), *sh, owned.get(k).copied().unwrap_or(0)))
-            })
+            .filter_map(|e| db.resolve(&e.name))
             .collect();
-        missing.sort_by(|a, b| b.1.total_cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
-        r.meta = Some(MetaMatch {
-            id: arch.id,
-            archetype: arch.name.clone(),
-            lists: arch.lists.len(),
-            overlap,
-            missing,
-        });
+        for k in keys {
+            *share.entry(k).or_insert(0.0) += 1.0 / n;
+        }
     }
-
-    // --- Tausch-Kandidaten ---
-    let colors = group
-        .deck
+    for s in stats.values_mut() {
+        s.meta_share = Some(share.get(&s.key).copied().unwrap_or(0.0));
+    }
+    let mut missing: Vec<(String, f32, u32)> = share
         .iter()
-        .filter_map(|g| db.cards.get(g))
-        .filter(|c| !c.is_land())
-        .fold(0u8, |m, c| m | c.colors);
+        .filter(|(k, sh)| **sh >= 0.5 && !stats.contains_key(*k))
+        .filter_map(|(k, sh)| {
+            let c = db.representative(k)?;
+            (!c.basic).then(|| (c.name.clone(), *sh, owned.get(k).copied().unwrap_or(0)))
+        })
+        .collect();
+    missing.sort_by(|a, b| b.1.total_cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
+    Some(MetaMatch {
+        id: arch.id,
+        archetype: arch.name.clone(),
+        lists: arch.lists.len(),
+        overlap,
+        missing,
+    })
+}
+
+/// Tausch-Kandidaten mit Gründen und Ersatz aus der Sammlung, wichtigste zuerst.
+fn swaps(
+    stats: &HashMap<String, CardStat>,
+    colors: u8,
+    db: &CardDb,
+    owned: &HashMap<String, u32>,
+    legal: Option<&HashSet<String>>,
+) -> Vec<Swap> {
     let in_deck: HashSet<String> = stats.keys().cloned().collect();
     let mut swaps: Vec<(u32, Swap)> = Vec::new();
     for s in stats.values().filter(|s| !s.land) {
-        let mut reasons: Vec<String> = Vec::new();
-        let mut weight = 0;
-        if s.seen >= 2 && s.cast == 0 {
-            reasons.push(format!("in {} Partien gezogen, aber nie gespielt", s.seen));
-            weight += 3;
-        }
-        if s.held >= 2 {
-            reasons.push(format!(
-                "in {} Partien lange ungespielt auf der Hand",
-                s.held
-            ));
-            weight += 2;
-        }
-        if s.meta_share.is_some_and(|m| m < 0.1) {
-            reasons.push("spielt im Turnier-Archetyp kaum jemand".into());
-            weight += 1;
-        }
+        let (weight, reasons) = swap_reasons(s);
         if weight == 0 {
             continue;
         }
@@ -193,15 +196,27 @@ pub fn check(
         ));
     }
     swaps.sort_by(|a, b| b.0.cmp(&a.0).then_with(|| a.1.out.cmp(&b.1.out)));
-    r.swaps = swaps.into_iter().map(|(_, s)| s).collect();
+    swaps.into_iter().map(|(_, s)| s).collect()
+}
 
-    let mut cards: Vec<CardStat> = stats.into_values().collect();
-    cards.sort_by(|a, b| {
-        a.land
-            .cmp(&b.land)
-            .then(a.cmc.cmp(&b.cmc))
-            .then_with(|| a.name.cmp(&b.name))
-    });
-    r.cards = cards;
-    r
+/// Warum eine Karte raus könnte: (Gewicht, Gründe); Gewicht 0 = kein Grund.
+fn swap_reasons(s: &CardStat) -> (u32, Vec<String>) {
+    let mut reasons: Vec<String> = Vec::new();
+    let mut weight = 0;
+    if s.seen >= 2 && s.cast == 0 {
+        reasons.push(format!("in {} Partien gezogen, aber nie gespielt", s.seen));
+        weight += 3;
+    }
+    if s.held >= 2 {
+        reasons.push(format!(
+            "in {} Partien lange ungespielt auf der Hand",
+            s.held
+        ));
+        weight += 2;
+    }
+    if s.meta_share.is_some_and(|m| m < 0.1) {
+        reasons.push("spielt im Turnier-Archetyp kaum jemand".into());
+        weight += 1;
+    }
+    (weight, reasons)
 }

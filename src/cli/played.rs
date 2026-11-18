@@ -67,7 +67,7 @@ pub fn games_cli() -> anyhow::Result<()> {
         r.good_keeps.0, r.good_keeps.1, r.bad_keeps.0, r.bad_keeps.1
     );
     for c in &r.categories {
-        println!("\n== {} ({}×)", c.title, c.items.len());
+        println!("\n== {} ({}×)", c.title(), c.items.len());
         for f in &c.items {
             println!("   Partie #{}, Zug {}: {}", f.game, f.turn, f.text);
         }
@@ -135,7 +135,12 @@ pub fn decks_cli(format: &str) -> anyhow::Result<()> {
         );
         println!(
             "Mana: {} Länder / {} Karten · zu wenig in {} · zu viel in {} von {} → {}",
-            r.mana.lands, r.mana.size, r.mana.screw, r.mana.flood, r.mana.games, r.mana.advice
+            r.mana.lands,
+            r.mana.size,
+            r.mana.screw,
+            r.mana.flood,
+            r.mana.games,
+            r.mana.verdict.advice()
         );
         if let Some(m) = &r.meta {
             println!(

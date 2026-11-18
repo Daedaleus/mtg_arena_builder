@@ -150,7 +150,7 @@ pub fn opponent_from(history: &[GameRecord], db: &CardDb) -> Option<Opponent> {
     // Häufigste Gegner nach Farben.
     let mut by_name: Vec<(String, usize)> = Vec::new();
     for g in &games {
-        let name = crate::opponents::color_label(&games::opp_colors(g, db));
+        let name = crate::carddb::color::label(&games::opp_colors(g, db));
         match by_name.iter_mut().find(|(n, _)| *n == name) {
             Some((_, n)) => *n += 1,
             None => by_name.push((name, 1)),

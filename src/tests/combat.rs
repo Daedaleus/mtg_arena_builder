@@ -174,7 +174,7 @@ fn tricks_seen_and_typical() {
             crate::testutil::card(1, "Ambusher")
                 .cost("{G}")
                 .creature(2, 1)
-                .abilities(&[ABILITY_FLASH])
+                .abilities(&[crate::carddb::keyword::FLASH])
                 .build(),
         ],
         "t",

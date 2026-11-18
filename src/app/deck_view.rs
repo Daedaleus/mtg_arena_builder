@@ -2,6 +2,14 @@
 
 use super::*;
 
+/// Angeklickte Knöpfe der Deckansicht.
+#[derive(Default)]
+struct DeckActions {
+    budget: bool,
+    reset: bool,
+    simulate: bool,
+}
+
 impl App {
     /// Berechnet (einmalig) Ersatzvorschläge für alle fehlenden Karten eines Decks.
     pub(super) fn ensure_suggestions(&mut self, deck_id: u32, eval: &DeckEval) {
@@ -35,8 +43,41 @@ impl App {
             self.replaced_qty(deck_id, l)
         });
         let wc = self.wildcards();
+        self.summary_section(ui, &summary, wc);
+        let clicked = self.deck_actions(ui, deck_id, &eval, &summary);
+        if clicked.simulate {
+            self.simulate_deck(deck_id, &eval);
+        }
+        if let Some(report) = self.sims.get(&deck_id) {
+            sim_view(ui, report);
+        }
+        if self.collection.is_some()
+            && summary.missing > 0
+            && let Some(db) = &self.db
+        {
+            let plan =
+                budget::wildcard_plan(&eval, db, self.wildcards(), self.settings.include_side);
+            wildcard_plan_view(ui, &plan);
+        }
+        if clicked.reset || clicked.budget {
+            self.sims.remove(&deck_id);
+        }
+        if clicked.reset {
+            self.repl.retain(|k, _| k.0 != deck_id);
+            self.status = "Ersetzungen zurückgesetzt.".into();
+        }
+        if clicked.budget {
+            // Neu planen: bisherige Ersetzungen zählen dabei nicht.
+            self.repl.retain(|k, _| k.0 != deck_id);
+            self.apply_budget(deck_id, &eval);
+        }
+        ui.add_space(4.0);
 
-        // --- Zusammenfassung ---
+        self.card_table(ui, deck_id, &eval);
+    }
+
+    /// Baubar? Vorhandene Karten und benötigte Wildcards.
+    fn summary_section(&self, ui: &mut egui::Ui, summary: &Summary, wc: [u32; 4]) {
         ui.horizontal_wrapped(|ui| {
             if self.collection.is_none() {
                 ui.label(
@@ -90,13 +131,21 @@ impl App {
                 }
             });
         }
+    }
+
+    /// Knöpfe unter der Zusammenfassung; Klicks werden danach angewandt.
+    fn deck_actions(
+        &mut self,
+        ui: &mut egui::Ui,
+        deck_id: u32,
+        eval: &DeckEval,
+        summary: &Summary,
+    ) -> DeckActions {
         let has_repl = self.repl.keys().any(|k| k.0 == deck_id);
-        let mut budget_clicked = false;
-        let mut reset_clicked = false;
-        let mut sim_clicked = false;
+        let mut clicked = DeckActions::default();
         ui.horizontal(|ui| {
             if summary.missing > 0 || has_repl {
-                budget_clicked = ui
+                clicked.budget = ui
                     .button("Budget-Version bauen")
                     .on_hover_text(
                         "Stellt die wichtigsten fehlenden Karten mit deinen Wildcards her und ersetzt den Rest durch ähnliche Karten aus deiner Sammlung. Ergebnis siehst du in der Spalte „Ersatz“.",
@@ -104,19 +153,19 @@ impl App {
                     .clicked();
             }
             if has_repl {
-                reset_clicked = ui.button("Ersetzungen zurücksetzen").clicked();
+                clicked.reset = ui.button("Ersetzungen zurücksetzen").clicked();
             }
-            sim_clicked = ui
+            clicked.simulate = ui
                 .button("Probehände testen")
                 .on_hover_text(
-                    "Spielt das Deck 1000-mal bis Zug 6 durch (mit deinen Ersatzkarten) und zeigt, \
-                     wie oft Länder oder Farben fehlen und wie gut das Mana genutzt wird.",
+                    "Spielt das Deck 1000-mal durch (mit deinen Ersatzkarten) und zeigt, wie oft Länder \
+                     oder Farben fehlen, wie gut das Mana genutzt wird und wie es gegen Gegner besteht.",
                 )
                 .clicked();
             if ui.button("Für Arena kopieren").on_hover_text("In Arena: Decks > Importieren").clicked()
                 && let Some(db) = &self.db {
                     let text = deck::export_arena(
-                        &eval,
+                        eval,
                         db,
                         self.collection.as_ref().map(|c| &c.cards),
                         self.settings.with_sets,
@@ -138,54 +187,36 @@ impl App {
                 self.save_settings();
             }
         });
-        if sim_clicked && let Some(db) = &self.db {
-            let entries: Vec<(String, u32)> = eval
-                .lines
-                .iter()
-                .filter(|l| !l.side)
-                .flat_map(|l| {
-                    let rep = l
-                        .key
-                        .as_ref()
-                        .and_then(|k| self.repl.get(&(deck_id, k.clone())))
-                        .map(|r| (r.clone(), self.replaced_qty(deck_id, l)))
-                        .filter(|(_, n)| *n > 0);
-                    let n = rep.as_ref().map_or(0, |(_, n)| *n);
-                    std::iter::once((l.name.clone(), l.qty - n)).chain(rep)
-                })
-                .collect();
-            let deck = sim::deck_from_entries(entries.iter().map(|(n, q)| (n.as_str(), *q)), db);
-            self.sims.insert(
-                deck_id,
-                sim::trial(&deck, db, &self.games, sim::DEFAULT_GAMES, 1),
-            );
-        }
-        if let Some(report) = self.sims.get(&deck_id) {
-            sim_view(ui, report);
-        }
-        if self.collection.is_some()
-            && summary.missing > 0
-            && let Some(db) = &self.db
-        {
-            let plan =
-                budget::wildcard_plan(&eval, db, self.wildcards(), self.settings.include_side);
-            wildcard_plan_view(ui, &plan);
-        }
-        if reset_clicked || budget_clicked {
-            self.sims.remove(&deck_id);
-        }
-        if reset_clicked {
-            self.repl.retain(|k, _| k.0 != deck_id);
-            self.status = "Ersetzungen zurückgesetzt.".into();
-        }
-        if budget_clicked {
-            // Neu planen: bisherige Ersetzungen zählen dabei nicht.
-            self.repl.retain(|k, _| k.0 != deck_id);
-            self.apply_budget(deck_id, &eval);
-        }
-        ui.add_space(4.0);
+        clicked
+    }
 
-        // --- Kartenliste ---
+    /// Probehände mit dem Deck, wie es mit den gewählten Ersatzkarten aussieht.
+    fn simulate_deck(&mut self, deck_id: u32, eval: &DeckEval) {
+        let Some(db) = &self.db else { return };
+        let entries: Vec<(String, u32)> = eval
+            .lines
+            .iter()
+            .filter(|l| !l.side)
+            .flat_map(|l| {
+                let rep = l
+                    .key
+                    .as_ref()
+                    .and_then(|k| self.repl.get(&(deck_id, k.clone())))
+                    .map(|r| (r.clone(), self.replaced_qty(deck_id, l)))
+                    .filter(|(_, n)| *n > 0);
+                let n = rep.as_ref().map_or(0, |(_, n)| *n);
+                std::iter::once((l.name.clone(), l.qty - n)).chain(rep)
+            })
+            .collect();
+        let deck = sim::deck_from_entries(entries.iter().map(|(n, q)| (n.as_str(), *q)), db);
+        self.sims.insert(
+            deck_id,
+            sim::trial(&deck, db, &self.games, sim::DEFAULT_GAMES, 1),
+        );
+    }
+
+    /// Kartenliste mit Besitz, Fehlendem und Ersatzauswahl.
+    fn card_table(&mut self, ui: &mut egui::Ui, deck_id: u32, eval: &DeckEval) {
         let lines: Vec<&LineEval> = eval
             .lines
             .iter()

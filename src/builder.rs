@@ -8,16 +8,12 @@
 
 use std::collections::{HashMap, HashSet};
 
-use crate::carddb::{Card, CardDb, ROLE_DRAW, ROLE_REMOVAL, ROLE_WIPE};
+use crate::carddb::{Card, CardDb, ROLE_DRAW, ROLE_REMOVAL, ROLE_WIPE, color};
 use crate::deck::{Deck, DeckEntry};
 
-const TYPE_CREATURE: u8 = 2;
 const DECK_SIZE: u32 = 60;
 const LANDS: u32 = 24;
 const SPELLS: u32 = DECK_SIZE - LANDS;
-const COLOR_NAMES: [&str; 5] = ["Weiß", "Blau", "Schwarz", "Rot", "Grün"];
-const BASICS: [&str; 5] = ["Plains", "Island", "Swamp", "Mountain", "Forest"];
-const COLOR_LETTERS: [char; 5] = ['W', 'U', 'B', 'R', 'G'];
 
 #[derive(Clone, Debug)]
 pub struct Built {
@@ -29,10 +25,6 @@ pub struct Built {
     pub avg_cmc: f32,
     pub rares: u32,
     pub meta_cards: u32,
-}
-
-fn is_creature(c: &Card) -> bool {
-    c.types.contains(&TYPE_CREATURE)
 }
 
 /// Geschätzte Stärke einer Karte (höher = besser).
@@ -53,7 +45,7 @@ fn rating(card: &Card, meta_use: u32, colors: u8, copies: u32) -> f32 {
     if card.has_role(ROLE_DRAW) {
         r += 0.4;
     }
-    if is_creature(card) {
+    if card.is_creature() {
         // Werte im Verhältnis zu den Kosten (eine 3/3 für 3 ist der Maßstab).
         if let (Ok(p), Ok(t)) = (card.power.parse::<f32>(), card.toughness.parse::<f32>()) {
             r += ((p + t) - (2.0 * card.cmc as f32)).clamp(-2.0, 2.0) * 0.2;
@@ -72,7 +64,7 @@ fn rating(card: &Card, meta_use: u32, colors: u8, copies: u32) -> f32 {
     }
     // In zweifarbigen Decks sind Kosten wie {U}{U} oder {R}{R}{R} schwer zu bezahlen.
     if colors.count_ones() == 2 {
-        let max_pips = COLOR_LETTERS
+        let max_pips = color::LETTERS
             .iter()
             .map(|l| card.mana_cost.matches(*l).count())
             .max()
@@ -95,153 +87,196 @@ const MAX_NONCREATURE: u32 = 14;
 const MAX_OTHER: u32 = 4;
 /// Mindestens so viele Karten je Farbe in einem Zweifarbdeck.
 const MIN_PER_COLOR: u32 = 6;
+/// Mindestens so viele Kreaturen.
+const MIN_CREATURES: u32 = 12;
 
-fn label_of(colors: u8) -> String {
-    let names: Vec<&str> = (0..5)
-        .filter(|i| colors & (1 << i) != 0)
-        .map(|i| COLOR_NAMES[i])
-        .collect();
-    if names.len() == 1 {
-        format!("Mono-{}", names[0])
-    } else {
-        names.join("-")
-    }
+/// Eigene Karte, die ins Deck passen würde.
+struct Candidate<'a> {
+    card: &'a Card,
+    rating: f32,
+    /// Eigene Exemplare, höchstens 4.
+    copies: u32,
+    /// In so vielen Turnierlisten gespielt.
+    meta: u32,
 }
 
+/// Ausgewählte Karte mit Anzahl.
 struct Pick<'a> {
     card: &'a Card,
     qty: u32,
 }
 
-fn build_one(
-    db: &CardDb,
-    owned: &HashMap<String, u32>,
-    legal: Option<&HashSet<String>>,
-    meta_use: &HashMap<String, u32>,
-    colors: u8,
-) -> Option<Built> {
-    let is_legal = |key: &String| legal.is_none_or(|l| l.contains(key));
+/// Bisher ausgewählte Zauber und ihre Kennzahlen.
+#[derive(Default)]
+struct Selection<'a> {
+    picks: Vec<Pick<'a>>,
+    total: u32,
+    score: f32,
+    curve: [u32; 6],
+    creatures: u32,
+    removal: u32,
+    rares: u32,
+    meta_cards: u32,
+    noncreature: u32,
+    /// Nicht-Kreaturen ohne Removal-Funktion.
+    other: u32,
+}
 
-    // --- Kandidaten: eigene, legale Nichtland-Karten in den Farben ---
-    let mut pool: Vec<(f32, &Card, u32, u32)> = owned
-        .iter()
-        .filter(|(key, n)| **n > 0 && is_legal(key))
-        .filter_map(|(key, n)| {
-            let card = db.representative(key)?;
-            let meta = meta_use.get(key).copied().unwrap_or(0);
-            let fits = !card.is_land()
-                && !card.back_face
-                && card.cmc > 0
-                && card.colors & !colors == 0
-                // Flächenräumer schaden einem Kreaturendeck mehr, als sie nützen.
-                && !card.has_role(ROLE_WIPE);
-            fits.then(|| {
-                (
-                    rating(card, meta, colors, (*n).min(4)),
-                    card,
-                    (*n).min(4),
-                    meta,
-                )
-            })
-        })
-        .collect();
-    pool.sort_by(|a, b| b.0.total_cmp(&a.0).then_with(|| a.1.name.cmp(&b.1.name)));
-
-    // --- Auswahl: beste Karten zuerst, begrenzt durch Kurve und Kartentypen ---
-    let mut picks: Vec<Pick> = Vec::new();
-    let (mut total, mut score) = (0u32, 0.0f32);
-    let mut curve = [0u32; 6];
-    let (mut creatures, mut removal, mut rares, mut meta_cards) = (0u32, 0u32, 0u32, 0u32);
-    let (mut noncreature, mut other) = (0u32, 0u32);
-    let mut taken: HashMap<u32, u32> = HashMap::new();
-    for (caps, (r, card, copies, meta)) in CURVE_CAPS
-        .iter()
-        .flat_map(|caps| pool.iter().map(move |p| (caps, p)))
-    {
-        if total >= SPELLS {
-            break;
-        }
-        let already = taken.get(&card.grp_id).copied().unwrap_or(0);
-        let bucket = curve_bucket(card.cmc);
-        let creature = is_creature(card);
-        let rem = card.has_role(ROLE_REMOVAL);
-        let type_room = if creature {
-            SPELLS
-        } else if rem {
-            MAX_NONCREATURE.saturating_sub(noncreature)
-        } else {
-            (MAX_OTHER.saturating_sub(other)).min(MAX_NONCREATURE.saturating_sub(noncreature))
-        };
-        let qty = (*copies - already)
-            .min(SPELLS - total)
-            .min(caps[bucket].saturating_sub(curve[bucket]))
-            .min(type_room);
-        if qty == 0 {
-            continue;
-        }
-        *taken.entry(card.grp_id).or_insert(0) += qty;
-        total += qty;
-        curve[bucket] += qty;
-        score += r * qty as f32;
-        if creature {
-            creatures += qty;
-        } else {
-            noncreature += qty;
-            if !rem {
-                other += qty;
+impl<'a> Selection<'a> {
+    /// Beste Karten zuerst, begrenzt durch Kurve und Kartentypen; reicht die
+    /// schnelle Kurve nicht, geht es mit der großzügigeren weiter.
+    fn choose(pool: &[Candidate<'a>]) -> Selection<'a> {
+        let mut sel = Selection::default();
+        for caps in &CURVE_CAPS {
+            for c in pool {
+                if sel.total >= SPELLS {
+                    return sel;
+                }
+                let qty = sel.room_for(c, caps);
+                if qty > 0 {
+                    sel.add(c, qty);
+                }
             }
         }
-        if rem {
-            removal += qty;
+        sel
+    }
+
+    fn taken(&self, card: &Card) -> u32 {
+        self.picks
+            .iter()
+            .find(|p| p.card.grp_id == card.grp_id)
+            .map_or(0, |p| p.qty)
+    }
+
+    /// Wie viele Exemplare noch passen (Kurve, Kartentyp, Deckgröße).
+    fn room_for(&self, c: &Candidate, caps: &[u32; 6]) -> u32 {
+        let bucket = curve_bucket(c.card.cmc);
+        let type_room = if c.card.is_creature() {
+            SPELLS
+        } else if c.card.has_role(ROLE_REMOVAL) {
+            MAX_NONCREATURE.saturating_sub(self.noncreature)
+        } else {
+            (MAX_OTHER.saturating_sub(self.other))
+                .min(MAX_NONCREATURE.saturating_sub(self.noncreature))
+        };
+        (c.copies - self.taken(c.card))
+            .min(SPELLS - self.total)
+            .min(caps[bucket].saturating_sub(self.curve[bucket]))
+            .min(type_room)
+    }
+
+    fn add(&mut self, c: &Candidate<'a>, qty: u32) {
+        let card = c.card;
+        let removal = card.has_role(ROLE_REMOVAL);
+        self.total += qty;
+        self.curve[curve_bucket(card.cmc)] += qty;
+        self.score += c.rating * qty as f32;
+        if card.is_creature() {
+            self.creatures += qty;
+        } else {
+            self.noncreature += qty;
+            if !removal {
+                self.other += qty;
+            }
+        }
+        if removal {
+            self.removal += qty;
         }
         if card.rarity >= 4 {
-            rares += qty;
+            self.rares += qty;
         }
-        if *meta > 0 {
-            meta_cards += qty;
+        if c.meta > 0 {
+            self.meta_cards += qty;
         }
-        match picks.iter_mut().find(|p| p.card.grp_id == card.grp_id) {
+        match self.picks.iter_mut().find(|p| p.card.grp_id == card.grp_id) {
             Some(p) => p.qty += qty,
-            None => picks.push(Pick { card, qty }),
+            None => self.picks.push(Pick { card, qty }),
         }
     }
-    if total < SPELLS || creatures < 12 {
-        return None; // zu wenige spielbare Karten in diesen Farben
-    }
-    // Jede Farbe eines Zweifarbdecks braucht eigene Karten – sonst wäre es ein
-    // einfarbiges Deck mit nutzlosen Ländern der zweiten Farbe.
-    let per_color = |bit: u8| -> u32 {
-        picks
+
+    /// Exemplare mit einer Farbe (Bit).
+    fn of_color(&self, bit: u8) -> u32 {
+        self.picks
             .iter()
             .filter(|p| p.card.colors & bit != 0)
             .map(|p| p.qty)
             .sum()
-    };
-    if colors.count_ones() == 2
-        && (0..5)
-            .map(|i| 1u8 << i)
-            .any(|bit| colors & bit != 0 && per_color(bit) < MIN_PER_COLOR)
-    {
-        return None;
     }
 
-    // --- Länder: eigene Zweifarbländer, Rest Standardländer nach Farbbedarf ---
-    let mut pips = [0u32; 5];
-    for p in &picks {
-        for (i, letter) in COLOR_LETTERS.iter().enumerate() {
-            pips[i] += p.qty * p.card.mana_cost.matches(*letter).count() as u32;
+    /// Farbsymbole in den Manakosten aller Picks (W, U, B, R, G).
+    fn pips(&self) -> [u32; 5] {
+        let mut pips = [0u32; 5];
+        for p in &self.picks {
+            for (i, letter) in color::LETTERS.iter().enumerate() {
+                pips[i] += p.qty * p.card.mana_cost.matches(*letter).count() as u32;
+            }
         }
+        pips
     }
+}
+
+/// Eigene Karten aus der Sammlung, die das Format erlaubt (höchstens 4 je Karte).
+fn owned_cards<'a>(
+    db: &'a CardDb,
+    owned: &'a HashMap<String, u32>,
+    legal: Option<&'a HashSet<String>>,
+) -> impl Iterator<Item = (&'a String, &'a Card, u32)> + 'a {
+    owned
+        .iter()
+        .filter(move |(key, n)| **n > 0 && legal.is_none_or(|l| l.contains(*key)))
+        .filter_map(move |(key, n)| Some((key, db.representative(key)?, (*n).min(4))))
+}
+
+/// Eigene, legale Nichtland-Karten in den Farben, stärkste zuerst.
+fn candidates<'a>(
+    db: &'a CardDb,
+    owned: &'a HashMap<String, u32>,
+    legal: Option<&'a HashSet<String>>,
+    meta_use: &HashMap<String, u32>,
+    colors: u8,
+) -> Vec<Candidate<'a>> {
+    let mut pool: Vec<Candidate> = owned_cards(db, owned, legal)
+        .filter(|(_, card, _)| {
+            !card.is_land()
+                && !card.back_face
+                && card.cmc > 0
+                && card.colors & !colors == 0
+                // Flächenräumer schaden einem Kreaturendeck mehr, als sie nützen.
+                && !card.has_role(ROLE_WIPE)
+        })
+        .map(|(key, card, copies)| {
+            let meta = meta_use.get(key).copied().unwrap_or(0);
+            Candidate {
+                card,
+                rating: rating(card, meta, colors, copies),
+                copies,
+                meta,
+            }
+        })
+        .collect();
+    pool.sort_by(|a, b| {
+        b.rating
+            .total_cmp(&a.rating)
+            .then_with(|| a.card.name.cmp(&b.card.name))
+    });
+    pool
+}
+
+/// Länder: eigene Zweifarbländer (höchstens 8), Rest Standardländer nach
+/// Farbbedarf – jede Farbe mindestens ein Drittel.
+fn mana_base(
+    db: &CardDb,
+    owned: &HashMap<String, u32>,
+    legal: Option<&HashSet<String>>,
+    colors: u8,
+    pips: [u32; 5],
+) -> Vec<DeckEntry> {
     let mut lands: Vec<DeckEntry> = Vec::new();
     let mut dual_count = 0u32;
     if colors.count_ones() == 2 {
-        let mut duals: Vec<(&Card, u32)> = owned
-            .iter()
-            .filter(|(key, n)| **n > 0 && is_legal(key))
-            .filter_map(|(key, n)| {
-                let c = db.representative(key)?;
-                (c.is_land() && !c.basic && c.colors == colors).then_some((c, (*n).min(4)))
-            })
+        let mut duals: Vec<(&Card, u32)> = owned_cards(db, owned, legal)
+            .filter(|(_, c, _)| c.is_land() && !c.basic && c.colors == colors)
+            .map(|(_, c, n)| (c, n))
             .collect();
         // Seltenere Zweifarbländer kommen meist ungetappt – die zuerst.
         duals.sort_by(|a, b| {
@@ -276,20 +311,46 @@ fn build_one(
         if qty > 0 {
             lands.push(DeckEntry {
                 qty,
-                name: BASICS[*i].to_string(),
+                name: color::BASIC_LANDS[*i].to_string(),
             });
         }
     }
+    lands
+}
 
-    // --- Ausgabe: nach Manawert sortiert, Länder am Ende ---
-    picks.sort_by(|a, b| {
+fn build_one(
+    db: &CardDb,
+    owned: &HashMap<String, u32>,
+    legal: Option<&HashSet<String>>,
+    meta_use: &HashMap<String, u32>,
+    colors: u8,
+) -> Option<Built> {
+    let pool = candidates(db, owned, legal, meta_use, colors);
+    let mut sel = Selection::choose(&pool);
+    if sel.total < SPELLS || sel.creatures < MIN_CREATURES {
+        return None; // zu wenige spielbare Karten in diesen Farben
+    }
+    // Jede Farbe eines Zweifarbdecks braucht eigene Karten – sonst wäre es ein
+    // einfarbiges Deck mit nutzlosen Ländern der zweiten Farbe.
+    if colors.count_ones() == 2
+        && (0..5)
+            .map(|i| 1u8 << i)
+            .any(|bit| colors & bit != 0 && sel.of_color(bit) < MIN_PER_COLOR)
+    {
+        return None;
+    }
+    let lands = mana_base(db, owned, legal, colors, sel.pips());
+
+    // Ausgabe: nach Manawert sortiert, Länder am Ende.
+    sel.picks.sort_by(|a, b| {
         a.card
             .cmc
             .cmp(&b.card.cmc)
             .then_with(|| a.card.name.cmp(&b.card.name))
     });
-    let cmc_sum: u32 = picks.iter().map(|p| p.card.cmc * p.qty).sum();
-    let mut main: Vec<DeckEntry> = picks
+    let cmc_sum: u32 = sel.picks.iter().map(|p| p.card.cmc * p.qty).sum();
+    let mut main: Vec<DeckEntry> = sel
+        .picks
         .iter()
         .map(|p| DeckEntry {
             qty: p.qty,
@@ -298,17 +359,17 @@ fn build_one(
         .collect();
     main.extend(lands);
     Some(Built {
-        label: label_of(colors),
-        score: score / SPELLS as f32,
+        label: color::label(&color::letters(colors)),
+        score: sel.score / SPELLS as f32,
         deck: Deck {
             main,
             side: Vec::new(),
         },
-        creatures,
-        removal,
+        creatures: sel.creatures,
+        removal: sel.removal,
         avg_cmc: cmc_sum as f32 / SPELLS as f32,
-        rares,
-        meta_cards,
+        rares: sel.rares,
+        meta_cards: sel.meta_cards,
     })
 }
 

@@ -9,17 +9,9 @@
 
 use std::collections::{HashMap, HashSet};
 
-use crate::carddb::{CardDb, RARITY_COMMON};
+use crate::carddb::{CardDb, RARITY_COMMON, color};
 use crate::deck::DeckEval;
 use crate::similar;
-
-const BASICS: [(char, &str); 5] = [
-    ('W', "Plains"),
-    ('U', "Island"),
-    ('B', "Swamp"),
-    ('R', "Mountain"),
-    ('G', "Forest"),
-];
 
 #[derive(Clone, Debug, Default)]
 pub struct BudgetPlan {
@@ -156,9 +148,10 @@ pub fn plan(
         .filter_map(|k| db.representative(k))
         .map(|c| c.mana_cost.clone())
         .collect();
-    let basic_key = BASICS
+    let basic_key = color::LETTERS
         .iter()
-        .max_by_key(|(c, _)| costs.matches(*c).count())
+        .zip(color::BASIC_LANDS)
+        .max_by_key(|(c, _)| costs.matches(**c).count())
         .and_then(|(_, name)| db.resolve(name));
 
     for n in to_replace {

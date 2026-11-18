@@ -134,26 +134,55 @@ pub(super) fn game_detail(ui: &mut egui::Ui, i: usize, g: &GameRecord, db: &Card
     ui.add_space(8.0);
     ui.separator();
     ui.heading(format!("Partie #{} – {}", i + 1, event_label(&g.event)));
-    if !g.opening_hand.is_empty() {
-        let hand: Vec<&crate::carddb::Card> = g
-            .opening_hand
-            .iter()
-            .filter_map(|grp| db.cards.get(grp))
-            .collect();
-        let lands = hand.iter().filter(|c| c.is_land()).count();
-        let names: Vec<&str> = hand.iter().map(|c| c.name.as_str()).collect();
-        ui.label(format!(
-            "Starthand ({} Karten, {lands} Länder): {}",
-            hand.len(),
-            names.join(", ")
-        ));
+    opening_hand(ui, g, db);
+    game_tips(ui, g, db);
+    biggest_threat(ui, g, db);
+    ui.add_space(4.0);
+    if g.turns.is_empty() {
+        ui.label("Für diese Partie stehen keine Zugdaten im Log.");
+        return;
     }
-    // Tipps nur für diese Partie
+    if !g.complete {
+        ui.label(
+            RichText::new(format!(
+                "Erst ab Zug {} mitgeschrieben – Länder und Handkarten aus der Zeit davor fehlen.",
+                g.turns.first().map(|t| t.turn).unwrap_or(0)
+            ))
+            .color(YELLOW),
+        );
+    }
+    ui.label(
+        RichText::new("Stand jeweils am Ende des Zuges. „Frei“ = ungetappte eigene Länder.").weak(),
+    );
+    turn_table(ui, i, g, db);
+}
+
+/// Behaltene Starthand mit Länderzahl.
+fn opening_hand(ui: &mut egui::Ui, g: &GameRecord, db: &CardDb) {
+    if g.opening_hand.is_empty() {
+        return;
+    }
+    let hand: Vec<&crate::carddb::Card> = g
+        .opening_hand
+        .iter()
+        .filter_map(|grp| db.cards.get(grp))
+        .collect();
+    let lands = hand.iter().filter(|c| c.is_land()).count();
+    let names: Vec<&str> = hand.iter().map(|c| c.name.as_str()).collect();
+    ui.label(format!(
+        "Starthand ({} Karten, {lands} Länder): {}",
+        hand.len(),
+        names.join(", ")
+    ));
+}
+
+/// Tipps nur für diese Partie, nach Zug sortiert.
+fn game_tips(ui: &mut egui::Ui, g: &GameRecord, db: &CardDb) {
     let single = games::report(std::slice::from_ref(g), db);
     let found: Vec<(&str, &games::Finding)> = single
         .categories
         .iter()
-        .flat_map(|c| c.items.iter().map(move |f| (c.title, f)))
+        .flat_map(|c| c.items.iter().map(move |f| (c.title(), f)))
         .collect();
     if found.is_empty() {
         if g.complete {
@@ -175,31 +204,22 @@ pub(super) fn game_detail(ui: &mut egui::Ui, i: usize, g: &GameRecord, db: &Card
             ui.label(format!("• {when} – {title}: {}", f.text));
         }
     }
-    if let Some((name, dmg)) = {
-        let mut d: Vec<(u32, u32)> = g.damage_taken.iter().map(|(k, v)| (*k, *v)).collect();
-        d.sort_by_key(|(_, v)| std::cmp::Reverse(*v));
-        d.first()
-            .and_then(|(grp, v)| db.cards.get(grp).map(|c| (c.name.clone(), *v)))
-    } {
+}
+
+/// Karte, die in dieser Partie am meisten Schaden gemacht hat.
+fn biggest_threat(ui: &mut egui::Ui, g: &GameRecord, db: &CardDb) {
+    let top = g
+        .damage_taken
+        .iter()
+        .max_by_key(|(grp, dmg)| (**dmg, std::cmp::Reverse(**grp)))
+        .and_then(|(grp, dmg)| db.cards.get(grp).map(|c| (c.name.as_str(), *dmg)));
+    if let Some((name, dmg)) = top {
         ui.label(RichText::new(format!("Am meisten Schaden an dir: {name} ({dmg})")).weak());
     }
-    ui.add_space(4.0);
-    if g.turns.is_empty() {
-        ui.label("Für diese Partie stehen keine Zugdaten im Log.");
-        return;
-    }
-    if !g.complete {
-        ui.label(
-            RichText::new(format!(
-                "Erst ab Zug {} mitgeschrieben – Länder und Handkarten aus der Zeit davor fehlen.",
-                g.turns.first().map(|t| t.turn).unwrap_or(0)
-            ))
-            .color(YELLOW),
-        );
-    }
-    ui.label(
-        RichText::new("Stand jeweils am Ende des Zuges. „Frei“ = ungetappte eigene Länder.").weak(),
-    );
+}
+
+/// Tabelle aller Züge (Stand am Zugende).
+fn turn_table(ui: &mut egui::Ui, i: usize, g: &GameRecord, db: &CardDb) {
     ui.push_id(("turns", i), |ui| {
         TableBuilder::new(ui)
             .striped(true)
@@ -234,59 +254,62 @@ pub(super) fn game_detail(ui: &mut egui::Ui, i: usize, g: &GameRecord, db: &Card
             })
             .body(|mut body| {
                 for t in &g.turns {
-                    body.row(20.0, |mut row| {
-                        let who = if t.mine {
-                            RichText::new("ich").strong()
-                        } else {
-                            RichText::new("Gegner")
-                        };
-                        row.col(|ui| {
-                            ui.label(t.turn.to_string());
-                        });
-                        row.col(|ui| {
-                            ui.label(who);
-                        });
-                        row.col(|ui| {
-                            ui.label(format!("{} : {}", t.life_me, t.life_opp));
-                        });
-                        row.col(|ui| {
-                            ui.label(format!("{} : {}", t.lands_me, t.lands_opp));
-                        });
-                        row.col(|ui| {
-                            ui.label(format!("{} : {}", t.creatures_me, t.creatures_opp));
-                        });
-                        row.col(|ui| {
-                            if t.mine {
-                                ui.label(t.untapped_lands.to_string());
-                            }
-                        });
-                        row.col(|ui| {
-                            let names: Vec<String> = t
-                                .hand
-                                .iter()
-                                .map(|g| {
-                                    db.cards
-                                        .get(g)
-                                        .map(|c| c.name.clone())
-                                        .unwrap_or_else(|| "?".into())
-                                })
-                                .collect();
-                            let label = ui.label(t.hand.len().to_string());
-                            if !names.is_empty() {
-                                label.on_hover_text(names.join("\n"));
-                            }
-                        });
-                        row.col(|ui| {
-                            ui.label(if t.land_played { "ja" } else { "–" });
-                        });
-                        row.col(|ui| {
-                            ui.label(t.spells.to_string());
-                        });
-                        row.col(|ui| {
-                            ui.label(if t.attacked { "ja" } else { "–" });
-                        });
-                    });
+                    body.row(20.0, |mut row| turn_row(&mut row, t, db));
                 }
             });
+    });
+}
+
+/// Eine Zeile der Zugtabelle.
+fn turn_row(row: &mut egui_extras::TableRow, t: &games::TurnStat, db: &CardDb) {
+    let who = if t.mine {
+        RichText::new("ich").strong()
+    } else {
+        RichText::new("Gegner")
+    };
+    row.col(|ui| {
+        ui.label(t.turn.to_string());
+    });
+    row.col(|ui| {
+        ui.label(who);
+    });
+    row.col(|ui| {
+        ui.label(format!("{} : {}", t.life_me, t.life_opp));
+    });
+    row.col(|ui| {
+        ui.label(format!("{} : {}", t.lands_me, t.lands_opp));
+    });
+    row.col(|ui| {
+        ui.label(format!("{} : {}", t.creatures_me, t.creatures_opp));
+    });
+    row.col(|ui| {
+        if t.mine {
+            ui.label(t.untapped_lands.to_string());
+        }
+    });
+    row.col(|ui| {
+        let names: Vec<String> = t
+            .hand
+            .iter()
+            .map(|g| {
+                db.cards
+                    .get(g)
+                    .map(|c| c.name.clone())
+                    .unwrap_or_else(|| "?".into())
+            })
+            .collect();
+        let label = ui.label(t.hand.len().to_string());
+        if !names.is_empty() {
+            label.on_hover_text(names.join("\n"));
+        }
+    });
+    row.col(|ui| {
+        ui.label(if t.land_played { "ja" } else { "–" });
+    });
+    row.col(|ui| {
+        ui.label(t.spells.to_string());
+    });
+    row.col(|ui| {
+        ui.label(if t.attacked { "ja" } else { "–" });
     });
 }

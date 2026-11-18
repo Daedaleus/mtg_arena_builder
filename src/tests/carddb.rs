@@ -248,3 +248,14 @@ fn loads_without_german_and_reports_errors() {
     assert_eq!(db.cards[&100].name_de, None);
     assert!(CardDb::load(&dir.path("fehlt.mtga")).is_err());
 }
+
+#[test]
+fn color_names() {
+    use super::color::{label, letters};
+    assert_eq!(letters(0b01010), "UR");
+    assert_eq!(letters(0), "");
+    assert_eq!(label(""), "Unbekannt");
+    assert_eq!(label("R"), "Mono-Rot");
+    assert_eq!(label("WUBG"), "Weiß-Blau-Schwarz-Grün");
+    assert_eq!(label("X"), "Mono-?");
+}
