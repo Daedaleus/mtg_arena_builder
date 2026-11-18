@@ -24,8 +24,9 @@ echten Einsatz ausprobiert (siehe [ToDo.md](ToDo.md)).
 **Probehände:** spielt ein Deck 1000-mal bis Zug 6 durch (Mulligan, Land legen,
 Zauber nach dem Zugvorschlag) und zeigt, wie oft Länder oder Farben fehlen,
 wie oft Länder zu viel sind und wie viel Mana genutzt wird – mit Empfehlungen.
-Dabei greift ein schneller Gegner an (eine Kreatur je Zug): Die App zeigt, wie
-viele Leben nach Zug 6 übrig sind und ob das Deck gegen Aggro zu langsam ist.
+Dabei spielt ein schneller Gegner mit (eine Kreatur je Zug, greift mit allem an).
+Du blockst, setzt Entfernung ein und greifst selbst an, wenn es sich lohnt: Die
+App zeigt, wer nach Zug 6 vorne liegt und ob das Deck gegen Aggro zu langsam ist.
 
 **Begleitfenster** (oben rechts einschalten): liest das Arena-Log live mit und
 zeigt Mulligan-Rat, Zugvorschlag (Land und Zauber mit Farbprüfung, auch Mana

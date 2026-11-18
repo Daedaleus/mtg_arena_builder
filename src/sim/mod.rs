@@ -91,7 +91,8 @@ pub fn simulate(deck: &[u32], db: &CardDb, games: usize, seed: u64) -> SimReport
     let mut used = [0u64; TURNS];
     let mut avail = [0u64; TURNS];
     let mut life_sum = [0i64; TURNS];
-    let (mut low, mut dead, mut kills) = (0usize, 0usize, 0u64);
+    let mut opp_life_sum = [0i64; TURNS];
+    let (mut low, mut dead, mut won, mut ahead, mut kills) = (0usize, 0usize, 0usize, 0usize, 0u64);
 
     for game in 0..games {
         let on_play = game % 2 == 0;
@@ -137,6 +138,7 @@ pub fn simulate(deck: &[u32], db: &CardDb, games: usize, seed: u64) -> SimReport
             if !on_play {
                 opp_turn(&mut board, &mut permanents, turn);
             }
+            board.start_my_turn();
             if (turn > 1 || !on_play) && !library.is_empty() {
                 hand.push(library.remove(0));
             }
@@ -170,10 +172,16 @@ pub fn simulate(deck: &[u32], db: &CardDb, games: usize, seed: u64) -> SimReport
             if turn <= 4 && battlefield.len() >= turn {
                 on_curve[turn - 1] += 1;
             }
+            for grp in board.my_attack() {
+                if let Some(i) = permanents.iter().position(|g| *g == grp) {
+                    permanents.remove(i);
+                }
+            }
             if on_play {
                 opp_turn(&mut board, &mut permanents, turn);
             }
             life_sum[turn - 1] += i64::from(board.life.max(0));
+            opp_life_sum[turn - 1] += i64::from(board.opp_life.max(0));
             // Farbe fehlt: Karte wäre vom Manawert her bezahlbar gewesen.
             if (2..=4).contains(&turn) {
                 let left = plan.mana_total - plan.mana_used;
@@ -198,6 +206,8 @@ pub fn simulate(deck: &[u32], db: &CardDb, games: usize, seed: u64) -> SimReport
         }
         screws += screwed as usize;
         dead += (board.life <= 0) as usize;
+        won += (board.opp_life <= 0) as usize;
+        ahead += (board.life > 0 && board.opp_life < board.life) as usize;
         low += (board.life <= 5) as usize;
         kills += u64::from(board.kills);
         for (i, m) in missing_here.iter().enumerate() {
@@ -221,9 +231,12 @@ pub fn simulate(deck: &[u32], db: &CardDb, games: usize, seed: u64) -> SimReport
     }
     for t in 0..TURNS {
         r.pressure.life[t] = life_sum[t] as f32 / games as f32;
+        r.pressure.opp_life[t] = opp_life_sum[t] as f32 / games as f32;
     }
     r.pressure.low = share(low);
     r.pressure.dead = share(dead);
+    r.pressure.won = share(won);
+    r.pressure.ahead = share(ahead);
     r.pressure.kills = kills as f32 / games as f32;
     r.missing_color = (0..5)
         .filter(|i| missing[*i] > 0)
@@ -258,7 +271,8 @@ fn advice(r: &SimReport) -> Vec<String> {
             pct(r.color_screw)
         ));
     }
-    if r.pressure.low >= 0.4 {
+    // Zu langsam nur, wenn man das Rennen nicht selbst gewinnt.
+    if r.pressure.low >= 0.4 && r.pressure.ahead < r.pressure.low {
         out.push(format!(
             "Gegen schnelle Decks zu langsam: In {} % der Partien hast du nach Zug 6 höchstens 5 Leben. \
              Mehr günstige Kreaturen zum Blocken oder Entfernung mit Manawert 1–2.",

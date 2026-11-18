@@ -253,8 +253,14 @@ pub fn sim() -> anyhow::Result<()> {
             r.on_curve, r.mulligan, r.color_screw, r.flood
         );
         println!(
-            "   Gegner-Druck: Leben nach Zug 1–6 {:.1?} · höchstens 5 Leben {:.2} · besiegt {:.2} · ausgeschaltet {:.1}",
-            r.pressure.life, r.pressure.low, r.pressure.dead, r.pressure.kills
+            "   Gegner-Druck: Leben {:.1?} · Gegner {:.1?} · vorne {:.2} · gewonnen {:.2} · verloren {:.2} · ≤5 Leben {:.2} · ausgeschaltet {:.1}",
+            r.pressure.life,
+            r.pressure.opp_life,
+            r.pressure.ahead,
+            r.pressure.won,
+            r.pressure.dead,
+            r.pressure.low,
+            r.pressure.kills
         );
         for a in &r.advice {
             println!("   {a}");

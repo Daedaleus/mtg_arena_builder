@@ -152,9 +152,12 @@ fn board_rules() {
     // Zug 2: die 2/1 greift an, kein Blocker – 2 Schaden.
     b.opp_turn(2);
     assert_eq!(b.life, START_LIFE - 2);
-    // Eigener Bär blockt die 2/1 (gewinnt) und den 2/2 nicht doppelt.
+    // Eigener Bär (neu, nicht bereit) blockt die 2/1 und tötet sie.
+    b.start_my_turn();
     b.cast(card(BEAR));
     assert_eq!(b.mine.len(), 1);
+    assert!(!b.mine[0].ready, "Einsatzverzögerung");
+    assert!(b.my_attack().is_empty(), "noch nicht bereit");
     b.opp_turn(3);
     assert_eq!(b.kills, 1, "2/1 stirbt am Bären");
     // Brandzauber Shock (2) tötet nur Kreaturen mit Widerstand bis 2.
@@ -163,9 +166,9 @@ fn board_rules() {
     assert_eq!(b.opp.len(), before - 1);
     // Murder trifft die stärkste.
     b.opp_turn(4);
-    let strongest = b.opp.iter().map(|(c, _)| c.power).max().unwrap();
+    let strongest = b.opp.iter().map(|u| u.c.power).max().unwrap();
     b.cast(card(MURDER));
-    assert!(b.opp.iter().all(|(c, _)| c.power <= strongest));
+    assert!(b.opp.iter().all(|u| u.c.power <= strongest));
     // Flächenzauber räumt alles ab.
     b.cast(card(WRATH));
     assert!(b.opp.is_empty() && b.mine.is_empty());
@@ -173,6 +176,109 @@ fn board_rules() {
     let kills = b.kills;
     b.cast(card(MURDER));
     assert_eq!(b.kills, kills);
+}
+
+#[test]
+fn racing_rules() {
+    let db = std_db();
+    let card = |g: u32| &db.cards[&g];
+    // Gefahrloser Angriff: kein Blocker, Gegenschlag überlebbar.
+    let mut b = pressure::Board::new();
+    b.cast(card(OGRE));
+    b.start_my_turn();
+    assert!(b.my_attack().is_empty());
+    assert_eq!(b.opp_life, START_LIFE - 3);
+    assert!(b.mine[0].tapped, "Angreifer ist getappt");
+    // Getappte Angreifer blocken im Gegnerzug nicht.
+    b.opp_turn(1);
+    b.opp_turn(2);
+    assert_eq!(b.life, START_LIFE - 2, "2/1 kam ungeblockt durch");
+
+    // Ein Blocker, der den Angreifer tötet und überlebt, hält ihn zu Hause …
+    let mut b = pressure::Board::new();
+    b.cast(card(ELF));
+    b.opp_turn(1);
+    b.opp_turn(2); // 2/1 greift an und wird getappt, 2/2 kommt ungetappt
+    b.start_my_turn();
+    let life = b.opp_life;
+    b.my_attack();
+    assert_eq!(b.opp_life, life, "2/2 tötet den Elf und überlebt");
+    // … ein möglicher Tausch nicht.
+    let mut b = pressure::Board::new();
+    b.cast(card(BEAR));
+    b.opp_turn(1);
+    b.opp_turn(2);
+    b.start_my_turn();
+    b.my_attack();
+    assert!(
+        b.mine.is_empty() || b.mine[0].tapped,
+        "Bär greift in den 2/2 an"
+    );
+
+    // Tödlich: alles greift an, auch wenn der Gegenschlag tödlich wäre.
+    let mut b = pressure::Board::new();
+    b.cast(card(OGRE));
+    b.cast(card(BEAR));
+    b.opp_turn(1); // 2/1 bleibt ungetappt und kann blocken
+    b.life = 1;
+    b.opp_life = 2;
+    b.start_my_turn();
+    b.my_attack();
+    assert!(b.opp_life <= 0, "einer kommt durch: {}", b.opp_life);
+    assert!(b.over());
+    // Nach Spielende passiert nichts mehr.
+    let life = b.life;
+    assert!(b.opp_turn(2).is_empty());
+    assert_eq!(b.life, life);
+    assert!(b.my_attack().is_empty());
+
+    // Brand: tödlich ins Gesicht, ohne Ziel ebenfalls ins Gesicht.
+    let mut b = pressure::Board::new();
+    b.cast(card(SPIKE));
+    assert_eq!(b.opp_life, START_LIFE - 3, "kein Ziel");
+    b.opp_turn(1); // 2/1 – Shock würde sie töten …
+    b.opp_life = 2;
+    b.cast(card(SHOCK));
+    assert!(b.over(), "… aber tödlicher Brand geht ins Gesicht");
+
+    // Wenig Leben: zu Hause bleiben und blocken.
+    let mut b = pressure::Board::new();
+    b.cast(card(OGRE));
+    b.opp_turn(1);
+    b.opp_turn(2);
+    // Der Oger hat die 2/1 geblockt; übrig ist die 2/2 – Gegenschlag 2.
+    assert_eq!(b.opp_creatures().len(), 1);
+    b.life = 2;
+    b.start_my_turn();
+    let opp_life = b.opp_life;
+    b.my_attack();
+    assert_eq!(b.opp_life, opp_life, "Gegenschlag (2) wäre tödlich");
+}
+
+#[test]
+fn fast_decks_win_races() {
+    // Flieger kommen am Gegner vorbei und drücken sein Leben – anders als teure Riesen.
+    let fast = run(&[(ISLAND, 24), (SPIRIT, 36)]);
+    let slow = run(&[(FOREST, 24), (GIANT, 36)]);
+    assert!(
+        fast.pressure.opp_life[5] < slow.pressure.opp_life[5],
+        "{:?} / {:?}",
+        fast.pressure,
+        slow.pressure
+    );
+    assert!(fast.pressure.ahead >= slow.pressure.ahead);
+    assert!(fast.pressure.opp_life[5] < 16.0, "{:?}", fast.pressure);
+    assert_eq!(slow.pressure.won, 0.0);
+    assert!(fast.pressure.won <= fast.pressure.ahead);
+    // Wer meist vorne liegt, bekommt keinen „zu langsam“-Hinweis.
+    if fast.pressure.ahead >= fast.pressure.low {
+        assert!(
+            !fast
+                .advice
+                .iter()
+                .any(|a| a.starts_with("Gegen schnelle Decks"))
+        );
+    }
 }
 
 #[test]
