@@ -6,6 +6,10 @@
 //! tödlich ist oder gefahrlos und man den nächsten Gegenschlag überlebt.
 //! Wer angegriffen hat, ist getappt und kann im nächsten Zug des Gegners
 //! nicht blocken. Die Partie endet, sobald eine Seite 0 Leben hat.
+//!
+//! Der Gegner kann außerdem eine eigene Kreatur entfernen (zu Beginn seines
+//! Zuges, die stärkste) und im Kampf einen Trick spielen: Nach den Blocks
+//! bekommt eine seiner Kreaturen +2/+2.
 
 use super::*;
 use crate::carddb::{ROLE_REMOVAL, ROLE_WIPE};
@@ -27,6 +31,18 @@ pub const OPP_CURVE: [(i32, i32); TURNS] = [
     (2, 2),
 ];
 pub const START_LIFE: i32 = 20;
+/// Bonus eines gegnerischen Kampftricks (+X/+X bis Zugende).
+pub const TRICK_BONUS: i32 = 2;
+
+/// Wo der Gegner im Kampf einen Trick spielt.
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum Trick {
+    None,
+    /// Auf einen geblockten Angreifer (sonst Zusatzschaden).
+    Attacker,
+    /// Auf einen Blocker.
+    Blocker,
+}
 
 // Schlüsselwort-Fähigkeiten in der Kartendatenbank
 const KW_DEATHTOUCH: u32 = 1;
@@ -95,23 +111,49 @@ fn threatens(blocker: &LiveCreature, attacker: &LiveCreature) -> bool {
 }
 
 /// Kampf: `attackers` greifen an, `defenders` blocken nach dem Blockvorschlag.
-/// Liefert (Schaden am Verteidiger, Kennungen toter Angreifer, toter Blocker).
+/// Ein Trick des Gegners kommt erst nach den Blocks (der Blockvorschlag kennt
+/// ihn nicht). Liefert (Schaden am Verteidiger, Kennungen toter Angreifer,
+/// toter Blocker).
 fn battle(
     attackers: &[LiveCreature],
     defenders: &[LiveCreature],
     life: i32,
+    trick: Trick,
 ) -> (i32, Vec<u32>, Vec<u32>) {
     let plan = combat::plan_blocks(attackers, defenders, life);
+    let mut damage = plan.damage;
+    let pumped = match trick {
+        Trick::Attacker => plan.blocks.first().map(|b| b.attacker),
+        Trick::Blocker => plan
+            .blocks
+            .first()
+            .and_then(|b| b.blockers.first().copied()),
+        Trick::None => None,
+    };
+    if trick == Trick::Attacker && pumped.is_none() && damage > 0 {
+        damage += TRICK_BONUS;
+    }
+    let pump = |c: &LiveCreature| {
+        let mut c = c.clone();
+        if pumped == Some(c.grp_id) {
+            c.power += TRICK_BONUS;
+            c.toughness += TRICK_BONUS;
+        }
+        c
+    };
     let (mut dead_att, mut dead_def) = (Vec::new(), Vec::new());
     for b in &plan.blocks {
         let Some(att) = attackers.iter().find(|a| a.grp_id == b.attacker) else {
             continue;
         };
-        let by: Vec<&LiveCreature> = defenders
+        let att = pump(att);
+        let by: Vec<LiveCreature> = defenders
             .iter()
             .filter(|c| b.blockers.contains(&c.grp_id))
+            .map(pump)
             .collect();
-        let (att_dies, dies) = combat::fight(att, &by);
+        let by: Vec<&LiveCreature> = by.iter().collect();
+        let (att_dies, dies) = combat::fight(&att, &by);
         if att_dies {
             dead_att.push(att.grp_id);
         }
@@ -122,7 +164,7 @@ fn battle(
                 .map(|(c, _)| c.grp_id),
         );
     }
-    (plan.damage, dead_att, dead_def)
+    (damage, dead_att, dead_def)
 }
 
 /// Spielfeld einer simulierten Partie gegen den schnellen Gegner.
@@ -214,12 +256,13 @@ impl Board {
     /// Kreaturen, die dabei gestorben sind.
     #[cfg(test)]
     pub fn my_attack(&mut self) -> Vec<u32> {
-        self.my_attack_with(false)
+        self.my_attack_with(false, false)
     }
 
     /// Wie [`Board::my_attack`]; `hesitant` = nur tödliche Angriffe (Gewohnheit,
-    /// gefahrlose Angriffe auszulassen).
-    pub fn my_attack_with(&mut self, hesitant: bool) -> Vec<u32> {
+    /// gefahrlose Angriffe auszulassen), `trick` = der Gegner hat einen
+    /// Kampftrick für einen Blocker.
+    pub fn my_attack_with(&mut self, hesitant: bool, trick: bool) -> Vec<u32> {
         if self.over() {
             return Vec::new();
         }
@@ -250,7 +293,8 @@ impl Board {
         if attackers.is_empty() {
             return Vec::new();
         }
-        let (damage, dead_att, dead_def) = battle(&attackers, &blockers, self.opp_life);
+        let trick = if trick { Trick::Blocker } else { Trick::None };
+        let (damage, dead_att, dead_def) = battle(&attackers, &blockers, self.opp_life, trick);
         self.opp_life -= damage;
         self.kills += dead_def.len() as u32;
         self.opp.retain(|u| !dead_def.contains(&u.c.grp_id));
@@ -278,13 +322,31 @@ impl Board {
     /// Liefert die grpIds der eigenen Kreaturen, die dabei gestorben sind.
     #[cfg(test)]
     pub fn opp_turn(&mut self, turn: usize) -> Vec<u32> {
-        self.opp_turn_with(Some(OPP_CURVE[(turn - 1).min(TURNS - 1)]))
+        self.opp_turn_with(Some(OPP_CURVE[(turn - 1).min(TURNS - 1)]), false, false)
     }
 
     /// Zug des Gegners mit vorgegebener neuer Kreatur (Kraft, Widerstand).
-    pub fn opp_turn_with(&mut self, new: Option<(i32, i32)>) -> Vec<u32> {
+    /// `removal`: entfernt zuerst die stärkste eigene Kreatur; `trick`:
+    /// Kampftrick für einen Angreifer.
+    pub fn opp_turn_with(
+        &mut self,
+        new: Option<(i32, i32)>,
+        removal: bool,
+        trick: bool,
+    ) -> Vec<u32> {
         if self.over() {
             return Vec::new();
+        }
+        let mut died = Vec::new();
+        if removal
+            && let Some(i) = self
+                .mine
+                .iter()
+                .enumerate()
+                .max_by_key(|(_, u)| (u.c.power, u.c.toughness))
+                .map(|(i, _)| i)
+        {
+            died.push(self.mine.remove(i).card);
         }
         // Was schon zu Beginn des Zuges liegt, enttappt und darf angreifen.
         for u in &mut self.opp {
@@ -299,14 +361,15 @@ impl Board {
             .filter(|u| !u.tapped)
             .map(|u| u.c.clone())
             .collect();
-        let (damage, dead_opp, dead_mine) = battle(&attackers, &blockers, self.life);
+        let trick = if trick { Trick::Attacker } else { Trick::None };
+        let (damage, dead_opp, dead_mine) = battle(&attackers, &blockers, self.life, trick);
         self.life -= damage;
         self.kills += dead_opp.len() as u32;
         self.opp.retain(|u| !dead_opp.contains(&u.c.grp_id));
         for u in &mut self.opp {
             u.tapped = true;
         }
-        let died = self.remove_mine(&dead_mine);
+        died.extend(self.remove_mine(&dead_mine));
         let Some((power, toughness)) = new else {
             return died;
         };

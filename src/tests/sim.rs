@@ -358,6 +358,12 @@ fn opponent_profile_from_history() {
     );
     assert!(o.toughness.iter().zip(&o.power).all(|(t, p)| t >= p));
     assert_eq!(o.label, "deine Gegner (meist Mono-Rot)");
+    // Je Partie ein Shock bei 6 Gegnerzügen; ein Giant Growth insgesamt.
+    assert!((o.removal - 1.0 / 6.0).abs() < 0.01, "{}", o.removal);
+    assert_eq!(o.tricks, 0.0);
+    games[1].opp_cards.insert(GROWTH, 1);
+    let o = opponent_from(&games, &db).unwrap();
+    assert!((o.tricks - 1.0 / 36.0).abs() < 0.01, "{}", o.tricks);
     // Fester Gegner zum Vergleich
     let fast = Opponent::fast();
     assert_eq!(fast.games, 0);
@@ -397,6 +403,8 @@ fn personal_simulation() {
         label: "langsam".into(),
         games: 10,
         turns: TURNS,
+        removal: 0.0,
+        tricks: 0.0,
     };
     let fast = simulate(&d, &db, 300, 3);
     let best = simulate_with(&d, &db, 300, 3, &slow, None);
@@ -423,6 +431,59 @@ fn personal_simulation() {
         best.pressure
     );
     assert!(yours.mana_used.iter().sum::<f32>() < best.mana_used.iter().sum::<f32>());
+    // Entfernung und Tricks des Gegners kosten Partien.
+    let hard = Opponent {
+        removal: 0.5,
+        tricks: 0.5,
+        ..slow.clone()
+    };
+    let tough = simulate_with(&d, &db, 300, 3, &hard, None);
+    assert!(
+        tough.pressure.ahead < best.pressure.ahead,
+        "{:?} / {:?}",
+        tough.pressure,
+        best.pressure
+    );
+}
+
+#[test]
+fn opponent_removal_and_tricks() {
+    let db = std_db();
+    let card = |g: u32| &db.cards[&g];
+    // Entfernung trifft die stärkste eigene Kreatur.
+    let mut b = pressure::Board::new();
+    b.cast(card(ELF));
+    b.cast(card(OGRE));
+    assert_eq!(b.opp_turn_with(None, true, false), vec![OGRE]);
+    assert_eq!(b.mine.len(), 1);
+    assert_eq!(b.mine[0].card, ELF);
+
+    // Ohne Trick stirbt die angreifende 2/2 am Oger, mit Trick der Oger.
+    for (trick, ogre_lives) in [(false, true), (true, false)] {
+        let mut b = pressure::Board::new();
+        b.cast(card(OGRE));
+        b.opp_turn_with(Some((2, 2)), false, false);
+        let died = b.opp_turn_with(None, false, trick);
+        assert_eq!(died.is_empty(), ogre_lives, "Trick {trick}");
+        assert_eq!(b.opp.len(), usize::from(trick), "Trick {trick}");
+        assert_eq!(b.life, START_LIFE);
+    }
+
+    // Ungeblockt bringt der Trick Zusatzschaden.
+    let mut b = pressure::Board::new();
+    b.opp_turn_with(Some((2, 1)), false, false);
+    b.opp_turn_with(None, false, true);
+    assert_eq!(b.life, START_LIFE - 2 - pressure::TRICK_BONUS);
+
+    // Trick für den Blocker: die 2/2 hält den tödlichen Oger auf und überlebt.
+    let mut b = pressure::Board::new();
+    b.cast(card(OGRE));
+    b.opp_turn_with(Some((2, 2)), false, false);
+    b.start_my_turn();
+    b.opp_life = 3;
+    assert_eq!(b.my_attack_with(false, true), vec![OGRE]);
+    assert_eq!(b.opp_life, 3);
+    assert_eq!(b.opp.len(), 1);
 }
 
 #[test]
@@ -459,6 +520,7 @@ fn trial_runs_all_variants() {
         .collect();
     let t = trial(&d, &db, &history, 50, 1);
     assert_eq!(t.profile_games, 8);
+    assert!(t.opponent.as_ref().unwrap().removal > 0.0, "Shock gesehen");
     assert!(
         t.mine
             .as_ref()

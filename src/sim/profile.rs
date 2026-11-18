@@ -2,11 +2,13 @@
 //! Partien statt fester Annahmen.
 //!
 //! - [`Opponent`]: wie viel Kraft die Gegner je Zug aufs Feld bringen
-//!   (Durchschnitt über die eigenen Partien) und welche Decks am häufigsten sind.
+//!   (Durchschnitt über die eigenen Partien), wie oft sie Entfernung und
+//!   Kampftricks spielen und welche Decks am häufigsten sind.
 //! - [`Habits`]: wie oft man einen besseren Zug auslässt und wie oft man
 //!   einen gefahrlosen Angriff nicht macht.
 
 use super::*;
+use crate::carddb::{ROLE_COUNTER, ROLE_DRAW, ROLE_REMOVAL, ROLE_WIPE};
 use crate::games::{self, GameRecord};
 
 /// Mindestens so viele vollständige Partien mit Gegnerdaten für ein Profil.
@@ -18,6 +20,8 @@ pub const MIN_TURN_SAMPLES: usize = 5;
 /// Höchstens so viel neue Kraft je Gegnerzug und Partie zählt (Ausreißer wie
 /// ganze Spielstein-Armeen sollen den Schnitt nicht verzerren).
 pub const MAX_GAIN: f32 = 6.0;
+/// Höchstens so oft je Gegnerzug Entfernung bzw. ein Trick.
+pub const MAX_RATE: f32 = 0.5;
 
 /// Gegner der Simulation: erwartete neue Kraft und Widerstandskraft je Zug.
 #[derive(Clone, Debug, PartialEq)]
@@ -30,6 +34,10 @@ pub struct Opponent {
     pub games: usize,
     /// Wie viele Züge gespielt werden.
     pub turns: usize,
+    /// Chance je Gegnerzug, eine eigene Kreatur zu entfernen.
+    pub removal: f32,
+    /// Chance je Kampf auf einen Trick (+2/+2 für eine gegnerische Kreatur).
+    pub tricks: f32,
 }
 
 impl Opponent {
@@ -41,6 +49,8 @@ impl Opponent {
             label: "schneller Gegner".into(),
             games: 0,
             turns: FAST_TURNS,
+            removal: 0.0,
+            tricks: 0.0,
         }
     }
 
@@ -105,7 +115,28 @@ pub fn opponent_from(history: &[GameRecord], db: &CardDb) -> Option<Opponent> {
         label: String::new(),
         games: games.len(),
         turns: TURNS,
+        removal: 0.0,
+        tricks: 0.0,
     };
+    // Gesehene Entfernung und Tricks je Gegnerzug.
+    let (mut removal, mut tricks, mut opp_turns) = (0u32, 0u32, 0usize);
+    for g in &games {
+        opp_turns += g.turns.iter().filter(|t| !t.mine).count();
+        for (grp, n) in &g.opp_cards {
+            let Some(c) = db.cards.get(grp) else { continue };
+            if c.is_creature() || c.is_land() {
+                continue;
+            }
+            if c.has_role(ROLE_REMOVAL) || c.has_role(ROLE_WIPE) {
+                removal += n;
+            } else if c.is_instant() && !c.has_role(ROLE_COUNTER) && !c.has_role(ROLE_DRAW) {
+                tricks += n;
+            }
+        }
+    }
+    let rate = |n: u32| (n as f32 / opp_turns.max(1) as f32).min(MAX_RATE);
+    opp.removal = rate(removal);
+    opp.tricks = rate(tricks);
     for k in 0..TURNS {
         if count[k] >= MIN_TURN_SAMPLES {
             opp.power[k] = power[k] / count[k] as f32;
@@ -176,6 +207,8 @@ pub struct Trial {
     pub habits: Option<Habits>,
     /// Partien, aus denen das Gegnerprofil stammt.
     pub profile_games: usize,
+    /// Das Gegnerprofil selbst (falls genug Partien).
+    pub opponent: Option<Opponent>,
 }
 
 /// Führt alle Varianten aus; `history` sind die eigenen Partien.
@@ -195,6 +228,7 @@ pub fn trial(deck: &[u32], db: &CardDb, history: &[GameRecord], games: usize, se
         mine,
         mine_habits,
         habits,
-        profile_games: opponent.map_or(0, |o| o.games),
+        profile_games: opponent.as_ref().map_or(0, |o| o.games),
+        opponent,
     }
 }

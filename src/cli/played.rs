@@ -248,8 +248,12 @@ pub fn sim() -> anyhow::Result<()> {
     let habits = sim::habits_from(&games, &db);
     match &opponent {
         Some(o) => println!(
-            "Gegnerprofil aus {} Partien: {} · neue Kraft je Zug {:.1?}",
-            o.games, o.label, o.power
+            "Gegnerprofil aus {} Partien: {} · neue Kraft je Zug {:.1?} · Entfernung {:.0} % der Züge · Tricks {:.0} %",
+            o.games,
+            o.label,
+            o.power,
+            o.removal * 100.0,
+            o.tricks * 100.0
         ),
         None => println!("Zu wenige Partien für ein Gegnerprofil."),
     }

@@ -172,7 +172,9 @@ pub fn simulate_with(
         let opp_turn =
             |board: &mut Board, permanents: &mut Vec<u32>, turn: usize, rng: &mut Rng| {
                 let new = opponent.creature(turn, rng);
-                for grp in board.opp_turn_with(new) {
+                let removal = opponent.removal > 0.0 && rng.chance(opponent.removal);
+                let trick = opponent.tricks > 0.0 && rng.chance(opponent.tricks);
+                for grp in board.opp_turn_with(new, removal, trick) {
                     if let Some(i) = permanents.iter().position(|g| *g == grp) {
                         permanents.remove(i);
                     }
@@ -232,7 +234,8 @@ pub fn simulate_with(
                 on_curve[turn - 1] += 1;
             }
             let hesitant = habits.is_some_and(|h| rng.chance(h.skip_attack));
-            for grp in board.my_attack_with(hesitant) {
+            let trick = opponent.tricks > 0.0 && rng.chance(opponent.tricks);
+            for grp in board.my_attack_with(hesitant, trick) {
                 if let Some(i) = permanents.iter().position(|g| *g == grp) {
                     permanents.remove(i);
                 }

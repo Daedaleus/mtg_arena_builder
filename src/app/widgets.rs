@@ -86,6 +86,16 @@ fn personal_view(ui: &mut egui::Ui, t: &sim::Trial) {
         ))
         .strong(),
     );
+    if let Some(o) = &t.opponent {
+        ui.label(
+            RichText::new(format!(
+                "Sie entfernen in {} ihrer Züge eine deiner Kreaturen und haben in {} der Kämpfe einen Trick (+2/+2).",
+                pct(o.removal),
+                pct(o.tricks)
+            ))
+            .weak(),
+        );
+    }
     ui.label(format!(
         "Mit Zugvorschlag: nach Zug {} vorne in {} · verloren in {} · {:.0} Leben bei dir, {:.0} beim Gegner",
         best.turns,
