@@ -13,6 +13,11 @@ use crate::games::{self, GameRecord};
 pub const MIN_PROFILE_GAMES: usize = 5;
 /// Mindestens so viele auswertbare eigene Züge für Gewohnheiten.
 pub const MIN_HABIT_TURNS: usize = 20;
+/// Mindestens so viele Partien, die einen Gegnerzug erreichen, damit er zählt.
+pub const MIN_TURN_SAMPLES: usize = 5;
+/// Höchstens so viel neue Kraft je Gegnerzug und Partie zählt (Ausreißer wie
+/// ganze Spielstein-Armeen sollen den Schnitt nicht verzerren).
+pub const MAX_GAIN: f32 = 6.0;
 
 /// Gegner der Simulation: erwartete neue Kraft und Widerstandskraft je Zug.
 #[derive(Clone, Debug, PartialEq)]
@@ -23,16 +28,19 @@ pub struct Opponent {
     pub label: String,
     /// Partien, aus denen das Profil stammt (0 = feste Annahme).
     pub games: usize,
+    /// Wie viele Züge gespielt werden.
+    pub turns: usize,
 }
 
 impl Opponent {
-    /// Fester, schneller Gegner (eine Kreatur je Zug nach [`OPP_CURVE`]).
+    /// Fester, schneller Gegner (Kreaturen nach [`OPP_CURVE`]).
     pub fn fast() -> Opponent {
         Opponent {
             power: OPP_CURVE.map(|(p, _)| p as f32),
             toughness: OPP_CURVE.map(|(_, t)| t as f32),
             label: "schneller Gegner".into(),
             games: 0,
+            turns: FAST_TURNS,
         }
     }
 
@@ -65,14 +73,17 @@ pub fn opponent_from(history: &[GameRecord], db: &CardDb) -> Option<Opponent> {
     if games.len() < MIN_PROFILE_GAMES {
         return None;
     }
-    // Kraft und Widerstand auf dem Feld am Ende des k-ten Gegnerzugs.
+    // Zuwachs an Kraft und Widerstand je Gegnerzug – innerhalb derselben
+    // Partie gerechnet, damit lange Partien (größeres Feld) die späten Züge
+    // nicht verzerren.
     let mut power = [0f32; TURNS];
     let mut toughness = [0f32; TURNS];
     let mut count = [0usize; TURNS];
     for g in &games {
+        let (mut last_p, mut last_t) = (0f32, 0f32);
         for (k, t) in g.turns.iter().filter(|t| !t.mine).take(TURNS).enumerate() {
-            power[k] += t.opp_creatures.iter().map(|(_, p)| *p as f32).sum::<f32>();
-            toughness[k] += t
+            let p: f32 = t.opp_creatures.iter().map(|(_, p)| *p as f32).sum();
+            let tough: f32 = t
                 .opp_creatures
                 .iter()
                 .map(|(grp, p)| {
@@ -81,28 +92,29 @@ pub fn opponent_from(history: &[GameRecord], db: &CardDb) -> Option<Opponent> {
                         .and_then(|c| c.toughness.parse::<f32>().ok())
                         .unwrap_or(*p as f32)
                 })
-                .sum::<f32>();
+                .sum();
+            power[k] += (p - last_p).clamp(0.0, MAX_GAIN);
+            toughness[k] += (tough - last_t).clamp(0.0, MAX_GAIN);
+            (last_p, last_t) = (p, tough);
             count[k] += 1;
         }
     }
-    // Zuwachs je Zug = neue Kreatur des Gegners in diesem Zug.
-    let avg = |v: &[f32; TURNS], k: usize| {
-        if count[k] == 0 {
-            0.0
-        } else {
-            v[k] / count[k] as f32
-        }
-    };
     let mut opp = Opponent {
         power: [0.0; TURNS],
         toughness: [0.0; TURNS],
         label: String::new(),
         games: games.len(),
+        turns: TURNS,
     };
     for k in 0..TURNS {
-        let before = |v: &[f32; TURNS]| if k == 0 { 0.0 } else { avg(v, k - 1) };
-        opp.power[k] = (avg(&power, k) - before(&power)).max(0.0);
-        opp.toughness[k] = (avg(&toughness, k) - before(&toughness)).max(opp.power[k]);
+        if count[k] >= MIN_TURN_SAMPLES {
+            opp.power[k] = power[k] / count[k] as f32;
+            opp.toughness[k] = (toughness[k] / count[k] as f32).max(opp.power[k]);
+        } else if k > 0 {
+            // Zu wenige Partien so lang: Tempo des Vorzugs beibehalten.
+            opp.power[k] = opp.power[k - 1];
+            opp.toughness[k] = opp.toughness[k - 1];
+        }
     }
     // Häufigste Gegner nach Farben.
     let mut by_name: Vec<(String, usize)> = Vec::new();

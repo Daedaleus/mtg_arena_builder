@@ -13,7 +13,7 @@ pub(super) fn sim_view(ui: &mut egui::Ui, t: &sim::Trial) {
                 RichText::new(format!(
                     "{} simulierte Partien bis Zug {} · {} Karten, davon {} Länder",
                     r.games,
-                    sim::TURNS,
+                    r.turns,
                     r.size,
                     r.lands
                 ))
@@ -40,22 +40,24 @@ pub(super) fn sim_view(ui: &mut egui::Ui, t: &sim::Trial) {
             ));
             let p = &r.pressure;
             ui.label(format!(
-                "Gegen einen schnellen Gegner bis Zug 6: vorne in {} (davon gewonnen {}) · verloren in {} · \
+                "Gegen einen schnellen Gegner bis Zug {}: vorne in {} (davon gewonnen {}) · verloren in {} · \
                  im Schnitt {:.0} Leben bei dir, {:.0} beim Gegner · {:.1} gegnerische Kreaturen ausgeschaltet",
+                r.turns,
                 pct(p.ahead),
                 pct(p.won),
                 pct(p.dead),
-                p.life[sim::TURNS - 1],
-                p.opp_life[sim::TURNS - 1],
+                p.life[r.turns - 1],
+                p.opp_life[r.turns - 1],
                 p.kills
             ))
             .on_hover_text(
-                "Der Gegner spielt jeden Zug eine Kreatur (2/1, 2/2, 3/2, 3/3, 4/3, 4/4) und greift mit allem an. \
+                "Der Gegner spielt in den Zügen 1–6 je eine Kreatur (2/1, 2/2, 3/2, 3/3, 4/3, 4/4), danach 2/2en, \
+                 und greift mit allem an. \
                  Du blockst wie im Begleitfenster vorgeschlagen, setzt Entfernung auf die stärkste Kreatur und \
                  greifst an, wenn es tödlich ist oder gefahrlos und du den Gegenschlag überlebst.",
             );
             personal_view(ui, t);
-            let mana: Vec<String> = (0..sim::TURNS)
+            let mana: Vec<String> = (0..r.turns)
                 .map(|t| format!("Z{} {:.1}/{:.1}", t + 1, r.mana_used[t], r.mana_avail[t]))
                 .collect();
             ui.label(RichText::new(format!("Mana genutzt/verfügbar: {}", mana.join(" · "))).weak());
@@ -85,11 +87,12 @@ fn personal_view(ui: &mut egui::Ui, t: &sim::Trial) {
         .strong(),
     );
     ui.label(format!(
-        "Mit Zugvorschlag: nach Zug 6 vorne in {} · verloren in {} · {:.0} Leben bei dir, {:.0} beim Gegner",
+        "Mit Zugvorschlag: nach Zug {} vorne in {} · verloren in {} · {:.0} Leben bei dir, {:.0} beim Gegner",
+        best.turns,
         pct(best.pressure.ahead),
         pct(best.pressure.dead),
-        best.pressure.life[sim::TURNS - 1],
-        best.pressure.opp_life[sim::TURNS - 1]
+        best.pressure.life[best.turns - 1],
+        best.pressure.opp_life[best.turns - 1]
     ));
     match (&t.mine_habits, &t.habits) {
         (Some(yours), Some(h)) => {
@@ -124,7 +127,10 @@ fn personal_view(ui: &mut egui::Ui, t: &sim::Trial) {
         }
     }
     ui.label(
-        RichText::new("Die Simulation endet nach Zug 6 – viele Partien entscheiden sich später.")
+        RichText::new(format!(
+            "Die Simulation endet nach Zug {} – längere Partien entscheiden sich manchmal noch später.",
+            best.turns
+        ))
             .weak(),
     );
 }

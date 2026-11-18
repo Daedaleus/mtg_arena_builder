@@ -20,8 +20,9 @@ Stand: 16.11.2026. Erledigtes steht in der Git-Historie.
 - [x] Gegner-Druck mit Rennen: eigene Angriffe, Brand ins Gesicht, „vorne nach Zug 6“.
 - [x] Persönliche Probehände: Gegner aus den eigenen Partien, Vergleich
       „mit Zugvorschlag“ und „so wie du spielst“ (`sim/profile.rs`).
-- [ ] Probehände länger laufen lassen (z. B. bis Zug 10): eigene Partien dauern
-      im Schnitt 14 Züge, die Simulation endet nach Zug 6.
+- [x] Probehände gegen die eigenen Gegner bis Zug 10 (Stresstest weiter bis Zug 6).
+- [ ] Gegner in der Simulation ohne Entfernung, Brand und Tricks – für Kreaturen-
+      Decks zu optimistisch (Kirk: 95 % vorne simuliert, real 5 von 12 gewonnen).
 - [ ] Rennen: Prowess, Ausweichfähigkeiten des Gegners und Tricks fehlen noch –
       Spells-Decks (z. B. Slickshot) schneiden schlechter ab, als sie sind.
 - [ ] Wildcard-Plan: geschätzte Spielzeit/Packs bis zum nächsten Schritt.

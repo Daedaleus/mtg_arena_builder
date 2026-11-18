@@ -340,15 +340,21 @@ fn opponent_profile_from_history() {
     let ok = my_turn(&[], &[FOREST], true, &[]);
     let few: Vec<GameRecord> = (0..2).map(|_| history_game(&[1, 2], ok.clone())).collect();
     assert!(opponent_from(&few, &db).is_none(), "zu wenige Partien");
-    let games: Vec<GameRecord> = (0..6)
+    let mut games: Vec<GameRecord> = (0..6)
         .map(|_| history_game(&[0, 2, 2, 5, 5, 6], ok.clone()))
         .collect();
+    // Ein Ausreißer mit riesigem Feld in Zug 2 verzerrt den Schnitt kaum.
+    games[0] = history_game(&[0, 30, 2, 5, 5, 6], ok.clone());
     let o = opponent_from(&games, &db).unwrap();
     assert_eq!(o.games, 6);
+    // Zug 2: Ausreißer zählt nur mit 6 statt 30 – (6 + 5 × 2) / 6.
+    assert!((o.power[1] - 16.0 / 6.0).abs() < 0.01, "{:?}", o.power);
+    let mut rest = o.power;
+    rest[1] = 0.0;
     assert_eq!(
-        o.power,
-        [0.0, 2.0, 0.0, 3.0, 0.0, 1.0],
-        "Zuwachs je Zug, nie negativ"
+        rest,
+        [0.0, 0.0, 0.0, 3.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0],
+        "Zuwachs je Zug, nie negativ; ohne Daten weiter im letzten Tempo"
     );
     assert!(o.toughness.iter().zip(&o.power).all(|(t, p)| t >= p));
     assert_eq!(o.label, "deine Gegner (meist Mono-Rot)");
@@ -386,10 +392,11 @@ fn personal_simulation() {
     let db = std_db();
     let d = deck(&[(FOREST, 24), (BEAR, 20), (ELF, 16)]);
     let slow = Opponent {
-        power: [0.0, 1.0, 1.0, 1.0, 1.0, 1.0],
-        toughness: [0.0, 1.0, 1.0, 1.0, 1.0, 1.0],
+        power: [0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
+        toughness: [0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
         label: "langsam".into(),
         games: 10,
+        turns: TURNS,
     };
     let fast = simulate(&d, &db, 300, 3);
     let best = simulate_with(&d, &db, 300, 3, &slow, None);
@@ -438,6 +445,8 @@ fn trial_runs_all_variants() {
     assert!(t.mine.is_none() && t.mine_habits.is_none() && t.habits.is_none());
     assert_eq!(t.profile_games, 0);
     assert_eq!(t.fast.opponent, "schneller Gegner");
+    assert_eq!(t.fast.turns, FAST_TURNS, "Stresstest nur für den Start");
+    assert_eq!(t.fast.mana_avail[FAST_TURNS], 0.0, "danach nicht gespielt");
     // Mit Verlauf: alle drei Varianten.
     let lazy = my_turn(
         &[OGRE],
@@ -458,5 +467,10 @@ fn trial_runs_all_variants() {
             .starts_with("deine Gegner")
     );
     assert!(t.mine_habits.as_ref().unwrap().with_habits);
+    assert_eq!(
+        t.mine.as_ref().unwrap().turns,
+        TURNS,
+        "eigene Gegner bis Zug 10"
+    );
     assert!(t.habits.is_some());
 }

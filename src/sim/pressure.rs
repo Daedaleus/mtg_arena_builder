@@ -13,7 +13,19 @@ use crate::combat;
 use crate::games::LiveCreature;
 
 /// Kreatur des schnellen Gegners je Zug: (Kraft, Widerstand).
-pub const OPP_CURVE: [(i32, i32); TURNS] = [(2, 1), (2, 2), (3, 2), (3, 3), (4, 3), (4, 4)];
+/// Harter Start in den Zügen 1–6, danach nur noch kleinere Nachzügler.
+pub const OPP_CURVE: [(i32, i32); TURNS] = [
+    (2, 1),
+    (2, 2),
+    (3, 2),
+    (3, 3),
+    (4, 3),
+    (4, 4),
+    (2, 2),
+    (2, 2),
+    (2, 2),
+    (2, 2),
+];
 pub const START_LIFE: i32 = 20;
 
 // Schlüsselwort-Fähigkeiten in der Kartendatenbank
@@ -30,17 +42,17 @@ const KW_MENACE: u32 = 142;
 /// Wie gut hält das Deck einem schnellen Gegner stand?
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Pressure {
-    /// Durchschnittliche eigene Lebenspunkte nach Zug 1–6.
+    /// Durchschnittliche eigene Lebenspunkte nach jedem Zug.
     pub life: [f32; TURNS],
-    /// Durchschnittliche Lebenspunkte des Gegners nach Zug 1–6.
+    /// Durchschnittliche Lebenspunkte des Gegners nach jedem Zug.
     pub opp_life: [f32; TURNS],
-    /// Anteil der Partien mit höchstens 5 Leben nach Zug 6 (besiegt eingeschlossen).
+    /// Anteil der Partien mit höchstens 5 Leben am Ende (besiegt eingeschlossen).
     pub low: f32,
-    /// Anteil der Partien, die bis Zug 6 verloren sind.
+    /// Anteil der Partien, die bis zum letzten Zug verloren sind.
     pub dead: f32,
-    /// Anteil der Partien, in denen der Gegner bis Zug 6 besiegt ist.
+    /// Anteil der Partien, in denen der Gegner bis zum letzten Zug besiegt ist.
     pub won: f32,
-    /// Anteil der Partien, in denen man nach Zug 6 vorne liegt (selbst am
+    /// Anteil der Partien, in denen man am Ende vorne liegt (selbst am
     /// Leben und der Gegner besiegt oder mit weniger Leben).
     pub ahead: f32,
     /// Durchschnittlich besiegte gegnerische Kreaturen.

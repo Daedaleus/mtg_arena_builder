@@ -21,13 +21,19 @@ pub use profile::{
 };
 
 /// Simulierte Züge je Partie.
-pub const TURNS: usize = 6;
+pub const TURNS: usize = 10;
+/// Zug, nach dem die Länderflut gemessen wird.
+pub const FLOOD_TURN: usize = 6;
+/// Der feste schnelle Gegner prüft nur den Start: so viele Züge.
+pub const FAST_TURNS: usize = 6;
 /// Standardzahl der simulierten Partien.
 pub const DEFAULT_GAMES: usize = 1000;
 
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct SimReport {
     pub games: usize,
+    /// Gespielte Züge (Werte in den Feldern je Zug danach sind 0).
+    pub turns: usize,
     pub size: usize,
     pub lands: usize,
     /// Anteil der Partien mit Mulligan.
@@ -39,7 +45,7 @@ pub struct SimReport {
     pub color_screw: f32,
     /// Farbe, die dabei am häufigsten fehlte (Index W, U, B, R, G).
     pub missing_color: Option<usize>,
-    /// Anteil der Partien mit Länderflut (Zug 6: 5+ Länder im Spiel, 2+ auf der Hand).
+    /// Anteil der Partien mit Länderflut (nach Zug 6: 5+ Länder im Spiel, 2+ auf der Hand).
     pub flood: f32,
     /// Durchschnittlich genutztes und verfügbares Mana je Zug.
     pub mana_used: [f32; TURNS],
@@ -110,6 +116,7 @@ pub fn simulate_with(
     let mut r = SimReport {
         games,
         opponent: opponent.label.clone(),
+        turns: opponent.turns.clamp(FLOOD_TURN, TURNS),
         with_habits: habits.is_some(),
         size: deck.len(),
         lands: deck.iter().filter(|g| is_land(db, **g)).count(),
@@ -159,6 +166,7 @@ pub fn simulate_with(
         let mut permanents: Vec<u32> = Vec::new();
         let mut screwed = false;
         let mut missing_here = [false; 5];
+        let mut flooded = false;
         let mut board = Board::new();
         // Gestorbene Manakreaturen liefern kein Mana mehr.
         let opp_turn =
@@ -170,7 +178,7 @@ pub fn simulate_with(
                     }
                 }
             };
-        for turn in 1..=TURNS {
+        for turn in 1..=r.turns {
             if !on_play {
                 opp_turn(&mut board, &mut permanents, turn, &mut rng);
             }
@@ -232,6 +240,9 @@ pub fn simulate_with(
             if on_play {
                 opp_turn(&mut board, &mut permanents, turn, &mut rng);
             }
+            if turn == FLOOD_TURN {
+                flooded = battlefield.len() >= 5 && lands_in(&hand) >= 2;
+            }
             life_sum[turn - 1] += i64::from(board.life.max(0));
             opp_life_sum[turn - 1] += i64::from(board.opp_life.max(0));
             // Farbe fehlt: Karte wäre vom Manawert her bezahlbar gewesen.
@@ -265,9 +276,7 @@ pub fn simulate_with(
         for (i, m) in missing_here.iter().enumerate() {
             missing[i] += *m as usize;
         }
-        if battlefield.len() >= 5 && lands_in(&hand) >= 2 {
-            floods += 1;
-        }
+        floods += flooded as usize;
     }
 
     let share = |n: usize| n as f32 / games as f32;
@@ -326,9 +335,10 @@ fn advice(r: &SimReport) -> Vec<String> {
     // Zu langsam nur, wenn man das Rennen nicht selbst gewinnt.
     if r.pressure.low >= 0.4 && r.pressure.ahead < r.pressure.low {
         out.push(format!(
-            "Gegen schnelle Decks zu langsam: In {} % der Partien hast du nach Zug 6 höchstens 5 Leben. \
+            "Gegen schnelle Decks zu langsam: In {} % der Partien hast du nach Zug {} höchstens 5 Leben. \
              Mehr günstige Kreaturen zum Blocken oder Entfernung mit Manawert 1–2.",
-            pct(r.pressure.low)
+            pct(r.pressure.low),
+            r.turns
         ));
     }
     let used: f32 = r.mana_used[..4].iter().sum();
