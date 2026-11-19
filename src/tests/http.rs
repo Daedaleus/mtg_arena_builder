@@ -29,7 +29,7 @@ fn keeps_gaps_per_host_without_real_waiting() {
     let scry = "https://api.scryfall.com/b";
     p.get(top8, "*/*").unwrap();
     p.get(scry, "*/*").unwrap();
-    // Zweite MTGTop8-Anfrage wartet 5 s; Scryfall danach ist längst frei.
+    // Zweite MTGTop8-Anfrage wartet 5 s; Scryfall (0,5 s) danach ist längst frei.
     p.get(top8, "*/*").unwrap();
     p.get(scry, "*/*").unwrap();
     assert_eq!(clock.sleeps(), vec![Duration::from_secs(5)]);
@@ -64,9 +64,37 @@ fn gaps_hold_across_threads() {
     for h in handles {
         h.join().unwrap();
     }
-    // Sechs Anfragen: alle außer der ersten haben einen Platz im 100-ms-Raster.
+    // Sechs Anfragen: alle außer der ersten haben einen Platz im 500-ms-Raster.
     let waited: Duration = clock.sleeps().iter().sum();
-    assert!(waited >= Duration::from_millis(500), "{waited:?}");
+    assert!(waited >= Duration::from_millis(2500), "{waited:?}");
+}
+
+#[test]
+fn rate_limit_blocks_host_for_all_threads() {
+    let clock = Arc::new(FakeClock::default());
+    let fake = FakeHttp::new(vec![
+        ("api.scryfall.com", Reply::RateLimited(30)),
+        ("magic.gg", Reply::text("ok")),
+    ]);
+    let p = Polite::new(fake.clone(), clock.clone(), &GAPS);
+    let scry = "https://api.scryfall.com/cards/search?q=x";
+    assert!(matches!(
+        p.get(scry, "*/*"),
+        Err(FetchError::RateLimited(30))
+    ));
+    // Während der Sperre geht keine Anfrage mehr hinaus.
+    clock.advance(Duration::from_secs(10));
+    assert!(matches!(
+        p.get(scry, "*/*"),
+        Err(FetchError::RateLimited(20))
+    ));
+    assert_eq!(fake.calls(), 1);
+    // Andere Seiten sind nicht betroffen.
+    assert!(p.get("https://magic.gg/decklists", "*/*").is_ok());
+    // Nach Ablauf wird wieder gefragt.
+    clock.advance(Duration::from_secs(21));
+    let _ = p.get(scry, "*/*");
+    assert_eq!(fake.calls(), 3);
 }
 
 #[test]

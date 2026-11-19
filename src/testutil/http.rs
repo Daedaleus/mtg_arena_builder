@@ -29,6 +29,8 @@ pub enum Reply {
     NotFound,
     /// Netz- oder Serverfehler.
     Fail,
+    /// HTTP 429 mit Wartezeit in Sekunden.
+    RateLimited(u64),
 }
 
 impl Reply {
@@ -80,6 +82,7 @@ impl Http for FakeHttp {
         match self.rules.iter().find(|(part, _)| url.contains(part)) {
             Some((_, Reply::Body(b))) => Ok(b.clone()),
             Some((_, Reply::Fail)) => Err(FetchError::Network("kein Netz".into())),
+            Some((_, Reply::RateLimited(s))) => Err(FetchError::RateLimited(*s)),
             Some((_, Reply::NotFound)) | None => Err(FetchError::NotFound),
         }
     }

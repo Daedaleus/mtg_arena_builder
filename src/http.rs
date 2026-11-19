@@ -12,6 +12,9 @@ use std::io::Read;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
+/// Wartezeit nach HTTP 429 ohne `Retry-After` (Sekunden).
+pub const DEFAULT_RETRY_AFTER: u64 = 60;
+
 /// Höchstens so viele Bytes je Antwort.
 const MAX_BYTES: u64 = 5_000_000;
 pub const USER_AGENT: &str = "mtg_arena_builder/0.1 (privates Deckbau-Werkzeug)";
@@ -20,7 +23,8 @@ pub const USER_AGENT: &str = "mtg_arena_builder/0.1 (privates Deckbau-Werkzeug)"
 pub const GAPS: [(&str, Duration); 3] = [
     ("www.mtgtop8.com", Duration::from_secs(5)),
     ("magic.gg", Duration::from_secs(2)),
-    ("api.scryfall.com", Duration::from_millis(100)),
+    // Scryfall erlaubt bis 10 Anfragen/s, drosselt die Suche aber strenger.
+    ("api.scryfall.com", Duration::from_millis(500)),
 ];
 
 /// Warum ein Abruf scheiterte. „Gibt es nicht“ ist eine Antwort (merken),
@@ -31,6 +35,9 @@ pub enum FetchError {
     NotFound,
     #[error("HTTP status {0}")]
     Status(u16),
+    /// Die Seite drosselt (HTTP 429): so lange keine Anfrage mehr schicken.
+    #[error("rate limited, retry after {0} s")]
+    RateLimited(u64),
     #[error("network error: {0}")]
     Network(String),
 }
@@ -75,6 +82,11 @@ impl Http for Ureq {
                 Ok(bytes)
             }
             Err(ureq::Error::Status(404, _)) => Err(FetchError::NotFound),
+            Err(ureq::Error::Status(429, resp)) => Err(FetchError::RateLimited(
+                resp.header("Retry-After")
+                    .and_then(|v| v.trim().parse().ok())
+                    .unwrap_or(DEFAULT_RETRY_AFTER),
+            )),
             Err(ureq::Error::Status(code, _)) => Err(FetchError::Status(code)),
             Err(e) => Err(FetchError::Network(e.to_string())),
         }
@@ -113,6 +125,8 @@ pub struct Polite<H> {
     gaps: Vec<(String, Duration)>,
     /// Frühester Zeitpunkt für die nächste Anfrage je Host.
     next: Mutex<HashMap<String, Instant>>,
+    /// Hosts, die gedrosselt haben (HTTP 429): bis dahin keine Anfrage.
+    blocked: Mutex<HashMap<String, Instant>>,
 }
 
 impl<H: Http> Polite<H> {
@@ -122,7 +136,24 @@ impl<H: Http> Polite<H> {
             clock,
             gaps: gaps.iter().map(|(h, d)| (h.to_string(), *d)).collect(),
             next: Mutex::new(HashMap::new()),
+            blocked: Mutex::new(HashMap::new()),
         }
+    }
+
+    /// Restliche Sperre für `host` nach einer Drosselung (in ganzen Sekunden,
+    /// aufgerundet) oder `None`.
+    fn blocked_for(&self, host: &str) -> Option<u64> {
+        let now = self.clock.now();
+        let blocked = self.blocked.lock().unwrap_or_else(|e| e.into_inner());
+        let until = blocked.get(host).copied().filter(|t| *t > now)?;
+        let left = until - now;
+        Some(left.as_secs() + u64::from(left.subsec_nanos() > 0))
+    }
+
+    fn block(&self, host: &str, secs: u64) {
+        let until = self.clock.now() + Duration::from_secs(secs);
+        let mut blocked = self.blocked.lock().unwrap_or_else(|e| e.into_inner());
+        blocked.insert(host.to_string(), until);
     }
 
     /// Reserviert den nächsten freien Zeitpunkt für `host` und liefert die
@@ -141,12 +172,22 @@ impl<H: Http> Polite<H> {
 }
 
 impl<H: Http> Http for Polite<H> {
+    /// Während einer Drosselung wird gar nicht angefragt – auch nicht von
+    /// anderen Threads –, sondern sofort `RateLimited` geliefert.
     fn get(&self, url: &str, accept: &str) -> Fetched {
-        let wait = self.reserve(host_of(url));
+        let host = host_of(url);
+        if let Some(left) = self.blocked_for(host) {
+            return Err(FetchError::RateLimited(left));
+        }
+        let wait = self.reserve(host);
         if !wait.is_zero() {
             self.clock.sleep(wait);
         }
-        self.inner.get(url, accept)
+        let result = self.inner.get(url, accept);
+        if let Err(FetchError::RateLimited(secs)) = &result {
+            self.block(host, *secs);
+        }
+        result
     }
 }
 

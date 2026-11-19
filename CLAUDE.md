@@ -87,7 +87,9 @@ Aufzählungen wie `Mistake` oder `LandVerdict`.
   Logs neu berechnet. Bessere Aufzeichnungen ersetzen schlechtere, nie
   umgekehrt (`quality`).
 - MTGTop8: höchstens eine Anfrage alle 5 Sekunden (robots.txt), alles cachen;
-  Scryfall 100 ms, magic.gg 2 s – eingestellt in `http::GAPS`.
+  Scryfall 500 ms, magic.gg 2 s – eingestellt in `http::GAPS`. Nach HTTP 429
+  sperrt `http::Polite` die Seite für die genannte Wartezeit. Den
+  Vertragstest gegen Scryfall nicht mehrmals kurz hintereinander starten.
 - Commits und Pushes nur auf Wunsch des Nutzers. Remote `origin` ist das
   private Repository `Daedaleus/mtg_checker` auf GitHub, Branch `main`.
   GitHub CLI: `C:\Program Files\GitHub CLI\gh.exe` (angemeldet).

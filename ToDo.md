@@ -82,8 +82,8 @@ Stand: 16.11.2026. Erledigtes steht in der Git-Historie.
       verweigertem Zugriff oder unklarem Grund, Speicherfehler gemeldet,
       Übersetzung beim Anzeigen) und `http::FetchError` (404 / Status /
       Netz) mit thiserror.
-- [ ] Netz: bei HTTP 429 (Scryfall drosselt) mit `Retry-After` warten statt
-      gleich aufzugeben.
+- [x] Netz: nach HTTP 429 sperrt `http::Polite` die Seite für `Retry-After`
+      (sonst 60 s) für alle Threads; Scryfall-Abstand 500 ms.
 - [x] Zweites Review, Schritt 5: `meta::Format` statt Index, `app::DeckId` statt
       Zahlenraum, lange Funktionen geteilt (keine über 100 Zeilen mehr),
       „Format:“ übersetzt, Begleitfenster liest nach dem Neuladen der
