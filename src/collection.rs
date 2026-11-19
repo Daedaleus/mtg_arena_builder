@@ -115,7 +115,7 @@ pub fn read_from_game() -> Result<Collection, String> {
     // Der Speicherleser kann bei unerwarteten Strukturen paniken – abfangen.
     let (cards, inv) = std::thread::spawn(raw_read)
         .join()
-        .map_err(|_| tr!("collection.speicher_mtg_arena_konnte").to_string())?;
+        .map_err(|_| tr!("collection.speicher_mtg_arena_konnte"))?;
 
     from_reader(&cards, &inv, now_unix())
 }
@@ -211,13 +211,12 @@ pub fn read_elevated(out: &Path) -> Result<Collection, String> {
             "collection.lesen_administratorrechten_wurde_abgebrochen"
         ));
     }
-    Collection::load(out)
-        .ok_or_else(|| tr!("collection.gespeicherte_sammlung_unlesbar").to_string())
+    Collection::load(out).ok_or_else(|| tr!("collection.gespeicherte_sammlung_unlesbar"))
 }
 
 #[cfg(not(windows))]
 pub fn read_elevated(_out: &Path) -> Result<Collection, String> {
-    Err(tr!("collection.bitte_app_root_rechten").into())
+    Err(tr!("collection.bitte_app_root_rechten"))
 }
 
 #[cfg(test)]

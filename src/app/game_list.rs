@@ -207,7 +207,7 @@ fn game_tips(ui: &mut egui::Ui, g: &GameRecord, db: &CardDb) {
         sorted.sort_by_key(|(_, f)| f.turn);
         for (title, f) in sorted {
             let when = if f.turn == 0 {
-                tr!("game_list.starthand").to_string()
+                tr!("game_list.starthand")
             } else {
                 tr!("game_list.zug", turn = f.turn)
             };

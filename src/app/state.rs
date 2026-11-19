@@ -130,7 +130,7 @@ impl App {
         std::thread::spawn(move || {
             let running = cfg!(target_os = "linux") || mtga_reader::api::find_process("MTGA");
             let result = if !running {
-                Err(tr!("state.mtg_arena_laeuft_nicht").to_string())
+                Err(tr!("state.mtg_arena_laeuft_nicht"))
             } else {
                 collection::read_from_game().or_else(|first| {
                     if cfg!(windows) && !collection::is_admin() {

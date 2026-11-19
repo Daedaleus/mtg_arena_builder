@@ -74,7 +74,7 @@ impl App {
                 ui.label(RichText::new(&player.reason).weak());
                 if recs.is_empty() {
                     let text = if loaded == 0 {
-                        tr!("games_overview.passende_decks_schlaegt_app").to_string()
+                        tr!("games_overview.passende_decks_schlaegt_app")
                     } else {
                         tr!(
                             "games_overview.unter_geladenen_turnierlisten_kein",
@@ -227,7 +227,7 @@ fn all_findings(ui: &mut egui::Ui, r: &games::Report) -> Option<usize> {
             ui.label(RichText::new(c.advice()).weak());
             for f in &c.items {
                 let when = if f.turn == 0 {
-                    tr!("games_overview.starthand").to_string()
+                    tr!("games_overview.starthand")
                 } else {
                     tr!("games_overview.zug", turn = f.turn)
                 };

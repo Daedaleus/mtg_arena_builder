@@ -115,7 +115,7 @@ pub(super) fn turn_hints(v: &mut CompanionView, ls: &LiveState, db: &CardDb) {
     }
     let mana = if plan.spells.is_empty() {
         if plan.mana_total > 0 {
-            tr!("live_hints.nichts_sinnvolles_bezahlbar").to_string()
+            tr!("live_hints.nichts_sinnvolles_bezahlbar")
         } else {
             String::new()
         }
