@@ -133,6 +133,8 @@ impl Tab {
 
 pub struct App {
     data_dir: PathBuf,
+    /// Gemeinsamer Netzabruf (siehe `http::shared`).
+    net: std::sync::Arc<dyn crate::http::Http>,
     settings: Settings,
     db: Option<std::sync::Arc<CardDb>>,
     db_status: String,
@@ -185,18 +187,25 @@ impl App {
         });
         cc.egui_ctx.set_zoom_factor(settings.zoom());
 
+        // Ein Netzabruf für alle Threads: Mindestabstände gelten gemeinsam.
+        let net = crate::http::shared();
         let (tx_job, rx_job) = channel();
         let (tx_msg, rx_msg) = channel();
         {
             let (tx, ctx, cache) = (tx_msg.clone(), cc.egui_ctx.clone(), data_dir.join("cache"));
-            std::thread::spawn(move || worker(rx_job, tx, ctx, cache));
+            let net = net.clone();
+            std::thread::spawn(move || worker(rx_job, tx, ctx, Fetcher::with_http(cache, net)));
         }
         let img_tx = {
             let (tx, ctx) = (tx_msg.clone(), cc.egui_ctx.clone());
-            images::spawn(data_dir.join("cache").join("img"), move |name, img| {
-                let _ = tx.send(Msg::Image(name, img));
-                ctx.request_repaint();
-            })
+            images::spawn(
+                data_dir.join("cache").join("img"),
+                net.clone(),
+                move |name, img| {
+                    let _ = tx.send(Msg::Image(name, img));
+                    ctx.request_repaint();
+                },
+            )
         };
 
         let repl = settings.replacement_map();
@@ -207,6 +216,7 @@ impl App {
             repl,
             collection: Collection::load(&data_dir.join("collection.json")),
             data_dir,
+            net,
             settings,
             db: None,
             db_status: String::new(),

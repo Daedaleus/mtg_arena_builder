@@ -206,11 +206,7 @@ fn downloads_once_then_uses_cache() {
         // MTGTop8 liefert ISO-8859-1.
         ("seite", Reply::Body(b"Caf\xE9".to_vec())),
     ]);
-    let delays = Delays {
-        top8: Duration::ZERO,
-        gg: Duration::ZERO,
-    };
-    let mut f = Fetcher::with_http(dir.0.clone(), Box::new(http.clone()), delays);
+    let mut f = Fetcher::with_http(dir.0.clone(), std::sync::Arc::new(http.clone()));
     assert_eq!(f.top8("seite", "seite.html", None).unwrap(), "Café");
     assert_eq!(f.top8("seite", "seite.html", None).unwrap(), "Café");
     assert_eq!(http.calls(), 1, "zweites Mal aus dem Cache");
@@ -221,4 +217,46 @@ fn downloads_once_then_uses_cache() {
         assert!(format!("{err:#}").contains(page), "{err:#}");
         assert!(!dir.path(&file).exists());
     }
+}
+
+#[test]
+fn legality_from_real_scryfall_pages() {
+    use crate::testutil::{FakeHttp, Reply, scryfall};
+    let dir = TempDir::new("meta_legal");
+    // Seite 2 zuerst prüfen: ihre Adresse enthält auch den Suchtext von Seite 1.
+    let http = FakeHttp::new(vec![
+        ("page=2", Reply::text(scryfall::LEGAL_PAGE2)),
+        ("f%3Astandard", Reply::text(scryfall::LEGAL_PAGE1)),
+    ]);
+    let f = Fetcher::with_http(dir.0.clone(), std::sync::Arc::new(http.clone()));
+    let names = f.legal_names("standard").unwrap();
+    // Vier Karten; die doppelseitige zählt auch mit ihrer Vorderseite.
+    assert_eq!(names.len(), 5, "{names:?}");
+    assert_eq!(http.calls(), 2, "beide Seiten geholt");
+    assert!(http.urls()[1].contains("page=2"), "next_page befolgt");
+    assert!(
+        http.requests
+            .lock()
+            .unwrap()
+            .iter()
+            .all(|(_, accept)| accept == "application/json")
+    );
+    // Danach aus dem Cache.
+    assert_eq!(f.legal_names("standard").unwrap(), names);
+    assert_eq!(http.calls(), 2);
+}
+
+#[test]
+fn legality_without_matches_or_network() {
+    use crate::testutil::{FakeHttp, Reply};
+    let dir = TempDir::new("meta_legal_404");
+    // Scryfall antwortet auf eine Suche ohne Treffer mit 404.
+    let none = FakeHttp::new(vec![]);
+    let f = Fetcher::with_http(dir.0.clone(), std::sync::Arc::new(none));
+    let err = f.legal_names("gibtsnicht").unwrap_err().to_string();
+    assert!(err.contains("keine Arena-Karten"), "{err}");
+    let down = FakeHttp::new(vec![("", Reply::Fail)]);
+    let f = Fetcher::with_http(dir.0.clone(), std::sync::Arc::new(down));
+    let err = f.legal_names("standard").unwrap_err().to_string();
+    assert!(err.starts_with("Scryfall"), "{err}");
 }

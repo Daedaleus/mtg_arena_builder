@@ -10,13 +10,12 @@
 
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::sync::mpsc::{Sender, channel};
-use std::thread::sleep;
-use std::time::Duration;
 
 use serde_json::Value;
 
-use crate::http::{Http, Ureq};
+use crate::http::Http;
 use crate::i18n::Locale;
 
 fn file_stem(name: &str) -> String {
@@ -40,7 +39,7 @@ pub struct Picture {
     pub rgba: Vec<u8>,
 }
 
-fn decode(bytes: &[u8]) -> Option<Picture> {
+pub(crate) fn decode(bytes: &[u8]) -> Option<Picture> {
     let img = image::load_from_memory(bytes).ok()?.to_rgba8();
     let size = [img.width() as usize, img.height() as usize];
     Some(Picture {
@@ -108,17 +107,11 @@ fn image_from_search(json: &str) -> Option<String> {
 
 const IMAGE: &str = "image/*,*/*;q=0.8";
 
-/// Scryfall bittet um 50–100 ms Abstand zwischen Anfragen.
-fn polite_get(http: &dyn Http, url: &str, accept: &str) -> anyhow::Result<Option<Vec<u8>>> {
-    sleep(Duration::from_millis(120));
-    http.get(url, accept)
-}
-
 /// Englisches Bild: erst exakter Name, sonst unscharfe Suche (z. B. bei
 /// doppelseitigen Karten). `Ok(None)` = Scryfall kennt keins.
 fn download_english(http: &dyn Http, name: &str) -> anyhow::Result<Option<Vec<u8>>> {
     for mode in ["exact", "fuzzy"] {
-        if let Some(bytes) = polite_get(http, &image_url(mode, name), IMAGE)? {
+        if let Some(bytes) = http.get(&image_url(mode, name), IMAGE)? {
             return Ok(Some(bytes));
         }
     }
@@ -127,17 +120,17 @@ fn download_english(http: &dyn Http, name: &str) -> anyhow::Result<Option<Vec<u8
 
 /// Bild eines Drucks in der Sprache `lang` (`Ok(None)` = keiner vorhanden).
 fn download_localized(http: &dyn Http, name: &str, lang: &str) -> anyhow::Result<Option<Vec<u8>>> {
-    let Some(json) = polite_get(http, &search_url(name, lang), "application/json")? else {
+    let Some(json) = http.get(&search_url(name, lang), "application/json")? else {
         return Ok(None);
     };
     match image_from_search(&String::from_utf8_lossy(&json)) {
-        Some(url) => polite_get(http, &url, IMAGE),
+        Some(url) => http.get(&url, IMAGE),
         None => Ok(None),
     }
 }
 
 /// Bild zu einem Schlüssel (siehe [`key`]); ohne Druck in der Sprache das englische.
-fn download(http: &dyn Http, key: &str) -> anyhow::Result<Option<Vec<u8>>> {
+pub(crate) fn download(http: &dyn Http, key: &str) -> anyhow::Result<Option<Vec<u8>>> {
     match split_key(key) {
         (name, Some(lang)) => match download_localized(http, name, lang)? {
             Some(bytes) => Ok(Some(bytes)),
@@ -222,13 +215,16 @@ fn load(http: &dyn Http, cache: &Path, name: &str) -> Fetched {
 
 /// Startet den Bild-Thread. Kartennamen in den zurückgegebenen Kanal schicken;
 /// `done` wird mit dem Bild (oder `None`) aufgerufen.
-pub fn spawn(cache: PathBuf, done: impl Fn(String, Fetched) + Send + 'static) -> Sender<String> {
+pub fn spawn(
+    cache: PathBuf,
+    http: Arc<dyn Http>,
+    done: impl Fn(String, Fetched) + Send + 'static,
+) -> Sender<String> {
     let (tx, rx) = channel::<String>();
     let _ = fs::create_dir_all(&cache);
     std::thread::spawn(move || {
-        let http = Ureq::new(Duration::from_secs(20));
         while let Ok(name) = rx.recv() {
-            let img = load(&http, &cache, &name);
+            let img = load(http.as_ref(), &cache, &name);
             done(name, img);
         }
     });

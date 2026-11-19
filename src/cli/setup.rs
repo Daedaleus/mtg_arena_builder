@@ -99,6 +99,7 @@ pub fn image(names: &[String]) {
     let (tx, rx) = std::sync::mpsc::channel();
     let req = images::spawn(
         paths::data_dir().join("cache").join("img"),
+        mtg_arena_builder::http::shared(),
         move |name, img| {
             let size = match img {
                 images::Fetched::Found(p) => Some(p.size),

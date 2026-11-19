@@ -79,12 +79,13 @@ fn worker_answers_from_cache() {
     store(&dir.0, "Shock", Some(&png()));
     store(&dir.0, "Nichts", None);
     let (done_tx, done_rx) = channel();
-    let tx = spawn(dir.0.clone(), move |name, img| {
+    let net: std::sync::Arc<dyn Http> = std::sync::Arc::new(crate::testutil::FakeHttp::new(vec![]));
+    let tx = spawn(dir.0.clone(), net, move |name, img| {
         let _ = done_tx.send((name, matches!(img, Fetched::Found(_))));
     });
     tx.send("Shock".into()).unwrap();
     tx.send("Nichts".into()).unwrap();
-    let wait = Duration::from_secs(5);
+    let wait = std::time::Duration::from_secs(5);
     assert_eq!(done_rx.recv_timeout(wait).unwrap(), ("Shock".into(), true));
     assert_eq!(
         done_rx.recv_timeout(wait).unwrap(),
@@ -95,10 +96,13 @@ fn worker_answers_from_cache() {
 #[test]
 fn downloads_localized_with_fallback() {
     use crate::testutil::{FakeHttp, Reply};
-    let search = br#"{"data":[{"image_uris":{"normal":"https://img/schock.jpg"}}]}"#.to_vec();
+    // Echte Scryfall-Antwort für den deutschen Druck.
     let http = FakeHttp::new(vec![
-        ("lang%3Ade", Reply::Body(search)),
-        ("img/schock", Reply::Body(b"DE".to_vec())),
+        (
+            "lang%3Ade",
+            Reply::text(crate::testutil::scryfall::SHOCK_DE),
+        ),
+        ("e2b163ad", Reply::Body(b"DE".to_vec())),
         ("exact=Shock", Reply::Body(b"EN".to_vec())),
         ("Opt", Reply::Fail),
     ]);
@@ -117,4 +121,18 @@ fn downloads_localized_with_fallback() {
     let empty = FakeHttp::new(vec![]);
     assert_eq!(load(&empty, &dir.0, "Opt"), Fetched::NotFound);
     assert!(matches!(from_cache(&dir.0, "Opt"), Cached::Missing));
+}
+
+#[test]
+fn image_urls_from_real_scryfall_answers() {
+    use crate::testutil::scryfall;
+    let shock = image_from_search(scryfall::SHOCK_DE).unwrap();
+    assert!(
+        shock.contains("/normal/") && shock.contains("e2b163ad"),
+        "{shock}"
+    );
+    // Doppelseitige Karte: Vorderseite aus card_faces.
+    let fable = image_from_search(scryfall::FABLE_DE).unwrap();
+    assert!(fable.contains("/normal/front/"), "{fable}");
+    assert_eq!(image_from_search(scryfall::NOT_FOUND), None);
 }

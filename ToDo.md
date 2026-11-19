@@ -76,9 +76,10 @@ Stand: 16.11.2026. Erledigtes steht in der Git-Historie.
       thiserror), nicht lesbare nicht überschrieben; Probehände verfallen bei
       neuer Liste; Legalität und Kartenbilder werden nach Netzfehlern erneut
       angefragt; Fortschrittsmeldungen lösen keine Neuberechnung aus.
-- [ ] Zweites Review, Schritt 3: gemeinsamer Scryfall-Abstand (`Polite` +
-      einschleusbare Uhr), `images::spawn` mit `Http`, echte Antworten als
-      Testdaten, Vertragstest `#[ignore]` gegen die echte API.
+- [x] Zweites Review, Schritt 3: gemeinsamer Netzabruf `http::shared()` mit
+      Mindestabständen je Seite (`Polite`, einschleusbare Uhr), echte
+      Scryfall-Antworten als Testdaten, Vertragstest `#[ignore]`; Testsuite
+      wieder ca. 0,2 s.
 - [ ] Zweites Review, Schritt 4: `CollectionError`/`FetchError` mit thiserror,
       übersetzt erst beim Anzeigen; Speicherfehler der Sammlung melden;
       UAC-Abfrage nur bei verweigertem Zugriff.

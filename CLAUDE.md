@@ -68,14 +68,21 @@ Aufzählungen wie `Mistake` oder `LandVerdict`.
   per `#[cfg(test)] #[path = "tests/<modul>.rs"] mod tests;`). Testdaten
   (Karten, Lognachrichten, temporäre Ordner) aus `src/testutil.rs`.
   `coverage.ps1` verlangt mindestens 90 % Zeilenabdeckung ohne `src/app/` und `main.rs`.
-- Tests dürfen weder Netzwerk noch das echte Datenverzeichnis anfassen.
+- Tests dürfen weder Netzwerk noch das echte Datenverzeichnis anfassen. Netz in
+  Tests über `testutil::FakeHttp` (mit echten, gekürzten Antworten aus
+  `testutil/fixtures/`), Wartezeiten über `testutil::FakeClock`. Einzige
+  Ausnahme: der Vertragstest `contract_with_real_scryfall` (`#[ignore]`, von
+  Hand mit `cargo test -- --ignored`).
+- Netzabruf in der App immer über den gemeinsamen `http::shared()` – er hält
+  die Mindestabstände je Seite (`http::GAPS`) über alle Threads ein.
 - Der Test `texts_have_no_broken_line_continuations` findet Texte, bei denen
   beim Bearbeiten das `\` am Zeilenende verloren ging (lange Leerzeichenfolgen).
 - Ändert sich, was der Log-Parser pro Partie speichert, `PARSER_VERSION` in
   `games/store.rs` erhöhen – dann werden gespeicherte Partien aus noch vorhandenen
   Logs neu berechnet. Bessere Aufzeichnungen ersetzen schlechtere, nie
   umgekehrt (`quality`).
-- MTGTop8: höchstens eine Anfrage alle 5 Sekunden (robots.txt), alles cachen.
+- MTGTop8: höchstens eine Anfrage alle 5 Sekunden (robots.txt), alles cachen;
+  Scryfall 100 ms, magic.gg 2 s – eingestellt in `http::GAPS`.
 - Commits und Pushes nur auf Wunsch des Nutzers. Remote `origin` ist das
   private Repository `Daedaleus/mtg_checker` auf GitHub, Branch `main`.
   GitHub CLI: `C:\Program Files\GitHub CLI\gh.exe` (angemeldet).

@@ -106,9 +106,13 @@ impl App {
         self.gg.sel_deck = None;
         self.status = tr!("state.lade_metagame_mtgtop8", v = FORMATS[format].1);
         if self.tour.legal_requested.insert(format) {
-            let (tx, cache) = (self.tx_msg.clone(), self.data_dir.join("cache"));
+            let (tx, cache, net) = (
+                self.tx_msg.clone(),
+                self.data_dir.join("cache"),
+                self.net.clone(),
+            );
             std::thread::spawn(move || {
-                let r = Fetcher::new(cache)
+                let r = Fetcher::with_http(cache, net)
                     .legal_names(FORMATS[format].2)
                     .map_err(|e| format!("{e:#}"));
                 let _ = tx.send(Msg::Legal(format, r));

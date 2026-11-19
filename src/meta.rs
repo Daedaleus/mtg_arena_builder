@@ -6,15 +6,14 @@
 use std::collections::HashSet;
 use std::fs;
 use std::path::PathBuf;
-use std::thread::sleep;
-use std::time::{Duration, Instant, SystemTime};
+use std::sync::Arc;
+use std::time::SystemTime;
 
 use anyhow::{Context, Result};
 use regex::Regex;
 
 use crate::carddb::name_key;
 pub use crate::http::Http;
-use crate::http::Ureq;
 use crate::magicgg::{self, GgDeck, GgEvent};
 
 /// (MTGTop8-Kürzel, Anzeigename, Scryfall-Formatname)
@@ -27,10 +26,7 @@ pub const FORMATS: [(&str, &str, &str); 5] = [
 ];
 
 const TOP8: &str = "https://www.mtgtop8.com";
-const TOP8_DELAY: Duration = Duration::from_secs(5);
 const GG: &str = "https://magic.gg";
-/// magic.gg nennt keine Wartezeit; trotzdem höflich bleiben.
-const GG_DELAY: Duration = Duration::from_secs(2);
 const HOUR: u64 = 3600;
 
 #[derive(Clone, Debug)]
@@ -52,39 +48,10 @@ pub struct DeckRef {
     pub date: String,
 }
 
-/// Wartezeiten zwischen Anfragen an dieselbe Seite.
-#[derive(Clone, Copy, Debug)]
-pub struct Delays {
-    pub top8: Duration,
-    pub gg: Duration,
-}
-
-impl Default for Delays {
-    fn default() -> Delays {
-        Delays {
-            top8: TOP8_DELAY,
-            gg: GG_DELAY,
-        }
-    }
-}
-
 pub struct Fetcher {
-    http: Box<dyn Http>,
+    /// Netzabruf; hält die Mindestabstände je Seite selbst ein (siehe [`crate::http`]).
+    http: Arc<dyn Http>,
     cache: PathBuf,
-    delays: Delays,
-    last_top8: Option<Instant>,
-    last_gg: Option<Instant>,
-}
-
-/// Wartet, bis seit der letzten Anfrage an dieselbe Seite `delay` vergangen ist.
-fn throttle(last: &mut Option<Instant>, delay: Duration) {
-    if let Some(t) = *last {
-        let since = t.elapsed();
-        if since < delay {
-            sleep(delay - since);
-        }
-    }
-    *last = Some(Instant::now());
 }
 
 fn decode_entities(s: &str) -> String {
@@ -97,24 +64,16 @@ fn decode_entities(s: &str) -> String {
 }
 
 impl Fetcher {
+    /// Mit eigenem echten Netzabruf (für die Kommandozeile).
     pub fn new(cache: PathBuf) -> Fetcher {
-        Fetcher::with_http(
-            cache,
-            Box::new(Ureq::new(Duration::from_secs(30))),
-            Delays::default(),
-        )
+        Fetcher::with_http(cache, crate::http::shared())
     }
 
-    /// Wie [`Fetcher::new`], aber mit eigenem Netzabruf und eigenen Wartezeiten.
-    pub fn with_http(cache: PathBuf, http: Box<dyn Http>, delays: Delays) -> Fetcher {
+    /// Mit vorhandenem Netzabruf – in der App teilen sich alle Threads einen,
+    /// damit die Mindestabstände gemeinsam gelten.
+    pub fn with_http(cache: PathBuf, http: Arc<dyn Http>) -> Fetcher {
         let _ = fs::create_dir_all(&cache);
-        Fetcher {
-            http,
-            cache,
-            delays,
-            last_top8: None,
-            last_gg: None,
-        }
+        Fetcher { http, cache }
     }
 
     fn cached(&self, file: &str, max_age_secs: Option<u64>) -> Option<String> {
@@ -153,7 +112,6 @@ impl Fetcher {
         if let Some(hit) = self.cached(file, max_age_secs) {
             return Ok(hit);
         }
-        throttle(&mut self.last_top8, self.delays.top8);
         self.download(&format!("{TOP8}/{path}"), file, true)
     }
 
@@ -162,7 +120,6 @@ impl Fetcher {
         if let Some(hit) = self.cached(file, max_age_secs) {
             return Ok(hit);
         }
-        throttle(&mut self.last_gg, self.delays.gg);
         self.download(&format!("{GG}/{path}"), file, false)
     }
 
@@ -281,11 +238,12 @@ impl Fetcher {
             "https://api.scryfall.com/cards/search?q=f%3A{scryfall_format}+game%3Aarena&unique=cards"
         );
         loop {
-            let bytes = self
+            let reply = self
                 .http
                 .get(&url, "application/json")
-                .and_then(|b| b.ok_or_else(|| anyhow::anyhow!("404")))
                 .map_err(|e| anyhow::anyhow!(tr!("meta.scryfall", e = format!("{e:#}"))))?;
+            // Scryfall antwortet auf eine Suche ohne Treffer mit 404.
+            let Some(bytes) = reply else { break };
             let page: serde_json::Value = serde_json::from_slice(&bytes)?;
             let (found, next) = parse_scryfall_page(&page);
             names.extend(found);
@@ -293,7 +251,6 @@ impl Fetcher {
                 Some(next) => url = next,
                 None => break,
             }
-            sleep(Duration::from_millis(120)); // Scryfall bittet um 50–100 ms Abstand
         }
         if names.is_empty() {
             anyhow::bail!(tr!("meta.scryfall_kennt_dieses_format"));

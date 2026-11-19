@@ -55,8 +55,7 @@ pub(super) enum Msg {
 }
 
 /// Arbeitet Web-Abrufe nacheinander ab (MTGTop8 erlaubt nur eine Anfrage alle 5 s).
-pub(super) fn worker(rx: Receiver<Job>, tx: Sender<Msg>, ctx: egui::Context, cache: PathBuf) {
-    let mut fetcher = Fetcher::new(cache);
+pub(super) fn worker(rx: Receiver<Job>, tx: Sender<Msg>, ctx: egui::Context, mut fetcher: Fetcher) {
     let mut queue: VecDeque<Job> = VecDeque::new();
     loop {
         // „Clear“ wirkt sofort beim Eintreffen – es darf nie in der Warteschlange

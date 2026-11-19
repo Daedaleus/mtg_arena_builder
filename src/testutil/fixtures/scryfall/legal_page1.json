@@ -1,0 +1,46 @@
+{
+ "object": "list",
+ "total_cards": 5460,
+ "has_more": true,
+ "next_page": "https://api.scryfall.com/cards/search?format=json&include_extras=false&include_multilingual=false&include_variations=false&order=name&page=2&q=f%3Astandard+game%3Aarena&unique=cards",
+ "data": [
+  {
+   "object": "card",
+   "name": "70,000 Light-Years from Home",
+   "lang": "en",
+   "set": "trk",
+   "collector_number": "1",
+   "layout": "normal",
+   "image_uris": {
+    "small": "https://cards.scryfall.io/small/front/0/2/02080f42-863a-471b-992b-67e35ef1b7b7.jpg?1786005780",
+    "normal": "https://cards.scryfall.io/normal/front/0/2/02080f42-863a-471b-992b-67e35ef1b7b7.jpg?1786005780"
+   }
+  },
+  {
+   "object": "card",
+   "name": "Aang, at the Crossroads // Aang, Destined Savior",
+   "lang": "en",
+   "set": "tla",
+   "collector_number": "203",
+   "layout": "transform",
+   "card_faces": [
+    {
+     "object": "card_face",
+     "name": "Aang, at the Crossroads",
+     "image_uris": {
+      "small": "https://cards.scryfall.io/small/front/f/e/fea89ca0-8070-4f28-9851-994314f9d248.jpg?1783904940",
+      "normal": "https://cards.scryfall.io/normal/front/f/e/fea89ca0-8070-4f28-9851-994314f9d248.jpg?1783904940"
+     }
+    },
+    {
+     "object": "card_face",
+     "name": "Aang, Destined Savior",
+     "image_uris": {
+      "small": "https://cards.scryfall.io/small/back/f/e/fea89ca0-8070-4f28-9851-994314f9d248.jpg?1783904940",
+      "normal": "https://cards.scryfall.io/normal/back/f/e/fea89ca0-8070-4f28-9851-994314f9d248.jpg?1783904940"
+     }
+    }
+   ]
+  }
+ ]
+}

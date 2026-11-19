@@ -123,6 +123,10 @@ fn every_used_key_exists() {
             }
             let text = std::fs::read_to_string(&path).unwrap();
             for (i, _) in text.match_indices("tr!(\"") {
+                // Nur das Makro `tr!`, nicht z. B. `include_str!`.
+                if text[..i].ends_with(|c: char| c.is_alphanumeric() || c == '_') {
+                    continue;
+                }
                 let rest = &text[i + 5..];
                 let key = &rest[..rest.find('"').unwrap()];
                 if !known.contains(key) {

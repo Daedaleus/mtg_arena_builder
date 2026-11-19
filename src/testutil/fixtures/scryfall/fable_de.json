@@ -1,0 +1,35 @@
+{
+ "object": "list",
+ "total_cards": 1,
+ "has_more": false,
+ "data": [
+  {
+   "object": "card",
+   "name": "Fable of the Mirror-Breaker // Reflection of Kiki-Jiki",
+   "lang": "de",
+   "set": "neo",
+   "collector_number": "141",
+   "layout": "transform",
+   "card_faces": [
+    {
+     "object": "card_face",
+     "name": "Fable of the Mirror-Breaker",
+     "printed_name": "Fabel vom Spiegelzerbrecher",
+     "image_uris": {
+      "small": "https://cards.scryfall.io/small/front/a/f/afe18d5c-22be-4ed5-bca1-860249e598ab.jpg?1782862132",
+      "normal": "https://cards.scryfall.io/normal/front/a/f/afe18d5c-22be-4ed5-bca1-860249e598ab.jpg?1782862132"
+     }
+    },
+    {
+     "object": "card_face",
+     "name": "Reflection of Kiki-Jiki",
+     "printed_name": "Spiegelung von Kiki-Jiki",
+     "image_uris": {
+      "small": "https://cards.scryfall.io/small/back/a/f/afe18d5c-22be-4ed5-bca1-860249e598ab.jpg?1782862132",
+      "normal": "https://cards.scryfall.io/normal/back/a/f/afe18d5c-22be-4ed5-bca1-860249e598ab.jpg?1782862132"
+     }
+    }
+   ]
+  }
+ ]
+}
