@@ -16,7 +16,7 @@ use std::sync::{Arc, Mutex, RwLock};
 use std::thread::sleep;
 use std::time::{Duration, Instant};
 
-use crate::carddb::{Card, CardDb};
+use crate::carddb::{Card, CardDb, GrpId};
 use crate::combat::unblocked_damage;
 use crate::games::arena::Phase;
 use crate::games::{GameRecord, LiveState, LogParser};

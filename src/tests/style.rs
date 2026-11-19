@@ -3,17 +3,17 @@ use crate::deck::parse;
 use crate::games::{Category, Finding, TurnStat};
 use crate::testutil::*;
 
-fn ids(parts: &[(u32, usize)]) -> Vec<u32> {
+fn ids(parts: &[(GrpId, usize)]) -> Vec<GrpId> {
     parts
         .iter()
         .flat_map(|(g, n)| std::iter::repeat_n(*g, *n))
         .collect()
 }
 
-fn aggro() -> Vec<u32> {
+fn aggro() -> Vec<GrpId> {
     ids(&[(MOUNTAIN, 24), (ELF, 20), (BEAR, 16)])
 }
-fn control() -> Vec<u32> {
+fn control() -> Vec<GrpId> {
     ids(&[
         (ISLAND, 26),
         (COUNTER, 12),
@@ -22,7 +22,7 @@ fn control() -> Vec<u32> {
         (GIANT, 4),
     ])
 }
-fn midrange() -> Vec<u32> {
+fn midrange() -> Vec<GrpId> {
     ids(&[(FOREST, 24), (OGRE, 16), (GIANT, 12), (SHOCK, 8)])
 }
 
@@ -51,7 +51,7 @@ fn deck_types() {
     }
 }
 
-fn game(deck: Vec<u32>, won: bool) -> GameRecord {
+fn game(deck: Vec<GrpId>, won: bool) -> GameRecord {
     GameRecord {
         won: Some(won),
         deck,

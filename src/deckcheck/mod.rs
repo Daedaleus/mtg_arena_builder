@@ -11,7 +11,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use crate::carddb::{Card, CardDb, Rarity, name_key};
+use crate::carddb::{Card, CardDb, GrpId, Rarity, name_key};
 use crate::deck::Deck;
 use crate::games::GameRecord;
 use crate::similar;
@@ -32,7 +32,7 @@ pub const MIN_GAMES_FOR_WINRATE: usize = 10;
 pub struct DeckGroup {
     pub label: String,
     /// Deckliste (grpIds, Mehrfachnennung = Anzahl).
-    pub deck: Vec<u32>,
+    pub deck: Vec<GrpId>,
     /// Indizes in die Partienliste.
     pub games: Vec<usize>,
     pub wins: usize,
@@ -158,7 +158,7 @@ pub struct MetaArchetype<'a> {
 }
 
 /// Deckliste als Text für „Eigene Liste prüfen“ bzw. den Arena-Import.
-pub fn deck_text(deck: &[u32], db: &CardDb) -> String {
+pub fn deck_text(deck: &[GrpId], db: &CardDb) -> String {
     let mut counts: Vec<(String, u32)> = Vec::new();
     for grp in deck {
         let name = db

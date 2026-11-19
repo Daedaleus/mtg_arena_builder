@@ -1,5 +1,6 @@
 //! Künstliche Arena-Lognachrichten (Spielzustände, Annotationen, Räume).
 
+use crate::carddb::GrpId;
 use serde_json::{Value, json};
 
 /// Eine `greToClientEvent`-Zeile mit den angegebenen Nachrichten.
@@ -21,7 +22,7 @@ pub fn state(seat: u32, state: Value) -> Value {
     })
 }
 
-pub fn connect(seat: u32, deck: &[u32]) -> Value {
+pub fn connect(seat: u32, deck: &[GrpId]) -> Value {
     json!({
         "type": "GREMessageType_ConnectResp",
         "systemSeatIds": [seat],
@@ -52,7 +53,7 @@ pub fn room(match_id: &str, seat: u32, event: &str) -> String {
 #[derive(Clone)]
 pub struct Obj {
     pub id: u32,
-    pub grp: u32,
+    pub grp: GrpId,
     pub zone: u32,
     pub owner: u32,
     pub kind: &'static str,
@@ -65,7 +66,7 @@ pub struct Obj {
     pub keywords: Vec<u32>,
 }
 
-pub fn obj(id: u32, grp: u32, zone: u32, owner: u32) -> Obj {
+pub fn obj(id: u32, grp: GrpId, zone: u32, owner: u32) -> Obj {
     Obj {
         id,
         grp,

@@ -17,7 +17,7 @@ pub(super) enum SimTarget {
     /// mit dem Stand der Liste beim Start (siehe `SimState::list_gen`).
     Deck(DeckId, u64),
     /// Deck aus „Deck verbessern“ (grpIds der Liste).
-    Group(Vec<u32>),
+    Group(Vec<GrpId>),
 }
 
 /// Auswertung „Meine Partien“ für einen Filter.
@@ -107,7 +107,7 @@ impl App {
     }
 
     /// Startet Probehände im Hintergrund (nichts, wenn sie schon laufen).
-    pub(super) fn start_trial(&mut self, target: SimTarget, deck: Vec<u32>) {
+    pub(super) fn start_trial(&mut self, target: SimTarget, deck: Vec<GrpId>) {
         let Some(db) = self.db.clone() else { return };
         if !self.sims.running.insert(target.clone()) {
             return;

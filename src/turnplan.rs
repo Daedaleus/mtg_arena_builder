@@ -6,7 +6,9 @@
 //! Kartenziehen, Kreatur …) geschätzt. Mana aus anderen Quellen als Ländern
 //! bleibt unberücksichtigt.
 
-use crate::carddb::{Card, CardDb, ROLE_COUNTER, ROLE_DRAW, ROLE_REMOVAL, ROLE_WIPE, keyword};
+use crate::carddb::{
+    Card, CardDb, GrpId, ROLE_COUNTER, ROLE_DRAW, ROLE_REMOVAL, ROLE_WIPE, keyword,
+};
 
 /// Schlüsselwort-Fähigkeit „Eile“ in der Arena-Datenbank.
 /// Höchstens so viele Handkarten werden kombiniert (2^n Möglichkeiten).
@@ -15,28 +17,28 @@ const MAX_CANDIDATES: usize = 12;
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Plan {
     /// Land, das gelegt werden soll.
-    pub land: Option<u32>,
+    pub land: Option<GrpId>,
     /// Das empfohlene Land kommt getappt ins Spiel.
     pub land_tapped: bool,
     /// Auszuspielende Karten in sinnvoller Reihenfolge.
-    pub spells: Vec<u32>,
+    pub spells: Vec<GrpId>,
     pub mana_used: u32,
     pub mana_total: u32,
     /// Spontane Karten, die man besser für den Zug des Gegners aufhebt und
     /// die mit dem übrigen Mana noch bezahlbar sind.
-    pub hold: Vec<u32>,
+    pub hold: Vec<GrpId>,
     /// Stärkste gegnerische Kreatur – Ziel für Entfernung.
-    pub target: Option<u32>,
+    pub target: Option<GrpId>,
 }
 
 /// Farbmaske, die ein Land liefert (unbekannte Länder gelten als beliebig).
-fn land_colors(db: &CardDb, grp: u32) -> u8 {
+fn land_colors(db: &CardDb, grp: GrpId) -> u8 {
     db.cards.get(&grp).map(|c| c.colors).unwrap_or(0x1F)
 }
 
 /// Manaquellen (Farbmasken) aus ungetappten Ländern und weiteren Permanents
 /// mit Manafähigkeit (z. B. Llanowar Elves); Permanents ohne sie zählen nicht.
-pub fn sources(db: &CardDb, lands: &[u32], permanents: &[u32]) -> Vec<u8> {
+pub fn sources(db: &CardDb, lands: &[GrpId], permanents: &[GrpId]) -> Vec<u8> {
     lands
         .iter()
         .map(|g| land_colors(db, *g))
@@ -147,11 +149,11 @@ fn best_subset<'a>(cands: &[&'a Card], sources: &[u8], threat: i32) -> (i32, Vec
 /// Berechnet den Vorschlag für den eigenen Zug.
 pub fn plan(
     db: &CardDb,
-    hand: &[u32],
-    untapped_lands: &[u32],
-    mana_permanents: &[u32],
+    hand: &[GrpId],
+    untapped_lands: &[GrpId],
+    mana_permanents: &[GrpId],
     land_played: bool,
-    opp_creatures: &[(u32, i32)],
+    opp_creatures: &[(GrpId, i32)],
     my_creatures: u32,
 ) -> Plan {
     let cards: Vec<&Card> = hand.iter().filter_map(|g| db.cards.get(g)).collect();
@@ -254,10 +256,10 @@ pub fn creatures_after_combat(db: &CardDb, plan: &Plan) -> bool {
 /// Spontane Entfernung, die jetzt (im Zug des Gegners) bezahlbar ist.
 pub fn instant_removal(
     db: &CardDb,
-    hand: &[u32],
-    untapped_lands: &[u32],
-    mana_permanents: &[u32],
-) -> Vec<u32> {
+    hand: &[GrpId],
+    untapped_lands: &[GrpId],
+    mana_permanents: &[GrpId],
+) -> Vec<GrpId> {
     let sources = sources(db, untapped_lands, mana_permanents);
     hand.iter()
         .filter_map(|g| db.cards.get(g))

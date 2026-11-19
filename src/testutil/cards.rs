@@ -1,7 +1,7 @@
 //! Kartenbaukasten und eine kleine Standard-Kartendatenbank.
 
 use crate::carddb::{
-    Card, CardDb, ROLE_COUNTER, ROLE_DRAW, ROLE_REMOVAL, ROLE_WIPE, Rarity, TYPE_CREATURE,
+    Card, CardDb, GrpId, ROLE_COUNTER, ROLE_DRAW, ROLE_REMOVAL, ROLE_WIPE, Rarity, TYPE_CREATURE,
     TYPE_INSTANT, TYPE_LAND, TYPE_SORCERY,
 };
 
@@ -17,7 +17,8 @@ fn colors_of(cost: &str) -> u8 {
 /// Baukasten für eine Karte.
 pub struct CardBuilder(Card);
 
-pub fn card(grp: u32, name: &str) -> CardBuilder {
+pub fn card(grp: impl Into<GrpId>, name: &str) -> CardBuilder {
+    let grp: GrpId = grp.into();
     CardBuilder(Card {
         grp_id: grp,
         name: name.into(),
@@ -121,27 +122,27 @@ impl CardBuilder {
 }
 
 // grpIds der Standard-Testkarten
-pub const PLAINS: u32 = 1;
-pub const ISLAND: u32 = 2;
-pub const SWAMP: u32 = 3;
-pub const MOUNTAIN: u32 = 4;
-pub const FOREST: u32 = 5;
-pub const DUAL_UG: u32 = 6;
-pub const TAPLAND_UR: u32 = 7;
-pub const BEAR: u32 = 10;
-pub const OGRE: u32 = 11;
-pub const ELF: u32 = 12;
-pub const GIANT: u32 = 13;
-pub const SPIRIT: u32 = 14;
-pub const SHOCK: u32 = 20;
-pub const MURDER: u32 = 21;
-pub const COUNTER: u32 = 22;
-pub const DIVINATION: u32 = 23;
-pub const WRATH: u32 = 24;
-pub const SPIKE: u32 = 25;
-pub const GROWTH: u32 = 26;
-pub const DRAGON: u32 = 30;
-pub const ANGEL: u32 = 31;
+pub const PLAINS: GrpId = GrpId(1);
+pub const ISLAND: GrpId = GrpId(2);
+pub const SWAMP: GrpId = GrpId(3);
+pub const MOUNTAIN: GrpId = GrpId(4);
+pub const FOREST: GrpId = GrpId(5);
+pub const DUAL_UG: GrpId = GrpId(6);
+pub const TAPLAND_UR: GrpId = GrpId(7);
+pub const BEAR: GrpId = GrpId(10);
+pub const OGRE: GrpId = GrpId(11);
+pub const ELF: GrpId = GrpId(12);
+pub const GIANT: GrpId = GrpId(13);
+pub const SPIRIT: GrpId = GrpId(14);
+pub const SHOCK: GrpId = GrpId(20);
+pub const MURDER: GrpId = GrpId(21);
+pub const COUNTER: GrpId = GrpId(22);
+pub const DIVINATION: GrpId = GrpId(23);
+pub const WRATH: GrpId = GrpId(24);
+pub const SPIKE: GrpId = GrpId(25);
+pub const GROWTH: GrpId = GrpId(26);
+pub const DRAGON: GrpId = GrpId(30);
+pub const ANGEL: GrpId = GrpId(31);
 
 /// Kleine, aber vielseitige Kartenauswahl für Tests.
 pub fn std_cards() -> Vec<Card> {

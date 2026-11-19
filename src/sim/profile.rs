@@ -212,7 +212,13 @@ pub struct Trial {
 }
 
 /// Führt alle Varianten aus; `history` sind die eigenen Partien.
-pub fn trial(deck: &[u32], db: &CardDb, history: &[GameRecord], games: usize, seed: u64) -> Trial {
+pub fn trial(
+    deck: &[GrpId],
+    db: &CardDb,
+    history: &[GameRecord],
+    games: usize,
+    seed: u64,
+) -> Trial {
     let fast = simulate(deck, db, games, seed);
     let opponent = opponent_from(history, db);
     let habits = habits_from(history, db);

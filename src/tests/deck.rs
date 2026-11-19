@@ -120,7 +120,7 @@ fn exports_for_arena() {
     let deck = parse("4 Shock\n20 Mountain\n2 Missing Card\nSideboard\n2 Duress\n");
     let eval = evaluate(&deck, &db, &owned(&[("shock", 2)]));
     let mut coll = HashMap::new();
-    coll.insert(1u32, 2u32);
+    coll.insert(GrpId(1), 2u32);
 
     // Mit Set-Kürzeln: bevorzugt den eigenen Druck; Ersatz für fehlende Shock.
     let text = export_arena(&eval, &db, Some(&coll), true, true, |l| {

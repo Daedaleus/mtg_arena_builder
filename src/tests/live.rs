@@ -84,9 +84,9 @@ fn level_of(v: &CompanionView, needle: &str) -> Level {
         .0
 }
 
-fn creature_at(grp: u32, power: i32, toughness: i32) -> LiveCreature {
+fn creature_at(grp: GrpId, power: i32, toughness: i32) -> LiveCreature {
     LiveCreature {
-        grp_id: grp,
+        grp_id: grp.0,
         power,
         toughness,
         ..Default::default()
@@ -333,7 +333,7 @@ fn name_lists_are_shortened() {
         names(&db, &[BEAR, OGRE, ELF], 2),
         "Grizzly Bears, Hill Ogre (+1)"
     );
-    assert_eq!(names(&db, &[999], 2), "");
+    assert_eq!(names(&db, &[GrpId(999)], 2), "");
     assert_eq!(
         phase_label(Phase::from_arena("Phase_Beginning")),
         "Zugbeginn"

@@ -1,14 +1,14 @@
 use super::*;
 use crate::testutil::*;
 
-fn deck(parts: &[(u32, usize)]) -> Vec<u32> {
+fn deck(parts: &[(GrpId, usize)]) -> Vec<GrpId> {
     parts
         .iter()
         .flat_map(|(g, n)| std::iter::repeat_n(*g, *n))
         .collect()
 }
 
-fn run(parts: &[(u32, usize)]) -> SimReport {
+fn run(parts: &[(GrpId, usize)]) -> SimReport {
     simulate(&deck(parts), &std_db(), 400, 42)
 }
 
@@ -143,7 +143,7 @@ fn slow_decks_get_run_over() {
 #[test]
 fn board_rules() {
     let db = std_db();
-    let card = |g: u32| &db.cards[&g];
+    let card = |g: GrpId| &db.cards[&g];
     let mut b = pressure::Board::new();
     // Zug 1 des Gegners: Kreatur kommt, greift aber noch nicht an.
     assert!(b.opp_turn(1).is_empty());
@@ -181,7 +181,7 @@ fn board_rules() {
 #[test]
 fn racing_rules() {
     let db = std_db();
-    let card = |g: u32| &db.cards[&g];
+    let card = |g: GrpId| &db.cards[&g];
     // Gefahrloser Angriff: kein Blocker, Gegenschlag überlebbar.
     let mut b = pressure::Board::new();
     b.cast(card(OGRE));
@@ -323,7 +323,7 @@ fn history_game(opp_power: &[i32], my_turn: TurnStat) -> GameRecord {
     }
 }
 
-fn my_turn(hand: &[u32], lands: &[u32], attacked: bool, safe_idle: &[u32]) -> TurnStat {
+fn my_turn(hand: &[GrpId], lands: &[GrpId], attacked: bool, safe_idle: &[GrpId]) -> TurnStat {
     TurnStat {
         mine: true,
         hand: hand.to_vec(),
@@ -449,7 +449,7 @@ fn personal_simulation() {
 #[test]
 fn opponent_removal_and_tricks() {
     let db = std_db();
-    let card = |g: u32| &db.cards[&g];
+    let card = |g: GrpId| &db.cards[&g];
     // Entfernung trifft die stärkste eigene Kreatur.
     let mut b = pressure::Board::new();
     b.cast(card(ELF));

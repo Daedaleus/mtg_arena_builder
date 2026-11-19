@@ -47,7 +47,7 @@ pub fn check(
 }
 
 /// Karten des Decks nach Name (Drucke zusammengefasst), mit Anzahl.
-fn deck_stats(deck: &[u32], db: &CardDb) -> HashMap<String, CardStat> {
+fn deck_stats(deck: &[GrpId], db: &CardDb) -> HashMap<String, CardStat> {
     let mut stats: HashMap<String, CardStat> = HashMap::new();
     for c in deck.iter().filter_map(|grp| db.cards.get(grp)) {
         let key = name_key(&c.name);
@@ -65,7 +65,7 @@ fn deck_stats(deck: &[u32], db: &CardDb) -> HashMap<String, CardStat> {
 }
 
 /// Farben der Nichtland-Karten als Bitmaske.
-fn spell_colors(deck: &[u32], db: &CardDb) -> u8 {
+fn spell_colors(deck: &[GrpId], db: &CardDb) -> u8 {
     deck.iter()
         .filter_map(|g| db.cards.get(g))
         .filter(|c| !c.is_land())
@@ -77,7 +77,7 @@ fn spell_colors(deck: &[u32], db: &CardDb) -> u8 {
 /// Version 3 der Auswertung mitgeschrieben; ältere Partien (Log schon
 /// überschrieben) zählen für die Kartennutzung nicht.
 fn count_usage(stats: &mut HashMap<String, CardStat>, games: &[&GameRecord], db: &CardDb) -> usize {
-    let key_of = |grp: &u32| db.cards.get(grp).map(|c| name_key(&c.name));
+    let key_of = |grp: &GrpId| db.cards.get(grp).map(|c| name_key(&c.name));
     let tracked: Vec<&&GameRecord> = games
         .iter()
         .filter(|g| g.turns.iter().any(|t| !t.cast.is_empty()))

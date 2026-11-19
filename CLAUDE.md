@@ -40,6 +40,9 @@ und englisch, übersetzt wird erst beim Anzeigen (`user_text()`), damit ein
 Sprachwechsel auch Fehlermeldungen erfasst;
 Deck-Kennungen als `app::DeckId` (eingefügt, gebaut, MTGTop8, magic.gg; in
 `settings.json` als Zahl über `to_raw`/`from_raw`), Formate als `meta::Format`.
+Arena-Kartennummern immer als `carddb::GrpId` (nie lose `u32`; in Tests die
+Konstanten aus `testutil::cards` oder `GrpId(…)`); `LiveCreature::grp_id` bleibt
+`u32`, weil die Simulation dort fortlaufende Nummern vergibt.
 
 Große Module sind Ordner mit Teilmodulen nach Aufgabe; `mod.rs` beschreibt
 oben den Aufbau und exportiert die öffentlichen Teile, Pfade wie

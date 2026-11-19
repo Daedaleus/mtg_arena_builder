@@ -5,6 +5,8 @@ use super::*;
 /// Kreatur im Spiel, für die Angriffsrechnung des Begleitfensters.
 #[derive(Clone, Debug, Default)]
 pub struct LiveCreature {
+    /// Kennung im Kampf (Block-Zuordnung). Im Begleitfenster die Karten-ID
+    /// (`GrpId::0`), in der Simulation eine fortlaufende Nummer.
     pub grp_id: u32,
     pub power: i32,
     pub toughness: i32,
@@ -28,27 +30,27 @@ pub struct LiveState {
     pub life_me: i32,
     pub life_opp: i32,
     /// Eigene Handkarten (grpIds).
-    pub hand: Vec<u32>,
+    pub hand: Vec<GrpId>,
     pub lands_me: u32,
     pub lands_untapped: u32,
     /// grpIds der eigenen ungetappten Länder (für die Farbprüfung).
-    pub untapped_lands: Vec<u32>,
+    pub untapped_lands: Vec<GrpId>,
     /// Kreaturen des Gegners: (grpId, Kraft).
-    pub opp_creatures: Vec<(u32, i32)>,
+    pub opp_creatures: Vec<(GrpId, i32)>,
     /// Eigene ungetappte Nichtländer, die jetzt Mana erzeugen könnten
     /// (Kreaturen ohne Einsatzverzögerung); ob sie es können, weiß die Kartendatenbank.
-    pub mana_permanents: Vec<u32>,
+    pub mana_permanents: Vec<GrpId>,
     pub land_played: bool,
     pub creatures_me: u32,
     pub creatures_opp: u32,
     /// Starthand wird gerade angeboten (Mulligan-Entscheidung).
     pub mulligan: bool,
     /// Kreaturen (grpIds), die gerade gefahrlos angreifen könnten.
-    pub safe_attackers: Vec<u32>,
+    pub safe_attackers: Vec<GrpId>,
     /// Gegnerzug: Anzahl angreifender gegnerischer Kreaturen.
     pub opp_attackers: u32,
     /// Bisher gesehene Karten des Gegners (grpIds).
-    pub opp_cards: Vec<u32>,
+    pub opp_cards: Vec<GrpId>,
     /// Eigene Kreaturen, die jetzt angreifen könnten.
     pub attackers: Vec<LiveCreature>,
     /// Ungetappte Kreaturen des Gegners (mögliche Blocker).

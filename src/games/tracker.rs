@@ -19,11 +19,11 @@ pub(super) struct Tracker {
     pub(super) seen_annotations: HashSet<u64>,
     pub(super) cur: TurnStat,
     pub(super) mulligan_reqs: u32,
-    pub(super) seen_cards: HashMap<u32, HashSet<u32>>,
+    pub(super) seen_cards: HashMap<GrpId, HashSet<u32>>,
     /// Instanzen, die in diesem Zug angegriffen haben.
     pub(super) attacked_ids: HashSet<u32>,
     /// Vor dem Kampf: (Instanz, grpId) meiner gefahrlos angreifbaren Kreaturen.
-    pub(super) safe_snapshot: Vec<(u32, u32)>,
+    pub(super) safe_snapshot: Vec<(u32, GrpId)>,
 }
 
 pub(super) fn u(v: &Value) -> u32 {
@@ -68,7 +68,7 @@ impl Tracker {
             .count() as u32
     }
 
-    pub(super) fn hand(&self) -> Vec<u32> {
+    pub(super) fn hand(&self) -> Vec<GrpId> {
         let me = self.seat();
         self.zones
             .values()
@@ -77,7 +77,7 @@ impl Tracker {
                 z.2.iter()
                     .filter_map(|id| self.objects.get(id))
                     .map(|o| o.grp_id)
-                    .filter(|g| *g > 0)
+                    .filter(|g| g.is_known())
                     .collect()
             })
             .unwrap_or_default()
@@ -179,7 +179,7 @@ impl Tracker {
         let state =
             |key: &str, values: &[&str]| o[key].as_str().is_some_and(|s| values.contains(&s));
         Obj {
-            grp_id: u(&o["grpId"]),
+            grp_id: GrpId(u(&o["grpId"])),
             zone: u(&o["zoneId"]),
             owner: u(&o["ownerSeatId"]),
             controller: u(&o["controllerSeatId"]),
@@ -267,7 +267,7 @@ impl Tracker {
                 self.zone_type(obj.zone),
                 zone::BATTLEFIELD | zone::STACK | zone::GRAVEYARD | zone::EXILE | zone::REVEALED
             );
-            if public && obj.owner == opp && obj.grp_id > 0 {
+            if public && obj.owner == opp && obj.grp_id.is_known() {
                 self.seen_cards.entry(obj.grp_id).or_default().insert(id);
             }
             self.objects.insert(id, obj);
@@ -315,9 +315,9 @@ impl Tracker {
                 .objects
                 .get(&u(&a["affectorId"]))
                 .map(|o| (o.grp_id, o.controller))
-                .unwrap_or((0, 0));
+                .unwrap_or_default();
             let damage = u(&detail("damage")["valueInt32"][0]);
-            if source > 0 && damage > 0 {
+            if source.is_known() && damage > 0 {
                 if hits_me {
                     *self.rec.damage_taken.entry(source).or_insert(0) += damage;
                 }
@@ -338,9 +338,9 @@ impl Tracker {
                 .objects
                 .get(&u(target))
                 .map(|o| (o.controller, o.grp_id))
-                .unwrap_or((0, 0));
+                .unwrap_or_default();
             // Eigene Zauber merken – auch Spontanzauber im gegnerischen Zug.
-            if category == annotation::CAST_SPELL && controller == self.seat() && grp > 0 {
+            if category == annotation::CAST_SPELL && controller == self.seat() && grp.is_known() {
                 self.cur.cast.push(grp);
             }
             match category.as_str() {

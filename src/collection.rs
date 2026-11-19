@@ -13,7 +13,7 @@ use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::carddb::CardDb;
+use crate::carddb::{CardDb, GrpId};
 
 #[derive(Clone, Copy, Debug, Default, Serialize, Deserialize)]
 pub struct Wildcards {
@@ -33,7 +33,7 @@ impl Wildcards {
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct Collection {
     /// grpId -> Anzahl
-    pub cards: HashMap<u32, u32>,
+    pub cards: HashMap<GrpId, u32>,
     pub wildcards: Wildcards,
     pub gold: u32,
     pub gems: u32,
@@ -240,7 +240,7 @@ pub fn from_reader(cards: &Value, inv: &Value, now: u64) -> Result<Collection, C
             .unwrap_or(0)
             .clamp(0, 99) as u32;
         if grp > 0 && qty > 0 {
-            out.cards.insert(grp, qty);
+            out.cards.insert(GrpId(grp), qty);
         }
     }
     if out.cards.is_empty() {

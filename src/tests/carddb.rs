@@ -128,11 +128,11 @@ fn lookup_and_printings() {
     assert_eq!(db.resolve("OPT").as_deref(), Some("opt"));
     assert_eq!(db.resolve("Opt // Something").as_deref(), Some("opt"));
     assert_eq!(db.resolve("Unbekannt"), None);
-    assert_eq!(db.printings("opt"), &[11, 12, 13]);
+    assert_eq!(db.printings("opt"), &[GrpId(11), GrpId(12), GrpId(13)]);
     assert!(db.printings("nix").is_empty());
     // Neuester regulärer Druck wird bevorzugt.
     assert_eq!(db.representative("opt").unwrap().set, "NEW");
-    assert_eq!(db.representative("back").unwrap().grp_id, 14);
+    assert_eq!(db.representative("back").unwrap().grp_id, GrpId(14));
     assert!(db.representative("nix").is_none());
     // Günstigste Seltenheit über alle Drucke.
     assert_eq!(db.craft_rarity("opt"), Rarity::Common);
@@ -224,22 +224,22 @@ fn loads_arena_database() {
     assert_eq!(db.version, "2026.11");
     // Token und Karten ohne Namen fehlen.
     assert_eq!(db.cards.len(), 4);
-    let shock = &db.cards[&100];
+    let shock = &db.cards[&GrpId(100)];
     assert_eq!(shock.name, "Shock");
     assert_eq!(shock.name_de.as_deref(), Some("Schock"));
     assert_eq!((shock.cmc, shock.mana_cost.as_str()), (1, "{R}"));
     assert_eq!(shock.colors, 1 << 3);
     assert!(shock.has_role(ROLE_REMOVAL));
     assert_eq!(shock.burn, 2);
-    let maze = &db.cards[&101];
+    let maze = &db.cards[&GrpId(101)];
     assert_eq!(maze.name_de, None, "Platzhalter werden ignoriert");
     assert!(maze.is_land() && maze.enters_tapped);
     assert_eq!(maze.colors, 0b10010);
     assert_eq!(maze.subtypes, vec![10, 11]);
-    let forest = &db.cards[&102];
+    let forest = &db.cards[&GrpId(102)];
     assert_eq!(forest.name, "Forest");
     assert!(forest.basic);
-    let bears = &db.cards[&105];
+    let bears = &db.cards[&GrpId(105)];
     assert!(bears.back_face);
     assert!(!bears.regular);
     assert_eq!((bears.power.as_str(), bears.toughness.as_str()), ("2", "2"));
@@ -249,7 +249,7 @@ fn loads_arena_database() {
 fn loads_without_german_and_reports_errors() {
     let dir = TempDir::new("carddb");
     let db = CardDb::load(&arena_db(&dir, false)).unwrap();
-    assert_eq!(db.cards[&100].name_de, None);
+    assert_eq!(db.cards[&GrpId(100)].name_de, None);
     assert!(CardDb::load(&dir.path("fehlt.mtga")).is_err());
 }
 

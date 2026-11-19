@@ -42,7 +42,7 @@ fn progress_page_renders() {
 #[test]
 fn sim_page_renders() {
     let db = std_db();
-    let deck: Vec<u32> = std::iter::repeat_n(FOREST, 24)
+    let deck: Vec<GrpId> = std::iter::repeat_n(FOREST, 24)
         .chain(std::iter::repeat_n(BEAR, 36))
         .collect();
     let report = crate::sim::trial(&deck, &db, &[], 50, 1);
@@ -110,7 +110,7 @@ fn texts_have_no_broken_line_continuations() {
 #[test]
 fn personal_sim_renders() {
     let db = std_db();
-    let deck: Vec<u32> = std::iter::repeat_n(FOREST, 24)
+    let deck: Vec<GrpId> = std::iter::repeat_n(FOREST, 24)
         .chain(std::iter::repeat_n(BEAR, 36))
         .collect();
     let base = crate::sim::trial(&deck, &db, &[], 30, 1);

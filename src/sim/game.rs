@@ -28,12 +28,12 @@ struct GameStats {
 pub(super) struct Game<'a> {
     db: &'a CardDb,
     pub(super) on_play: bool,
-    library: Vec<u32>,
-    hand: Vec<u32>,
+    library: Vec<GrpId>,
+    hand: Vec<GrpId>,
     /// Eigene Länder im Spiel.
-    lands: Vec<u32>,
+    lands: Vec<GrpId>,
     /// Nichtländer mit Manafähigkeit im Spiel (z. B. Llanowar Elves).
-    mana_sources: Vec<u32>,
+    mana_sources: Vec<GrpId>,
     board: Board,
     /// Ungenutztes Mana des Zugvorschlags in diesem Zug.
     mana_left: u32,
@@ -44,10 +44,10 @@ impl<'a> Game<'a> {
     /// Mischt, zieht sieben Karten und nimmt bei zu wenigen oder zu vielen
     /// Ländern einmal einen Mulligan (London: 7 ziehen, eine Karte unter
     /// die Bibliothek – bei vielen Ländern ein Land, sonst die teuerste).
-    pub(super) fn deal(deck: &[u32], db: &'a CardDb, on_play: bool, rng: &mut Rng) -> Game<'a> {
+    pub(super) fn deal(deck: &[GrpId], db: &'a CardDb, on_play: bool, rng: &mut Rng) -> Game<'a> {
         let mut library = deck.to_vec();
         rng.shuffle(&mut library);
-        let mut hand: Vec<u32> = library.drain(..7).collect();
+        let mut hand: Vec<GrpId> = library.drain(..7).collect();
         let mulligan = !KEEP_LANDS.contains(&lands_in(db, &hand));
         if mulligan {
             library.append(&mut hand);
@@ -139,7 +139,7 @@ impl<'a> Game<'a> {
     }
 
     /// Spielt eine Karte aus der Hand.
-    fn cast(&mut self, grp: u32) {
+    fn cast(&mut self, grp: GrpId) {
         let Some(i) = self.hand.iter().position(|h| *h == grp) else {
             return;
         };
@@ -153,7 +153,7 @@ impl<'a> Game<'a> {
     }
 
     /// Gestorbene Manakreaturen liefern kein Mana mehr.
-    fn lose_mana_sources(&mut self, died: &[u32]) {
+    fn lose_mana_sources(&mut self, died: &[GrpId]) {
         for grp in died {
             if let Some(i) = self.mana_sources.iter().position(|g| g == grp) {
                 self.mana_sources.remove(i);
@@ -202,7 +202,7 @@ impl<'a> Game<'a> {
 fn skip_priciest(
     db: &CardDb,
     h: &Habits,
-    spells: &mut Vec<u32>,
+    spells: &mut Vec<GrpId>,
     mana_used: &mut u32,
     rng: &mut Rng,
 ) {

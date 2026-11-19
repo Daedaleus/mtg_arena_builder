@@ -69,7 +69,7 @@ pub(super) struct SimState {
     /// Je Deck der Deckansicht.
     pub decks: HashMap<DeckId, sim::Trial>,
     /// Je Deck aus „Deck verbessern“ (grpIds der Liste).
-    pub groups: HashMap<Vec<u32>, sim::Trial>,
+    pub groups: HashMap<Vec<GrpId>, sim::Trial>,
     pub running: HashSet<SimTarget>,
     /// Stand je Deck-Kennung; steigt, wenn dort eine neue Liste liegt.
     pub generations: HashMap<DeckId, u64>,

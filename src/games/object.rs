@@ -6,7 +6,7 @@ use super::*;
 /// Spielobjekt mit den Werten, die die Auswertung braucht.
 #[derive(Clone, Default)]
 pub(super) struct Obj {
-    pub(super) grp_id: u32,
+    pub(super) grp_id: GrpId,
     pub(super) zone: u32,
     pub(super) owner: u32,
     pub(super) controller: u32,
@@ -24,7 +24,7 @@ pub(super) struct Obj {
 impl Obj {
     pub(super) fn live(&self) -> LiveCreature {
         LiveCreature {
-            grp_id: self.grp_id,
+            grp_id: self.grp_id.0,
             power: self.power.max(0),
             toughness: self.toughness,
             flying: self.has(kw::FLYING),

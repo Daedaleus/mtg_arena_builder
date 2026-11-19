@@ -26,7 +26,7 @@ fn pay_with_colors() {
     assert!(can_pay(&[], &[]));
 }
 
-fn plan_for(hand: &[u32], lands: &[u32], played: bool, opp: &[(u32, i32)]) -> Plan {
+fn plan_for(hand: &[GrpId], lands: &[GrpId], played: bool, opp: &[(GrpId, i32)]) -> Plan {
     plan(&std_db(), hand, lands, &[], played, opp, 0)
 }
 
@@ -50,7 +50,7 @@ fn checks_colors() {
     let p = plan_for(&[BEAR, ELF], &[MOUNTAIN, MOUNTAIN], true, &[]);
     assert!(p.spells.is_empty());
     // Unbekannte Länder gelten als beliebige Farbe.
-    let p = plan_for(&[ELF], &[9999], true, &[]);
+    let p = plan_for(&[ELF], &[GrpId(9999)], true, &[]);
     assert_eq!(p.spells, vec![ELF]);
 }
 
@@ -156,7 +156,7 @@ fn creatures_after_combat_rule() {
     assert!(!creatures_after_combat(
         &hasty,
         &Plan {
-            spells: vec![1],
+            spells: vec![GrpId(1)],
             ..Default::default()
         }
     ));

@@ -13,7 +13,7 @@ pub(super) fn phase_label(phase: Phase) -> String {
     }
 }
 
-pub(super) fn names(db: &CardDb, grps: &[u32], limit: usize) -> String {
+pub(super) fn names(db: &CardDb, grps: &[GrpId], limit: usize) -> String {
     let mut list: Vec<String> = Vec::new();
     for g in grps {
         if let Some(c) = db.cards.get(g)
@@ -33,7 +33,7 @@ pub(super) fn names(db: &CardDb, grps: &[u32], limit: usize) -> String {
 
 /// Erkennt das gegnerische Deck aus den bisher gesehenen Karten.
 pub(super) fn guess_opponent<'a>(
-    cards: &[u32],
+    cards: &[GrpId],
     db: &CardDb,
     meta: &'a [ArchShare],
 ) -> (String, Option<&'a ArchShare>) {
@@ -41,7 +41,7 @@ pub(super) fn guess_opponent<'a>(
     match crate::opponents::match_archetype(&seen, meta) {
         Some(a) => (tr!("live_view.vermutlich", name = a.name), Some(a)),
         None => {
-            let ids: Vec<u32> = cards.to_vec();
+            let ids: Vec<GrpId> = cards.to_vec();
             let colors = crate::games::deck_colors(&ids, db);
             let label = if colors.is_empty() {
                 tr!("live_view.noch_unbekannt")

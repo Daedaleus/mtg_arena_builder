@@ -5,7 +5,7 @@
 //! anhand von Manakurve, Kreaturenanteil und Interaktion (Entfernung,
 //! Konter, Kartenziehen). Dazu kommen Gewohnheiten aus den eigenen Partien.
 
-use crate::carddb::{Card, CardDb, ROLE_COUNTER, ROLE_DRAW, ROLE_REMOVAL};
+use crate::carddb::{Card, CardDb, GrpId, ROLE_COUNTER, ROLE_DRAW, ROLE_REMOVAL};
 use crate::deck::Deck;
 use crate::games::{GameRecord, Mistake, Report, TurnStat};
 
@@ -91,7 +91,7 @@ impl DeckProfile {
     }
 
     /// Profil eines Decks aus grpIds (z. B. eigene Partien).
-    pub fn of_ids(deck: &[u32], db: &CardDb) -> DeckProfile {
+    pub fn of_ids(deck: &[GrpId], db: &CardDb) -> DeckProfile {
         let cards: Vec<&Card> = deck.iter().filter_map(|g| db.cards.get(g)).collect();
         DeckProfile::of(&cards)
     }

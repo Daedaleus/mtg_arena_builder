@@ -24,10 +24,51 @@ pub const TYPE_LAND: u8 = 5;
 
 /// Kennung eines Kartendrucks in Arena („grpId“). Jeder Druck hat eine
 /// eigene; denselben Namen tragen oft mehrere.
-pub type GrpId = u32;
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    serde::Serialize,
+    serde::Deserialize,
+)]
+#[serde(transparent)]
+pub struct GrpId(pub u32);
+
+impl GrpId {
+    /// Kennung aus einem Arena-Wert (JSON-Zahl im Log, Datenbankspalte).
+    pub fn new(id: u32) -> GrpId {
+        GrpId(id)
+    }
+
+    /// 0 = kein Kartendruck (z. B. verdeckte Karten im Log).
+    pub fn is_known(self) -> bool {
+        self.0 > 0
+    }
+}
+
+impl std::fmt::Display for GrpId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
+impl From<u32> for GrpId {
+    fn from(id: u32) -> GrpId {
+        GrpId(id)
+    }
+}
 
 /// Normalisierter Kartenname (siehe [`name_key`]) – fasst alle Drucke einer
 /// Karte zusammen; Schlüssel für Sammlung, Turnierlisten und Ersatzkarten.
+/// Bewusst nur ein Alias: Die Schlüssel kommen aus vielen Textquellen
+/// (MTGTop8, magic.gg, Sammlung) und werden nie mit Zahlen verwechselt;
+/// erzeugt werden sie immer über [`name_key`].
 pub type CardKey = String;
 
 /// Seltenheit einer Karte (Reihenfolge = Wert: Mythic ist die höchste).
@@ -196,7 +237,7 @@ pub struct CardDb {
 }
 
 /// Normalisiert Kartennamen für den Vergleich zwischen Quellen.
-pub fn name_key(name: &str) -> String {
+pub fn name_key(name: &str) -> CardKey {
     let mut s = name
         .trim()
         .to_lowercase()
@@ -215,7 +256,7 @@ impl CardDb {
     /// Baut die Datenbank aus fertigen Karten (z. B. für Tests).
     pub fn from_cards(list: Vec<Card>, version: impl Into<String>) -> CardDb {
         let mut cards = HashMap::new();
-        let mut by_name: HashMap<String, Vec<u32>> = HashMap::new();
+        let mut by_name: HashMap<String, Vec<GrpId>> = HashMap::new();
         for card in list {
             by_name
                 .entry(name_key(&card.name))
@@ -253,7 +294,7 @@ impl CardDb {
     }
 
     /// Alle Drucke (grpIds) zu einem aufgelösten Namensschlüssel.
-    pub fn printings(&self, key: &str) -> &[u32] {
+    pub fn printings(&self, key: &str) -> &[GrpId] {
         self.by_name.get(key).map(Vec::as_slice).unwrap_or(&[])
     }
 

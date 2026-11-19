@@ -2,7 +2,7 @@ use super::*;
 use crate::deck::parse;
 use crate::testutil::*;
 
-fn opp_game(won: Option<bool>, cards: &[u32], turns: u32) -> GameRecord {
+fn opp_game(won: Option<bool>, cards: &[GrpId], turns: u32) -> GameRecord {
     GameRecord {
         won,
         opp_cards: cards.iter().map(|g| (*g, 1)).collect(),
@@ -76,7 +76,7 @@ fn groups_by_opponent() {
     let mut lost_to_red = opp_game(Some(false), &[SHOCK, OGRE], 6);
     lost_to_red.damage_taken.insert(OGRE, 9);
     lost_to_red.damage_taken.insert(SHOCK, 4);
-    lost_to_red.damage_taken.insert(9999, 1);
+    lost_to_red.damage_taken.insert(GrpId(9999), 1);
     let mut lost_again = opp_game(Some(false), &[SPIKE], 4);
     lost_again.damage_taken.insert(SPIKE, 3);
     let won_vs_blue = opp_game(Some(true), &[SPIRIT], 8);

@@ -3,7 +3,7 @@ use crate::games::TurnStat;
 use crate::testutil::*;
 
 /// Mein Zug mit Hand und Ländern im Spiel.
-fn my_turn(n: u32, lands: u32, hand: &[u32], cast: &[u32]) -> TurnStat {
+fn my_turn(n: u32, lands: u32, hand: &[GrpId], cast: &[GrpId]) -> TurnStat {
     TurnStat {
         turn: n,
         mine: true,
@@ -15,7 +15,7 @@ fn my_turn(n: u32, lands: u32, hand: &[u32], cast: &[u32]) -> TurnStat {
     }
 }
 
-fn deck() -> Vec<u32> {
+fn deck() -> Vec<GrpId> {
     let mut d = vec![MOUNTAIN; 10];
     d.extend([FOREST; 7]);
     d.extend([OGRE; 4]);
@@ -234,7 +234,7 @@ fn compares_with_tournament_archetype() {
 fn deck_as_text() {
     let db = std_db();
     assert_eq!(
-        deck_text(&[OGRE, OGRE, MOUNTAIN, 9999], &db),
+        deck_text(&[OGRE, OGRE, MOUNTAIN, GrpId(9999)], &db),
         "Deck\n2 Hill Ogre\n1 Mountain\n1 #9999\n"
     );
 }

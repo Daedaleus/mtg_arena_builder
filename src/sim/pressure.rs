@@ -86,7 +86,7 @@ pub(super) fn creature_of(card: &Card, id: u32) -> LiveCreature {
 #[derive(Clone, Debug)]
 pub(super) struct Unit {
     /// grpId der Karte (für Manakreaturen; beim Gegner 0).
-    pub card: u32,
+    pub card: GrpId,
     pub c: LiveCreature,
     /// Darf angreifen (keine Einsatzverzögerung mehr).
     pub ready: bool,
@@ -190,8 +190,9 @@ impl Board {
     }
 
     /// Gegnerische Kreaturen für den Zugvorschlag: (Kennung, Kraft).
-    pub fn opp_creatures(&self) -> Vec<(u32, i32)> {
-        self.opp.iter().map(|u| (u.c.grp_id, u.c.power)).collect()
+    pub fn opp_creatures(&self) -> Vec<(GrpId, i32)> {
+        // Die Kreaturen des Gegners haben keine Karte, nur Werte.
+        self.opp.iter().map(|u| (u.card, u.c.power)).collect()
     }
 
     /// Beginn des eigenen Zuges: eigene Kreaturen enttappen und werden bereit.
@@ -245,14 +246,14 @@ impl Board {
     /// Eigener Angriff nach dem Ausspielen. Liefert die grpIds eigener
     /// Kreaturen, die dabei gestorben sind.
     #[cfg(test)]
-    pub fn my_attack(&mut self) -> Vec<u32> {
+    pub fn my_attack(&mut self) -> Vec<GrpId> {
         self.my_attack_with(false, false)
     }
 
     /// Wie [`Board::my_attack`]; `hesitant` = nur tödliche Angriffe (Gewohnheit,
     /// gefahrlose Angriffe auszulassen), `trick` = der Gegner hat einen
     /// Kampftrick für einen Blocker.
-    pub fn my_attack_with(&mut self, hesitant: bool, trick: bool) -> Vec<u32> {
+    pub fn my_attack_with(&mut self, hesitant: bool, trick: bool) -> Vec<GrpId> {
         if self.over() {
             return Vec::new();
         }
@@ -297,7 +298,7 @@ impl Board {
     }
 
     /// Entfernt tote eigene Kreaturen und liefert ihre grpIds.
-    fn remove_mine(&mut self, dead: &[u32]) -> Vec<u32> {
+    fn remove_mine(&mut self, dead: &[u32]) -> Vec<GrpId> {
         let died = self
             .mine
             .iter()
@@ -311,7 +312,7 @@ impl Board {
     /// Zug des Gegners: angreifen, blocken, dann die nächste Kreatur spielen.
     /// Liefert die grpIds der eigenen Kreaturen, die dabei gestorben sind.
     #[cfg(test)]
-    pub fn opp_turn(&mut self, turn: usize) -> Vec<u32> {
+    pub fn opp_turn(&mut self, turn: usize) -> Vec<GrpId> {
         self.opp_turn_with(Some(OPP_CURVE[(turn - 1).min(TURNS - 1)]), false, false)
     }
 
@@ -323,7 +324,7 @@ impl Board {
         new: Option<(i32, i32)>,
         removal: bool,
         trick: bool,
-    ) -> Vec<u32> {
+    ) -> Vec<GrpId> {
         if self.over() {
             return Vec::new();
         }
@@ -365,7 +366,7 @@ impl Board {
         };
         let id = self.id();
         self.opp.push(Unit {
-            card: 0,
+            card: GrpId::default(),
             c: LiveCreature {
                 grp_id: id,
                 power,

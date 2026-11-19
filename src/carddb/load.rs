@@ -110,7 +110,7 @@ fn card_from_row(r: &rusqlite::Row) -> rusqlite::Result<Card> {
         .filter(|c| (1..=5).contains(c))
         .fold(0u8, |m, c| m | (1 << (c - 1)));
     Ok(Card {
-        grp_id: r.get::<_, i64>(0)? as u32,
+        grp_id: GrpId(r.get::<_, i64>(0)? as u32),
         name: strip_tags(&text(r, 1)),
         name_de: r
             .get::<_, Option<String>>(2)

@@ -175,7 +175,7 @@ impl Rank {
 impl GameRecord {
     /// Karten, die ich in dieser Partie gezogen bzw. gesehen habe (Starthand,
     /// Hand an einem Zugende oder gewirkt).
-    pub fn seen_cards(&self) -> HashSet<u32> {
+    pub fn seen_cards(&self) -> HashSet<GrpId> {
         self.opening_hand
             .iter()
             .chain(self.turns.iter().flat_map(|t| t.hand.iter().chain(&t.cast)))
@@ -183,7 +183,7 @@ impl GameRecord {
             .collect()
     }
 
-    pub fn cast_cards(&self) -> HashSet<u32> {
+    pub fn cast_cards(&self) -> HashSet<GrpId> {
         self.turns
             .iter()
             .flat_map(|t| t.cast.iter())

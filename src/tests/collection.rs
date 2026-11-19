@@ -18,7 +18,7 @@ fn builds_from_reader_output() {
     });
     let c = from_reader(&cards, &inv, 42).unwrap();
     assert_eq!(c.cards.len(), 2);
-    assert_eq!(c.cards[&21], 99, "auf 99 begrenzt");
+    assert_eq!(c.cards[&GrpId(21)], 99, "auf 99 begrenzt");
     assert_eq!(c.wildcards.as_array(), [10, 5, 2, 0]);
     assert_eq!((c.gold, c.gems, c.updated_unix), (1500, 200, 42));
     assert_eq!(c.total_cards(), 103);
@@ -77,9 +77,9 @@ fn owned_by_name_sums_printings() {
         "t",
     );
     let mut c = Collection::default();
-    c.cards.insert(1, 2);
-    c.cards.insert(2, 3);
-    c.cards.insert(99, 1);
+    c.cards.insert(GrpId(1), 2);
+    c.cards.insert(GrpId(2), 3);
+    c.cards.insert(GrpId(99), 1);
     let owned = c.owned_by_name(&db);
     assert_eq!(owned.get("shock"), Some(&5));
     assert_eq!(owned.get("opt"), None);
@@ -89,7 +89,7 @@ fn owned_by_name_sums_printings() {
 fn save_load_roundtrip() {
     let dir = TempDir::new("collection");
     let mut c = Collection::default();
-    c.cards.insert(7, 4);
+    c.cards.insert(GrpId(7), 4);
     c.wildcards.rare = 3;
     c.updated_unix = 1;
     let path = dir.path("collection.json");

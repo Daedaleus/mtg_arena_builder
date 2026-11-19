@@ -47,7 +47,7 @@ pub use store::*;
 use tracker::*;
 
 /// Farben eines Decks als Buchstaben (z. B. „UR“), aus den Manakosten.
-pub fn deck_colors(deck: &[u32], db: &CardDb) -> String {
+pub fn deck_colors(deck: &[GrpId], db: &CardDb) -> String {
     let costs: String = deck
         .iter()
         .filter_map(|g| db.cards.get(g))
@@ -61,7 +61,7 @@ pub fn deck_colors(deck: &[u32], db: &CardDb) -> String {
 
 /// Gegnerfarben aus den gesehenen Karten.
 pub fn opp_colors(g: &GameRecord, db: &CardDb) -> String {
-    let ids: Vec<u32> = g.opp_cards.keys().copied().collect();
+    let ids: Vec<GrpId> = g.opp_cards.keys().copied().collect();
     deck_colors(&ids, db)
 }
 

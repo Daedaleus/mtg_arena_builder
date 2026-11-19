@@ -67,8 +67,11 @@ Stand: 16.11.2026. Erledigtes steht in der Git-Historie.
       `settings.json` als Kürzel, Kartenbilder über `http::Http` (Netzfehler
       gelten nicht mehr als „Bild fehlt“), Aufgabegrund als `EndReason`,
       Turnierdeck-Felder als `TourState`.
-- [ ] Rest aus dem Review: `GrpId`/`CardKey` als echte Newtypes statt Aliasen;
-      ein gemeinsamer Hintergrund-Thread statt eines Threads je Aktion.
+- [x] Rest aus dem Review: `GrpId` als eigener Typ (Arena-Kartennummer kann
+      nicht mehr mit Objekt-, Sitz- oder Zonennummern verwechselt werden;
+      in `games.json` unverändert als Zahl); `CardKey` bleibt bewusst ein
+      Alias (Begründung in `carddb`); ein Aufgaben-Thread statt eines
+      Threads je Aktion (`app/tasks.rs`).
 - [x] Zweites Review (Note 2), Schritte 1–2: beschädigte `games.json`/
       `settings.json` werden gesichert statt überschrieben (`LoadError`,
       thiserror), nicht lesbare nicht überschrieben; Probehände verfallen bei

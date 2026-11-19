@@ -2,7 +2,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use crate::carddb::{CardDb, Rarity};
+use crate::carddb::{CardDb, GrpId, Rarity};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct DeckEntry {
@@ -193,7 +193,7 @@ impl DeckEval {
 pub fn export_arena(
     eval: &DeckEval,
     db: &CardDb,
-    collection: Option<&HashMap<u32, u32>>,
+    collection: Option<&HashMap<GrpId, u32>>,
     with_sets: bool,
     include_side: bool,
     replacement: impl Fn(&LineEval) -> Option<(String, u32)>,
@@ -204,7 +204,7 @@ pub fn export_arena(
             let owned_print = db
                 .printings(k)
                 .iter()
-                .filter(|g| collection.is_some_and(|c| c.get(g).copied().unwrap_or(0) > 0))
+                .filter(|g| collection.is_some_and(|c| c.get(*g).copied().unwrap_or(0) > 0))
                 .filter_map(|g| db.cards.get(g))
                 .next_back();
             owned_print.or_else(|| db.representative(k))

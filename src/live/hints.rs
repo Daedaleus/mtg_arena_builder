@@ -14,9 +14,13 @@ pub(super) fn block_hints(v: &mut CompanionView, ls: &LiveState, db: &CardDb) {
             BlockKind::Trade => tr!("live_hints.tausch"),
             BlockKind::Chump => tr!("live_hints.opfern_sonst_toedlich"),
         };
-        let who: Vec<String> = b.blockers.iter().map(|g| card_name(db, *g)).collect();
+        let who: Vec<String> = b
+            .blockers
+            .iter()
+            .map(|g| card_name(db, GrpId(*g)))
+            .collect();
         let blockers = who.join(&tr!("common.und"));
-        let attacker = card_name(db, b.attacker);
+        let attacker = card_name(db, GrpId(b.attacker));
         parts.push(if who.len() > 1 {
             tr!(
                 "live_hints.block_many",
@@ -67,7 +71,7 @@ pub(super) fn block_hints(v: &mut CompanionView, ls: &LiveState, db: &CardDb) {
     ));
 }
 
-pub(super) fn card_name(db: &CardDb, grp: u32) -> String {
+pub(super) fn card_name(db: &CardDb, grp: GrpId) -> String {
     db.cards
         .get(&grp)
         .map(|c| c.display_name().to_string())

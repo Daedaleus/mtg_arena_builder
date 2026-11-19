@@ -8,7 +8,7 @@ use super::*;
 pub struct LogParser {
     out: Vec<GameRecord>,
     events: HashMap<String, String>,
-    deck: Vec<u32>,
+    deck: Vec<GrpId>,
     cur: Option<Tracker>,
     /// Zuletzt beendete Partie (für die Anzeige „Partie vorbei“).
     pub last_finished: Option<GameRecord>,
@@ -94,7 +94,7 @@ impl LogParser {
                     .as_array()
                     .into_iter()
                     .flatten()
-                    .map(u)
+                    .map(|v| GrpId(u(v)))
                     .collect();
             }
             message::MULLIGAN_REQ => {

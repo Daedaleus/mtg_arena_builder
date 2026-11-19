@@ -25,7 +25,7 @@ pub(super) fn is_fixed_event(name: &str) -> bool {
 pub fn group_decks(games: &[GameRecord], db: &CardDb) -> Vec<DeckGroup> {
     let mut groups: Vec<DeckGroup> = Vec::new();
     // Gleiche Karte in anderem Druck = gleiches Deck: Schlüssel über die Namen.
-    let key_of = |deck: &[u32]| -> Vec<String> {
+    let key_of = |deck: &[GrpId]| -> Vec<String> {
         let mut k: Vec<String> = deck
             .iter()
             .map(|g| {

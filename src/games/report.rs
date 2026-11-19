@@ -62,11 +62,11 @@ impl Report {
     }
 }
 
-pub(super) fn card(db: &CardDb, grp: u32) -> Option<&Card> {
+pub(super) fn card(db: &CardDb, grp: GrpId) -> Option<&Card> {
     db.cards.get(&grp)
 }
 
-pub(super) fn names(db: &CardDb, grps: &[u32]) -> String {
+pub(super) fn names(db: &CardDb, grps: &[GrpId]) -> String {
     let mut list: Vec<String> = grps
         .iter()
         .filter_map(|g| card(db, *g))

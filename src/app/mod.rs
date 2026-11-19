@@ -18,7 +18,7 @@ use egui_extras::{Column, TableBuilder};
 
 use crate::budget;
 use crate::builder::{self, Built};
-use crate::carddb::{CardDb, Rarity};
+use crate::carddb::{CardDb, GrpId, Rarity};
 use crate::collection::{self, Collection};
 use crate::deck::{self, Deck, DeckEval, LineEval, Summary};
 use crate::deckcheck;

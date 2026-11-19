@@ -179,7 +179,7 @@ fn tricks_seen_and_typical() {
         ],
         "t",
     );
-    assert_eq!(likely_tricks(&flash, None, &[1], 1).len(), 1);
+    assert_eq!(likely_tricks(&flash, None, &[GrpId(1)], 1).len(), 1);
 }
 
 #[test]

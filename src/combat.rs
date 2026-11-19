@@ -3,7 +3,7 @@
 
 use std::collections::HashSet;
 
-use crate::carddb::{Card, CardDb, keyword};
+use crate::carddb::{Card, CardDb, GrpId, keyword};
 use crate::games::LiveCreature;
 use crate::opponents::ArchShare;
 
@@ -253,7 +253,7 @@ fn is_trick(c: &Card) -> bool {
 pub fn likely_tricks(
     db: &CardDb,
     arch: Option<&ArchShare>,
-    seen: &[u32],
+    seen: &[GrpId],
     open_mana: u32,
 ) -> Vec<(String, Option<f32>)> {
     let mut out: Vec<(String, Option<f32>)> = Vec::new();

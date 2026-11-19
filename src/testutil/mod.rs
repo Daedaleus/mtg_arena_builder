@@ -6,6 +6,7 @@ mod http;
 mod log;
 mod pages;
 
+pub use crate::carddb::GrpId;
 pub use cards::*;
 pub use http::*;
 pub use log::*;

@@ -6,7 +6,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use crate::carddb::{CardDb, color, name_key};
+use crate::carddb::{CardDb, GrpId, color, name_key};
 use crate::deckcheck::MetaArchetype;
 use crate::games::{self, GameRecord};
 
@@ -64,7 +64,7 @@ pub fn arch_shares(archetypes: &[MetaArchetype], db: &CardDb) -> Vec<ArchShare> 
 }
 
 /// Schlüssel der gesehenen Nichtland-Karten.
-pub fn seen_keys<'a>(cards: impl IntoIterator<Item = &'a u32>, db: &CardDb) -> HashSet<String> {
+pub fn seen_keys<'a>(cards: impl IntoIterator<Item = &'a GrpId>, db: &CardDb) -> HashSet<String> {
     cards
         .into_iter()
         .filter_map(|g| db.cards.get(g))
@@ -121,7 +121,7 @@ pub fn deck_label(deck: &crate::deck::Deck, db: &CardDb, shares: &[ArchShare]) -
             return arch.name.clone();
         }
     }
-    let ids: Vec<u32> = cards.iter().map(|c| c.grp_id).collect();
+    let ids: Vec<GrpId> = cards.iter().map(|c| c.grp_id).collect();
     let colors = color::label(&games::deck_colors(&ids, db));
     match cards.iter().max_by_key(|c| (c.rarity, c.cmc)) {
         Some(c) => tr!("opponents.text", colors = colors, name = c.name),

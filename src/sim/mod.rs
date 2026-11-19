@@ -11,7 +11,7 @@
 //! (Spielfeld, Kampf und Rennen), `profile` (Gegner und Gewohnheiten aus den
 //! eigenen Partien), `advice` (Empfehlungen aus den Kennzahlen).
 
-use crate::carddb::{Card, CardDb};
+use crate::carddb::{Card, CardDb, GrpId};
 use crate::turnplan;
 
 mod advice;
@@ -101,23 +101,23 @@ impl Rng {
     }
 }
 
-fn is_land(db: &CardDb, grp: u32) -> bool {
+fn is_land(db: &CardDb, grp: GrpId) -> bool {
     db.cards.get(&grp).is_some_and(Card::is_land)
 }
 
-fn lands_in(db: &CardDb, cards: &[u32]) -> usize {
+fn lands_in(db: &CardDb, cards: &[GrpId]) -> usize {
     cards.iter().filter(|g| is_land(db, **g)).count()
 }
 
 /// Spielt `games` Partien und wertet sie aus. `deck` = grpIds mit Wiederholung.
-pub fn simulate(deck: &[u32], db: &CardDb, games: usize, seed: u64) -> SimReport {
+pub fn simulate(deck: &[GrpId], db: &CardDb, games: usize, seed: u64) -> SimReport {
     simulate_with(deck, db, games, seed, &Opponent::fast(), None)
 }
 
 /// Wie [`simulate`], aber gegen `opponent` und – falls angegeben – mit den
 /// eigenen Spielgewohnheiten (bessere Züge auslassen, Angriffe auslassen).
 pub fn simulate_with(
-    deck: &[u32],
+    deck: &[GrpId],
     db: &CardDb,
     games: usize,
     seed: u64,
@@ -166,7 +166,7 @@ pub fn simulate_with(
 pub fn deck_from_entries<'a>(
     entries: impl IntoIterator<Item = (&'a str, u32)>,
     db: &CardDb,
-) -> Vec<u32> {
+) -> Vec<GrpId> {
     let mut out = Vec::new();
     for (name, qty) in entries {
         if let Some(c) = db.resolve(name).and_then(|k| db.representative(&k)) {
