@@ -31,6 +31,8 @@ commit_preprocessors = [
 ]
 commit_parsers = [
     { message = "^Merge ", skip = true },
+    # Der Versions-Commit eines Releases gehört nicht in dessen Liste.
+    { message = "^chore\\(release\\)", skip = true },
     { message = "^feat", group = "<!-- 00 -->✨ Features" },
     { message = "^fix", group = "<!-- 01 -->🐛 Bug fixes" },
     { message = "^perf", group = "<!-- 02 -->⚡️ Performance" },
