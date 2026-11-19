@@ -129,8 +129,7 @@ impl App {
             self.data_dir.join("collection.json"),
         );
         std::thread::spawn(move || {
-            let result = collection::sync(&path).map_err(|e| format!("{e:#}"));
-            let _ = tx.send(Msg::Collection(result));
+            let _ = tx.send(Msg::Collection(collection::sync(&path)));
             ctx.request_repaint();
         });
     }

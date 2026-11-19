@@ -245,9 +245,18 @@ collection.bitte_app_root_rechten:
 collection.gespeicherte_sammlung_unlesbar:
   de: "Gespeicherte Sammlung ist unlesbar."
   en: "The saved collection is unreadable."
+collection.helfer:
+  de: "Lesen mit Administratorrechten fehlgeschlagen: %{e}"
+  en: "Reading with administrator rights failed: %{e}"
+collection.kein_zugriff:
+  de: "Kein Zugriff auf den Arena-Prozess – dafür sind Administratorrechte (unter Linux root) nötig."
+  en: "No access to the Arena process – this needs administrator rights (root on Linux)."
 collection.lesen_administratorrechten_wurde_abgebrochen:
   de: "Lesen mit Administratorrechten wurde abgebrochen oder ist fehlgeschlagen."
   en: "Reading with administrator rights was cancelled or failed."
+collection.nicht_im_hauptmenue:
+  de: "Arena ist nicht im Hauptmenü – bitte im Spiel ins Hauptmenü gehen und erneut versuchen."
+  en: "Arena is not in the main menu – please go to the main menu in the game and try again."
 collection.plattform_nicht_unterstuetzt:
   de: "Plattform wird nicht unterstützt"
   en: "Platform not supported"
@@ -257,6 +266,12 @@ collection.powershell_konnte_nicht_gestartet:
 collection.speicher_mtg_arena_konnte:
   de: "Speicher von MTG Arena konnte nicht gelesen werden (läuft das Spiel und ist es im Hauptmenü?)"
   en: "Could not read MTG Arena's memory (is the game running and in the main menu?)"
+collection.speicherleser:
+  de: "Speicherleser meldet: %{e}"
+  en: "Memory reader reports: %{e}"
+collection.speichern_fehlgeschlagen:
+  de: "Sammlung gelesen, aber nicht gespeichert: %{e}"
+  en: "Collection read, but not saved: %{e}"
 common.dann:
   de: ", dann "
   en: ", then "

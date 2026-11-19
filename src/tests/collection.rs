@@ -26,11 +26,25 @@ fn builds_from_reader_output() {
 
 #[test]
 fn reader_errors() {
-    let err = json!({ "error": "Prozess nicht gefunden" });
-    assert_eq!(
-        from_reader(&err, &json!({}), 0).unwrap_err().to_string(),
-        "Prozess nicht gefunden"
-    );
+    let err = |text: &str| from_reader(&json!({ "error": text }), &json!({}), 0).unwrap_err();
+    // Meldungen des Speicherlesers werden Fehlerarten zugeordnet.
+    assert!(matches!(
+        err("could not open MTGA process (run elevated)"),
+        CollectionError::AccessDenied
+    ));
+    assert!(matches!(
+        err("Process not found"),
+        CollectionError::AccessDenied
+    ));
+    assert!(matches!(
+        err("WrapperController.Instance is null (must be on the home screen, not in a match)"),
+        CollectionError::NotInMenu
+    ));
+    assert!(matches!(
+        err("Platform not supported"),
+        CollectionError::Unsupported
+    ));
+    assert!(matches!(err("etwas Neues"), CollectionError::Reader(_)));
     let err_obj = json!({ "error": { "code": 5 } });
     assert!(
         from_reader(&err_obj, &json!({}), 0)
@@ -38,12 +52,10 @@ fn reader_errors() {
             .to_string()
             .contains("5")
     );
-    assert!(
-        from_reader(&json!({ "cards": [] }), &json!({}), 0)
-            .unwrap_err()
-            .to_string()
-            .contains("keine Karten")
-    );
+    assert!(matches!(
+        from_reader(&json!({ "cards": [] }), &json!({}), 0).unwrap_err(),
+        CollectionError::NoCards
+    ));
     // Fehler beim Inventar: Karten bleiben, Wildcards leer.
     let c = from_reader(
         &json!({ "cards": [ { "grpId": 1, "qty": 1 } ] }),
@@ -99,4 +111,44 @@ fn save_load_roundtrip() {
 fn reader_error_text() {
     assert_eq!(err_of(&json!({ "ok": 1 })), None);
     assert_eq!(err_of(&json!({ "error": "x" })).as_deref(), Some("x"));
+}
+
+#[test]
+fn errors_know_when_elevation_helps() {
+    assert!(CollectionError::AccessDenied.needs_elevation());
+    assert!(CollectionError::Reader("?".into()).needs_elevation());
+    for e in [
+        CollectionError::NotRunning,
+        CollectionError::NotInMenu,
+        CollectionError::NoCards,
+        CollectionError::ReaderPanicked,
+        CollectionError::Unsupported,
+    ] {
+        assert!(!e.needs_elevation(), "{e}");
+    }
+}
+
+#[test]
+fn error_texts_follow_the_language() {
+    let all = [
+        CollectionError::NotRunning,
+        CollectionError::AccessDenied,
+        CollectionError::NotInMenu,
+        CollectionError::NoCards,
+        CollectionError::ReaderPanicked,
+        CollectionError::Unsupported,
+        CollectionError::Reader("x".into()),
+        CollectionError::ElevationCancelled,
+        CollectionError::Helper("y".into()),
+        CollectionError::HelperStart(std::io::Error::other("z")),
+        CollectionError::SavedUnreadable,
+        CollectionError::Save("w".into()),
+    ];
+    for e in &all {
+        // Anzeige deutsch (Tests laufen auf Deutsch), technischer Text englisch.
+        let shown = e.user_text();
+        assert!(!shown.is_empty() && !shown.contains('%'), "{shown}");
+        assert!(e.to_string().is_ascii(), "{e}");
+    }
+    assert!(CollectionError::NotInMenu.user_text().contains("Hauptmenü"));
 }

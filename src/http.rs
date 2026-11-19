@@ -12,8 +12,6 @@ use std::io::Read;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use anyhow::Result;
-
 /// Höchstens so viele Bytes je Antwort.
 const MAX_BYTES: u64 = 5_000_000;
 pub const USER_AGENT: &str = "mtg_arena_builder/0.1 (privates Deckbau-Werkzeug)";
@@ -25,15 +23,28 @@ pub const GAPS: [(&str, Duration); 3] = [
     ("api.scryfall.com", Duration::from_millis(100)),
 ];
 
+/// Warum ein Abruf scheiterte. „Gibt es nicht“ ist eine Antwort (merken),
+/// alles andere ein vorübergehendes Problem (später erneut versuchen).
+#[derive(Debug, thiserror::Error)]
+pub enum FetchError {
+    #[error("not found (404)")]
+    NotFound,
+    #[error("HTTP status {0}")]
+    Status(u16),
+    #[error("network error: {0}")]
+    Network(String),
+}
+
+pub type Fetched = Result<Vec<u8>, FetchError>;
+
 /// Holt Adressen aus dem Netz.
 pub trait Http: Send + Sync {
-    /// Inhalt einer Adresse; `Ok(None)` = gibt es nicht (404), `Err` =
-    /// Netz- oder Serverfehler (später erneut versuchen).
-    fn get(&self, url: &str, accept: &str) -> Result<Option<Vec<u8>>>;
+    /// Inhalt einer Adresse (höchstens 5 MB).
+    fn get(&self, url: &str, accept: &str) -> Fetched;
 }
 
 impl<T: Http + ?Sized> Http for Arc<T> {
-    fn get(&self, url: &str, accept: &str) -> Result<Option<Vec<u8>>> {
+    fn get(&self, url: &str, accept: &str) -> Fetched {
         (**self).get(url, accept)
     }
 }
@@ -53,15 +64,19 @@ impl Ureq {
 }
 
 impl Http for Ureq {
-    fn get(&self, url: &str, accept: &str) -> Result<Option<Vec<u8>>> {
+    fn get(&self, url: &str, accept: &str) -> Fetched {
         match self.0.get(url).set("Accept", accept).call() {
             Ok(resp) => {
                 let mut bytes = Vec::new();
-                resp.into_reader().take(MAX_BYTES).read_to_end(&mut bytes)?;
-                Ok(Some(bytes))
+                resp.into_reader()
+                    .take(MAX_BYTES)
+                    .read_to_end(&mut bytes)
+                    .map_err(|e| FetchError::Network(e.to_string()))?;
+                Ok(bytes)
             }
-            Err(ureq::Error::Status(404, _)) => Ok(None),
-            Err(e) => Err(e.into()),
+            Err(ureq::Error::Status(404, _)) => Err(FetchError::NotFound),
+            Err(ureq::Error::Status(code, _)) => Err(FetchError::Status(code)),
+            Err(e) => Err(FetchError::Network(e.to_string())),
         }
     }
 }
@@ -126,7 +141,7 @@ impl<H: Http> Polite<H> {
 }
 
 impl<H: Http> Http for Polite<H> {
-    fn get(&self, url: &str, accept: &str) -> Result<Option<Vec<u8>>> {
+    fn get(&self, url: &str, accept: &str) -> Fetched {
         let wait = self.reserve(host_of(url));
         if !wait.is_zero() {
             self.clock.sleep(wait);

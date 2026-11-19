@@ -15,7 +15,7 @@ use std::sync::mpsc::{Sender, channel};
 
 use serde_json::Value;
 
-use crate::http::Http;
+use crate::http::{FetchError, Http};
 use crate::i18n::Locale;
 
 fn file_stem(name: &str) -> String {
@@ -109,28 +109,43 @@ const IMAGE: &str = "image/*,*/*;q=0.8";
 
 /// Englisches Bild: erst exakter Name, sonst unscharfe Suche (z. B. bei
 /// doppelseitigen Karten). `Ok(None)` = Scryfall kennt keins.
-fn download_english(http: &dyn Http, name: &str) -> anyhow::Result<Option<Vec<u8>>> {
+fn download_english(http: &dyn Http, name: &str) -> Result<Option<Vec<u8>>, FetchError> {
     for mode in ["exact", "fuzzy"] {
-        if let Some(bytes) = http.get(&image_url(mode, name), IMAGE)? {
-            return Ok(Some(bytes));
+        match http.get(&image_url(mode, name), IMAGE) {
+            Ok(bytes) => return Ok(Some(bytes)),
+            Err(FetchError::NotFound) => continue,
+            Err(e) => return Err(e),
         }
     }
     Ok(None)
 }
 
+/// `Ok(None)` statt Fehler, wenn es die Adresse nicht gibt.
+fn found(result: Result<Vec<u8>, FetchError>) -> Result<Option<Vec<u8>>, FetchError> {
+    match result {
+        Ok(bytes) => Ok(Some(bytes)),
+        Err(FetchError::NotFound) => Ok(None),
+        Err(e) => Err(e),
+    }
+}
+
 /// Bild eines Drucks in der Sprache `lang` (`Ok(None)` = keiner vorhanden).
-fn download_localized(http: &dyn Http, name: &str, lang: &str) -> anyhow::Result<Option<Vec<u8>>> {
-    let Some(json) = http.get(&search_url(name, lang), "application/json")? else {
+fn download_localized(
+    http: &dyn Http,
+    name: &str,
+    lang: &str,
+) -> Result<Option<Vec<u8>>, FetchError> {
+    let Some(json) = found(http.get(&search_url(name, lang), "application/json"))? else {
         return Ok(None);
     };
     match image_from_search(&String::from_utf8_lossy(&json)) {
-        Some(url) => http.get(&url, IMAGE),
+        Some(url) => found(http.get(&url, IMAGE)),
         None => Ok(None),
     }
 }
 
 /// Bild zu einem Schlüssel (siehe [`key`]); ohne Druck in der Sprache das englische.
-pub(crate) fn download(http: &dyn Http, key: &str) -> anyhow::Result<Option<Vec<u8>>> {
+pub(crate) fn download(http: &dyn Http, key: &str) -> Result<Option<Vec<u8>>, FetchError> {
     match split_key(key) {
         (name, Some(lang)) => match download_localized(http, name, lang)? {
             Some(bytes) => Ok(Some(bytes)),

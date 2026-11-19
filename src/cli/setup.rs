@@ -29,8 +29,9 @@ pub fn check() -> i32 {
         }
         Err(e) => {
             println!(
-                "Sammlung nicht lesbar (Admin: {}): {e}",
-                collection::is_admin()
+                "Sammlung nicht lesbar (Admin: {}): {}",
+                collection::is_admin(),
+                e.user_text()
             );
             Default::default()
         }

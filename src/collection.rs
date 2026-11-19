@@ -9,7 +9,7 @@ use std::fs;
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use anyhow::{Context, Result, anyhow, bail};
+use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -75,6 +75,99 @@ impl Collection {
     }
 }
 
+/// Warum die Sammlung nicht gelesen werden konnte. Der `Display`-Text ist
+/// technisch (englisch, für Logs und den Admin-Hilfsprozess); für die
+/// Oberfläche gibt es [`CollectionError::user_text`] in der eingestellten Sprache.
+#[derive(Debug, thiserror::Error)]
+pub enum CollectionError {
+    #[error("MTG Arena is not running")]
+    NotRunning,
+    #[error("no access to the Arena process")]
+    AccessDenied,
+    #[error("Arena is not in the main menu")]
+    NotInMenu,
+    #[error("Arena returned no cards")]
+    NoCards,
+    #[error("the memory reader crashed")]
+    ReaderPanicked,
+    #[error("platform not supported")]
+    Unsupported,
+    /// Sonstige Meldung des Speicherlesers.
+    #[error("memory reader: {0}")]
+    Reader(String),
+    #[error("reading with administrator rights was cancelled")]
+    ElevationCancelled,
+    /// Der Hilfsprozess mit Administratorrechten meldete einen Fehler.
+    #[error("elevated helper: {0}")]
+    Helper(String),
+    #[error("could not start the elevated helper: {0}")]
+    HelperStart(std::io::Error),
+    #[error("collection file unreadable")]
+    SavedUnreadable,
+    #[error("could not save the collection: {0}")]
+    Save(String),
+}
+
+impl CollectionError {
+    /// Ordnet eine Meldung des Speicherlesers (mtga-reader, englisch) einer
+    /// Fehlerart zu. Nur hier werden dessen Texte ausgewertet.
+    pub fn from_reader(text: &str) -> CollectionError {
+        let t = text.to_lowercase();
+        if t.contains("run elevated")
+            || t.contains("could not open")
+            || t.contains("process not found")
+        {
+            CollectionError::AccessDenied
+        } else if t.contains("home screen") || t.contains("instance is null") {
+            CollectionError::NotInMenu
+        } else if t.contains("not supported") || t.contains("not yet implemented") {
+            CollectionError::Unsupported
+        } else {
+            CollectionError::Reader(text.to_string())
+        }
+    }
+
+    /// Lohnt ein zweiter Versuch mit Administratorrechten? Nur, wenn der
+    /// Zugriff verweigert wurde oder der Grund unklar ist – nicht bei
+    /// „nicht im Hauptmenü“ oder „keine Karten“.
+    pub fn needs_elevation(&self) -> bool {
+        matches!(
+            self,
+            CollectionError::AccessDenied | CollectionError::Reader(_)
+        )
+    }
+
+    /// Meldung für die Oberfläche, in der eingestellten Sprache.
+    pub fn user_text(&self) -> String {
+        match self {
+            CollectionError::NotRunning => tr!("state.mtg_arena_laeuft_nicht"),
+            CollectionError::AccessDenied => tr!("collection.kein_zugriff"),
+            CollectionError::NotInMenu => tr!("collection.nicht_im_hauptmenue"),
+            CollectionError::NoCards => tr!("collection.arena_hat_keine_karten"),
+            CollectionError::ReaderPanicked => tr!("collection.speicher_mtg_arena_konnte"),
+            CollectionError::Unsupported => tr!("collection.plattform_nicht_unterstuetzt"),
+            CollectionError::Reader(e) => tr!("collection.speicherleser", e = e),
+            CollectionError::ElevationCancelled => {
+                tr!("collection.lesen_administratorrechten_wurde_abgebrochen")
+            }
+            CollectionError::Helper(e) => tr!("collection.helfer", e = e),
+            CollectionError::HelperStart(e) => {
+                tr!("collection.powershell_konnte_nicht_gestartet", e = e)
+            }
+            CollectionError::SavedUnreadable => tr!("collection.gespeicherte_sammlung_unlesbar"),
+            CollectionError::Save(e) => tr!("collection.speichern_fehlgeschlagen", e = e),
+        }
+    }
+}
+
+/// Ergebnis von [`sync`]: die gelesene Sammlung und ggf. ein Fehler beim
+/// Speichern (die Sammlung ist trotzdem gelesen).
+#[derive(Debug)]
+pub struct Synced {
+    pub collection: Collection,
+    pub save_error: Option<CollectionError>,
+}
+
 const PROCESS: &str = "MTGA";
 
 #[cfg(any(target_os = "windows", target_os = "linux"))]
@@ -95,7 +188,7 @@ fn raw_read() -> (Value, Value) {
 
 #[cfg(not(any(target_os = "windows", target_os = "linux", target_os = "macos")))]
 fn raw_read() -> (Value, Value) {
-    let err = serde_json::json!({ "error": tr!("collection.plattform_nicht_unterstuetzt") });
+    let err = serde_json::json!({ "error": "Platform not supported" });
     (err.clone(), err)
 }
 
@@ -112,11 +205,11 @@ fn err_of(v: &Value) -> Option<String> {
 }
 
 /// Liest Sammlung und Inventar aus dem laufenden Arena-Prozess.
-pub fn read_from_game() -> Result<Collection> {
+pub fn read_from_game() -> Result<Collection, CollectionError> {
     // Der Speicherleser kann bei unerwarteten Strukturen paniken – abfangen.
     let (cards, inv) = std::thread::spawn(raw_read)
         .join()
-        .map_err(|_| anyhow!(tr!("collection.speicher_mtg_arena_konnte")))?;
+        .map_err(|_| CollectionError::ReaderPanicked)?;
 
     from_reader(&cards, &inv, now_unix())
 }
@@ -129,9 +222,9 @@ fn now_unix() -> u64 {
 }
 
 /// Baut die Sammlung aus den Antworten des Speicherlesers (Karten und Inventar).
-pub fn from_reader(cards: &Value, inv: &Value, now: u64) -> Result<Collection> {
+pub fn from_reader(cards: &Value, inv: &Value, now: u64) -> Result<Collection, CollectionError> {
     if let Some(e) = err_of(cards) {
-        bail!(e);
+        return Err(CollectionError::from_reader(&e));
     }
     let mut out = Collection::default();
     for c in cards
@@ -151,7 +244,7 @@ pub fn from_reader(cards: &Value, inv: &Value, now: u64) -> Result<Collection> {
         }
     }
     if out.cards.is_empty() {
-        bail!(tr!("collection.arena_hat_keine_karten"));
+        return Err(CollectionError::NoCards);
     }
     if err_of(inv).is_none() {
         let num = |v: &Value, k: &str| v.get(k).and_then(Value::as_i64).unwrap_or(0).max(0) as u32;
@@ -174,10 +267,15 @@ pub fn from_reader(cards: &Value, inv: &Value, now: u64) -> Result<Collection> {
 pub fn run_sync_helper(out: &Path) -> i32 {
     let err_path = out.with_extension("error.txt");
     let _ = fs::remove_file(&err_path);
-    match read_from_game().and_then(|c| c.save(out)) {
+    let result = read_from_game().and_then(|c| {
+        c.save(out)
+            .map_err(|e| CollectionError::Save(format!("{e:#}")))
+    });
+    match result {
         Ok(()) => 0,
         Err(e) => {
-            let _ = fs::write(&err_path, format!("{e:#}"));
+            // Technischer Text; der Aufrufer zeigt ihn als „Helfer meldet …“ an.
+            let _ = fs::write(&err_path, e.to_string());
             1
         }
     }
@@ -186,9 +284,9 @@ pub fn run_sync_helper(out: &Path) -> i32 {
 /// Startet diese App erneut mit Administratorrechten (UAC-Abfrage), um die
 /// Sammlung zu lesen. Nur unter Windows.
 #[cfg(windows)]
-pub fn read_elevated(out: &Path) -> Result<Collection> {
+pub fn read_elevated(out: &Path) -> Result<Collection, CollectionError> {
     use std::os::windows::process::CommandExt;
-    let exe = std::env::current_exe()?;
+    let exe = std::env::current_exe().map_err(CollectionError::HelperStart)?;
     let err_path = out.with_extension("error.txt");
     let _ = fs::remove_file(&err_path);
     let before = fs::metadata(out).and_then(|m| m.modified()).ok();
@@ -202,50 +300,47 @@ pub fn read_elevated(out: &Path) -> Result<Collection> {
         .args(["-NoProfile", "-NonInteractive", "-Command", &script])
         .creation_flags(0x0800_0000) // CREATE_NO_WINDOW
         .status()
-        .map_err(|e| anyhow!(tr!("collection.powershell_konnte_nicht_gestartet", e = e)))?;
+        .map_err(CollectionError::HelperStart)?;
     if let Ok(e) = fs::read_to_string(&err_path) {
-        bail!(e);
+        return Err(CollectionError::Helper(e));
     }
     let after = fs::metadata(out).and_then(|m| m.modified()).ok();
     if !status.success() || after.is_none() || after == before {
-        bail!(tr!(
-            "collection.lesen_administratorrechten_wurde_abgebrochen"
-        ));
+        return Err(CollectionError::ElevationCancelled);
     }
-    Collection::load(out).ok_or_else(|| anyhow!(tr!("collection.gespeicherte_sammlung_unlesbar")))
+    Collection::load(out).ok_or(CollectionError::SavedUnreadable)
 }
 
 #[cfg(not(windows))]
-pub fn read_elevated(_out: &Path) -> Result<Collection> {
-    bail!(tr!("collection.bitte_app_root_rechten"))
+pub fn read_elevated(_out: &Path) -> Result<Collection, CollectionError> {
+    Err(CollectionError::AccessDenied)
 }
 
 /// Liest die Sammlung aus dem laufenden Arena und speichert sie unter `path`.
 /// Läuft Arena mit höheren Rechten, wird unter Windows einmalig per UAC
 /// nachgefragt. Unter Linux gibt es keine Prozesserkennung – dort wird
 /// direkt gelesen (Fehlermeldung, falls Arena nicht läuft).
-pub fn sync(path: &Path) -> Result<Collection> {
+pub fn sync(path: &Path) -> Result<Synced, CollectionError> {
     let running = cfg!(target_os = "linux") || mtga_reader::api::find_process(PROCESS);
     if !running {
-        bail!(tr!("state.mtg_arena_laeuft_nicht"));
+        return Err(CollectionError::NotRunning);
     }
-    let result = read_from_game().or_else(|first| {
-        if cfg!(windows) && !is_admin() {
-            read_elevated(path).map_err(|e| {
-                anyhow!(tr!(
-                    "state.ohne_adminrechte",
-                    e = format!("{e:#}"),
-                    first = format!("{first:#}")
-                ))
-            })
-        } else {
-            Err(first)
+    let collection = match read_from_game() {
+        Ok(c) => c,
+        // Arena läuft mit höheren Rechten: einmalig per UAC nachfragen.
+        Err(first) if cfg!(windows) && first.needs_elevation() && !is_admin() => {
+            read_elevated(path)?
         }
-    });
-    if let Ok(c) = &result {
-        let _ = c.save(path);
-    }
-    result
+        Err(first) => return Err(first),
+    };
+    let save_error = collection
+        .save(path)
+        .err()
+        .map(|e| CollectionError::Save(format!("{e:#}")));
+    Ok(Synced {
+        collection,
+        save_error,
+    })
 }
 
 #[cfg(test)]

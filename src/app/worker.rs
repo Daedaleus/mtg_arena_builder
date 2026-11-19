@@ -40,7 +40,7 @@ pub(super) enum Msg {
     Legal(usize, Result<HashSet<String>, String>),
     GgEvents(usize, Result<Vec<GgEvent>, String>),
     GgDecks(String, Result<Vec<GgDeck>, String>),
-    Collection(Result<Collection, String>),
+    Collection(Result<collection::Synced, collection::CollectionError>),
     /// Wiederherstellung aus dem Cache ist abgeschlossen.
     Restored(usize),
     /// Partien aus den Arena-Logs; `bool` = „Detaillierte Logs“ ist aus.
@@ -192,13 +192,19 @@ impl App {
                 Msg::Collection(result) => {
                     self.syncing = false;
                     match result {
-                        Ok(c) => {
-                            self.status =
-                                tr!("worker.sammlung_gelesen_karten", v = c.total_cards());
+                        Ok(synced) => {
+                            let c = synced.collection;
+                            self.status = match synced.save_error {
+                                Some(e) => e.user_text(),
+                                None => tr!("worker.sammlung_gelesen_karten", v = c.total_cards()),
+                            };
                             self.collection = Some(c);
                             self.refresh_owned();
                         }
-                        Err(e) => self.status = tr!("worker.sammlung_konnte_nicht_gelesen", e = e),
+                        Err(e) => {
+                            self.status =
+                                tr!("worker.sammlung_konnte_nicht_gelesen", e = e.user_text())
+                        }
                     }
                 }
                 Msg::Restored(format) if format == self.settings.format => {

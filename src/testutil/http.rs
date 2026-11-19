@@ -5,7 +5,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use crate::http::{Clock, Http};
+use crate::http::{Clock, FetchError, Fetched, Http};
 
 /// Echte Scryfall-Antworten, auf wenige Karten gekürzt (`fixtures/scryfall`).
 pub mod scryfall {
@@ -71,16 +71,16 @@ impl FakeHttp {
 }
 
 impl Http for FakeHttp {
-    fn get(&self, url: &str, accept: &str) -> anyhow::Result<Option<Vec<u8>>> {
+    fn get(&self, url: &str, accept: &str) -> Fetched {
         self.calls.fetch_add(1, Ordering::Relaxed);
         self.requests
             .lock()
             .unwrap()
             .push((url.to_string(), accept.to_string()));
         match self.rules.iter().find(|(part, _)| url.contains(part)) {
-            Some((_, Reply::Body(b))) => Ok(Some(b.clone())),
-            Some((_, Reply::Fail)) => anyhow::bail!("kein Netz"),
-            Some((_, Reply::NotFound)) | None => Ok(None),
+            Some((_, Reply::Body(b))) => Ok(b.clone()),
+            Some((_, Reply::Fail)) => Err(FetchError::Network("kein Netz".into())),
+            Some((_, Reply::NotFound)) | None => Err(FetchError::NotFound),
         }
     }
 }

@@ -32,8 +32,12 @@ zwischenspeichern (Generationszähler `data_gen`), lange Rechnungen
 Oberfläche nach Bereich in `app/parts.rs` (Turnierdecks, Partien, magic.gg,
 Bilder, Probehände, gebaute Decks). egui nur in `src/app/` und `main.rs` – Fachmodule
 liefern eigene Typen (z. B. `images::Picture`) und nehmen Callbacks.
-Netzabruf über den Trait `http::Http` (in Tests `testutil::FakeHttp`), Fehler
-mit `anyhow`;
+Netzabruf über den Trait `http::Http` (in Tests `testutil::FakeHttp`).
+Fehler: `anyhow` für einmalige Fehler und die Kommandozeile; eigene Enums mit
+`thiserror` dort, wo der Aufrufer nach Art unterscheidet (`CollectionError`,
+`http::FetchError`, `paths::LoadError`). Deren `#[error]`-Text bleibt technisch
+und englisch, übersetzt wird erst beim Anzeigen (`user_text()`), damit ein
+Sprachwechsel auch Fehlermeldungen erfasst;
 Deck-Kennungen nur über `app::deck_ids`.
 
 Große Module sind Ordner mit Teilmodulen nach Aufgabe; `mod.rs` beschreibt

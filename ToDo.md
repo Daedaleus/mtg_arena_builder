@@ -80,9 +80,12 @@ Stand: 16.11.2026. Erledigtes steht in der Git-Historie.
       Mindestabständen je Seite (`Polite`, einschleusbare Uhr), echte
       Scryfall-Antworten als Testdaten, Vertragstest `#[ignore]`; Testsuite
       wieder ca. 0,2 s.
-- [ ] Zweites Review, Schritt 4: `CollectionError`/`FetchError` mit thiserror,
-      übersetzt erst beim Anzeigen; Speicherfehler der Sammlung melden;
-      UAC-Abfrage nur bei verweigertem Zugriff.
+- [x] Zweites Review, Schritt 4: `CollectionError` (UAC-Abfrage nur bei
+      verweigertem Zugriff oder unklarem Grund, Speicherfehler gemeldet,
+      Übersetzung beim Anzeigen) und `http::FetchError` (404 / Status /
+      Netz) mit thiserror.
+- [ ] Netz: bei HTTP 429 (Scryfall drosselt) mit `Retry-After` warten statt
+      gleich aufzugeben.
 - [ ] Zweites Review, Schritt 5: `enum Format`, `DeckSource`, lange
       Oberflächen-Funktionen teilen; Kleinigkeiten (`"Format:"` übersetzen,
       Live-Thread mit neuer Kartendatenbank).

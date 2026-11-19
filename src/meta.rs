@@ -95,7 +95,6 @@ impl Fetcher {
         let bytes = self
             .http
             .get(url, "*/*")
-            .and_then(|b| b.ok_or_else(|| anyhow::anyhow!("404")))
             .with_context(|| tr!("meta.abruf_fehlgeschlagen", url = url))?;
         let text: String = if latin1 {
             bytes.iter().map(|&b| b as char).collect()
@@ -238,12 +237,12 @@ impl Fetcher {
             "https://api.scryfall.com/cards/search?q=f%3A{scryfall_format}+game%3Aarena&unique=cards"
         );
         loop {
-            let reply = self
-                .http
-                .get(&url, "application/json")
-                .map_err(|e| anyhow::anyhow!(tr!("meta.scryfall", e = format!("{e:#}"))))?;
-            // Scryfall antwortet auf eine Suche ohne Treffer mit 404.
-            let Some(bytes) = reply else { break };
+            let bytes = match self.http.get(&url, "application/json") {
+                Ok(bytes) => bytes,
+                // Scryfall antwortet auf eine Suche ohne Treffer mit 404.
+                Err(crate::http::FetchError::NotFound) => break,
+                Err(e) => anyhow::bail!(tr!("meta.scryfall", e = e)),
+            };
             let page: serde_json::Value = serde_json::from_slice(&bytes)?;
             let (found, next) = parse_scryfall_page(&page);
             names.extend(found);
