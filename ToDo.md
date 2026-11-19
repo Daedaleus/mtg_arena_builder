@@ -55,3 +55,15 @@ Stand: 16.11.2026. Erledigtes steht in der Git-Historie.
       Spielstil, Oberfläche); Spielobjekte in fester Reihenfolge.
 - [x] Zweisprachig (Deutsch/Englisch): Texte in `locales/app.yml`, Sprache aus
       dem Betriebssystem oder den Einstellungen, Kartennamen und -bilder je Sprache.
+- [x] Architektur-Review (Note 2-): Status „Alle bewertet“ ohne Textvergleich,
+      Auswertungen zwischengespeichert, Probehände und Deckbau im Hintergrund.
+- [ ] Review: egui aus den Fachmodulen lösen (`images` liefert RGBA-Bytes,
+      `live::spawn` mit Repaint-Callback, `live/draw.rs` nach `app/`,
+      `unblocked_damage` nach `combat`).
+- [ ] Review: Logik aus `app/state.rs` in Fachmodule (Sammlung lesen,
+      Budget-Ersatz), `Tab` per serde statt doppelter Zuordnung zu `u8`.
+- [ ] Review: eigene Typen (`GrpId`, `CardKey`, `DeckSource` statt fester
+      `u32`-Bereiche, `Rarity`), Versionsnummer in `settings.json`,
+      Parser-Version je Partie, Schreibfehler melden.
+- [ ] Review: `App` in Teilzustände zerlegen; Live-Thread beendbar;
+      einheitliche Fehlertypen; Netzabruf hinter Trait (testbar).

@@ -48,6 +48,10 @@ pub(super) enum Msg {
     /// Kartenbild von Scryfall (None = keins gefunden).
     Image(String, Option<egui::ColorImage>),
     Pending(usize),
+    /// Probehände fertig.
+    Trial(SimTarget, Box<sim::Trial>),
+    /// Deckvorschläge aus der Sammlung fertig.
+    Built(Vec<Built>),
 }
 
 /// Arbeitet Web-Abrufe nacheinander ab (MTGTop8 erlaubt nur eine Anfrage alle 5 s).
@@ -139,6 +143,11 @@ pub(super) fn worker(rx: Receiver<Job>, tx: Sender<Msg>, ctx: egui::Context, cac
 impl App {
     pub(super) fn handle_messages(&mut self) {
         while let Ok(msg) = self.rx_msg.try_recv() {
+            // Neue Daten: zwischengespeicherte Auswertungen neu berechnen
+            // (Kartenbilder und Probehände ändern daran nichts).
+            if !matches!(msg, Msg::Image(..) | Msg::Trial(..)) {
+                self.data_gen = self.data_gen.wrapping_add(1);
+            }
             match msg {
                 Msg::Archetypes(format, result) if format == self.settings.format => match result {
                     Ok(list) => {
@@ -226,9 +235,12 @@ impl App {
                     }
                     self.games = games;
                 }
+                Msg::Trial(target, trial) => self.finish_trial(target, *trial),
+                Msg::Built(built) => self.apply_built(built),
                 Msg::Pending(n) => {
                     self.pending = n;
-                    if n == 0 && self.status.starts_with("Bewerte") {
+                    if n == 0 && self.rating_all {
+                        self.rating_all = false;
                         self.status = tr!("worker.alle_archetypen_bewertet");
                     }
                 }

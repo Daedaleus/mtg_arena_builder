@@ -165,6 +165,7 @@ impl App {
                         .clicked()
                     {
                         self.status = tr!("chrome.bewerte_archetypen", todo_n = todo.len());
+                        self.rating_all = true;
                         for arch in todo {
                             let _ = self.tx_job.send(Job::Decks {
                                 format: self.settings.format,

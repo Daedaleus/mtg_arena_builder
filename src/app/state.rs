@@ -10,6 +10,8 @@ impl App {
         self.sims.clear();
         self.group_sims.clear();
         self.built = None;
+        self.games_cache = None;
+        self.deck_cache = None;
     }
 
     pub(super) fn scan_games(&mut self) {

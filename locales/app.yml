@@ -263,6 +263,9 @@ common.dann:
 common.keine:
   de: "keine"
   en: "none"
+common.rechne:
+  de: "Rechne …"
+  en: "Calculating …"
 common.und:
   de: " und "
   en: " and "
@@ -278,6 +281,9 @@ deck_check.anz:
 deck_check.davon_daten_gezogenen_gespielten:
   de: "· %{tracked} davon mit Daten zu gezogenen und gespielten Karten"
   en: "· %{tracked} of them with data on drawn and played cards"
+deck_check.deck:
+  de: "Deck:"
+  en: "Deck:"
 deck_check.diese_karten_spielt_mindestens:
   de: "Diese Karten spielt mindestens die Hälfte der Turnierlisten, du aber nicht:"
   en: "At least half of the tournament lists play these cards, but you don't:"
@@ -866,6 +872,9 @@ lists.4_watery_grave_4:
 lists.aus_deiner_sammlung_laesst:
   de: "Aus deiner Sammlung lässt sich in diesem Format noch kein vollständiges Deck bauen."
   en: "No complete deck can be built from your collection in this format yet."
+lists.baue_decks:
+  de: "Baue Decks aus deiner Sammlung …"
+  en: "Building decks from your collection …"
 lists.dafuer_muss_zuerst_sammlung:
   de: "Dafür muss zuerst die Sammlung gelesen werden (oben rechts)."
   en: "For this the collection must be read first (top right)."

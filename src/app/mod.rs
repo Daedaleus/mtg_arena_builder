@@ -6,6 +6,7 @@
 //! `games_tab` (Meine Partien, Verlauf), `deck_check` (Deck verbessern) und
 //! `companion` (Begleitfenster). Logik gehört in die Fachmodule der Bibliothek.
 
+use compute::{DeckAnalysis, GamesAnalysis, SimTarget};
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::PathBuf;
 use std::sync::mpsc::{Receiver, Sender, channel};
@@ -54,6 +55,7 @@ fn rarity_color(r: u8) -> Color32 {
 
 mod chrome;
 mod companion;
+mod compute;
 mod deck_check;
 mod deck_view;
 mod events;
@@ -143,8 +145,18 @@ pub struct App {
     sel_gg_deck: Option<u32>,
     /// Ergebnisse der Probehände je Deck (Turnierdeck, Vorschlag, eigene Liste).
     sims: HashMap<u32, sim::Trial>,
+    /// Laufende Probehände.
+    sims_running: HashSet<SimTarget>,
+    /// Steigt mit jeder eingetroffenen Nachricht (siehe `compute`).
+    data_gen: u64,
+    games_cache: Option<GamesAnalysis>,
+    deck_cache: Option<DeckAnalysis>,
+    /// Deckbau aus der Sammlung läuft.
+    building: bool,
+    /// „Alle bewerten“ läuft (Status am Ende auf „fertig“ setzen).
+    rating_all: bool,
     /// Probehände für gespielte Decks („Deck verbessern“), nach Deck-Bezeichnung.
-    group_sims: HashMap<String, sim::Trial>,
+    group_sims: HashMap<Vec<u32>, sim::Trial>,
     /// Geteilter Zustand des Begleitfensters (läuft, sobald es einmal geöffnet wurde).
     live: Option<std::sync::Arc<live::Shared>>,
     /// Anzahl Turnierlisten beim letzten Abgleich mit dem Begleitfenster.
@@ -241,6 +253,12 @@ impl App {
             sel_gg_event: None,
             sel_gg_deck: None,
             sims: HashMap::new(),
+            sims_running: HashSet::new(),
+            data_gen: 0,
+            games_cache: None,
+            deck_cache: None,
+            building: false,
+            rating_all: false,
             group_sims: HashMap::new(),
             live: None,
             live_meta_lists: usize::MAX,

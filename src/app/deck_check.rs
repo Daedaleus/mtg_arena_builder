@@ -18,17 +18,22 @@ impl App {
         {
             self.scan_games();
         }
-        let Some(db) = &self.db else { return };
-        let groups = deckcheck::group_decks(&self.games, db);
-        if groups.is_empty() {
+        let Some(db) = self.db.clone() else { return };
+        // Zwischengespeichert; neu nur bei neuen Daten, anderem Deck oder Sprache.
+        let Some(a) = self.deck_analysis(self.sel_deck_group) else {
+            return;
+        };
+        let (Some(r), Some(group)) = (a.check.as_ref(), a.groups.get(a.sel)) else {
             ui.add_space(10.0);
             ui.label(tr!("deck_check.noch_keine_partien_bekannter"));
+            self.deck_cache = Some(a);
             return;
-        }
-        let mut sel = self.sel_deck_group.min(groups.len() - 1);
+        };
+        let groups = &a.groups;
+        let mut sel = a.sel;
         let mut clicks = Clicks::default();
         ui.horizontal(|ui| {
-            ui.label("Deck:");
+            ui.label(tr!("deck_check.deck"));
             egui::ComboBox::from_id_salt("deck_group")
                 .selected_text(groups[sel].label.clone())
                 .width(420.0)
@@ -42,32 +47,30 @@ impl App {
                 .on_hover_text(tr!("deck_check.dort_kannst_karten_gegen"))
                 .clicked();
         });
-        let group = &groups[sel];
-        let meta = self.meta_archetypes();
-        let legal = self.legal.get(&self.settings.format);
-        let r = deckcheck::check(group, &self.games, db, &self.owned, legal, &meta);
-        let sim_report = self.group_sims.get(&group.label);
+        let target = SimTarget::Group(group.deck.clone());
+        let running = self.trial_running(&target);
+        let sim_report = self.group_sims.get(&group.deck);
 
         egui::ScrollArea::vertical()
             .id_salt("deck_check_scroll")
             .auto_shrink([false, false])
             .show(ui, |ui| {
-                summary(ui, group, &r);
-                clicks.simulate = lands_section(ui, &r.mana, sim_report);
+                summary(ui, group, r);
+                clicks.simulate = lands_section(ui, &r.mana, sim_report, running);
                 if !group.fixed {
                     self.swaps_section(ui, &r.swaps);
-                    meta_section(ui, r.meta.as_ref(), db);
+                    meta_section(ui, r.meta.as_ref(), &db);
                 }
-                self.cards_section(ui, &r, sel);
+                self.cards_section(ui, r, sel);
             });
 
-        let deck_text = clicks.adopt.then(|| deckcheck::deck_text(&group.deck, db));
+        let deck_text = clicks.adopt.then(|| deckcheck::deck_text(&group.deck, &db));
         let match_id = r.meta.as_ref().map(|m| m.id);
         if clicks.simulate {
-            let report = sim::trial(&group.deck, db, &self.games, sim::DEFAULT_GAMES, 1);
-            self.group_sims.insert(group.label.clone(), report);
+            self.start_trial(target, group.deck.clone());
         }
         self.sel_deck_group = sel;
+        self.deck_cache = Some(a);
         if let Some(text) = deck_text {
             self.paste_text = text;
             self.repl.retain(|k, _| k.0 != PASTED);
@@ -257,6 +260,7 @@ fn lands_section(
     ui: &mut egui::Ui,
     m: &deckcheck::ManaCheck,
     sim_report: Option<&sim::Trial>,
+    running: bool,
 ) -> bool {
     section(ui, &tr!("deck_check.laender"));
     ui.label(tr!(
@@ -277,6 +281,12 @@ fn lands_section(
         .button(tr!("deck_check.probehaende_testen"))
         .on_hover_text(tr!("deck_check.spielt_dieses_deck_1000"))
         .clicked();
+    if running {
+        ui.horizontal(|ui| {
+            ui.spinner();
+            ui.label(tr!("common.rechne"));
+        });
+    }
     if let Some(report) = sim_report {
         super::widgets::sim_view(ui, report);
     }

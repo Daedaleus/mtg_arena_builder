@@ -78,33 +78,22 @@ impl App {
                 RichText::new(tr!("games_tab.arena_detaillierte_logs_ausgeschaltet")).color(YELLOW),
             );
         }
-        let Some(db) = &self.db else { return };
-        let games: Vec<GameRecord> = self
-            .games
-            .iter()
-            .filter(|g| self.games_event.as_ref().is_none_or(|e| &g.event == e))
-            .cloned()
-            .collect();
-        if games.is_empty() {
+        let Some(db) = self.db.clone() else { return };
+        // Zwischengespeichert; neu nur bei neuen Daten, Filter oder Sprache.
+        let Some(a) = self.games_analysis() else {
+            return;
+        };
+        if a.games.is_empty() {
             ui.add_space(10.0);
             ui.label(tr!("games_tab.noch_keine_partien_spiel"));
+            self.games_cache = Some(a);
             return;
         }
         if self.games_view == 2 {
-            progress_view(ui, &games, db);
+            progress_view(ui, &a.games, &db);
+            self.games_cache = Some(a);
             return;
         }
-        let r = games::report(&games, db);
-        let shares = opponents::arch_shares(&self.meta_archetypes(), db);
-        let opp_groups = opponents::analyze(&games, db, &shares);
-        let opp_names: Vec<String> = games
-            .iter()
-            .map(|g| opponents::classify(g, db, &shares))
-            .collect();
-        let player = style::analyze(&games, db, &r);
-        let candidates = self.style_candidates(db);
-        let recs = style::recommend(&candidates, player.recommended, self.wildcards(), 5);
-        let loaded = candidates.len();
         let mut clicked: Option<usize> = None;
         let mut open: Option<u32> = None;
 
@@ -113,17 +102,24 @@ impl App {
             .auto_shrink([false, false])
             .show(ui, |ui| {
                 if overview {
-                    (clicked, open) =
-                        self.games_overview(ui, &r, &opp_groups, &player, &recs, loaded);
+                    (clicked, open) = self.games_overview(
+                        ui,
+                        &a.report,
+                        &a.opp_groups,
+                        &a.player,
+                        &a.recs,
+                        a.loaded,
+                    );
                 } else {
-                    clicked = self.game_list(ui, &games, db, &opp_names);
+                    clicked = self.game_list(ui, &a.games, &db, &a.opp_names);
                     if let Some(i) = self.sel_game
-                        && let Some(g) = games.get(i)
+                        && let Some(g) = a.games.get(i)
                     {
-                        game_detail(ui, i, g, db);
+                        game_detail(ui, i, g, &db);
                     }
                 }
             });
+        self.games_cache = Some(a);
         if let Some(id) = open {
             self.open_deck(id);
         }

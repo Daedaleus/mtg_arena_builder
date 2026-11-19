@@ -130,19 +130,9 @@ impl App {
         }
     }
 
-    /// Baut Deckvorschläge aus der Sammlung und legt sie unter eigenen Schlüsseln ab.
-    pub(super) fn compute_built(&mut self) {
-        let Some(db) = &self.db else { return };
-        // Turnier-Präsenz: in wie vielen geladenen Turnierlisten kommt eine Karte vor?
-        let mut meta_use: HashMap<String, u32> = HashMap::new();
-        for (_, eval) in self.evals.iter().filter(|(id, _)| **id > BUILT_MAX) {
-            let keys: HashSet<&String> = eval.lines.iter().filter_map(|l| l.key.as_ref()).collect();
-            for key in keys {
-                *meta_use.entry(key.clone()).or_insert(0) += 1;
-            }
-        }
-        let legal = self.legal.get(&self.settings.format);
-        let built = builder::build_all(db, &self.owned, legal, &meta_use);
+    /// Übernimmt fertige Deckvorschläge und legt sie unter eigenen Schlüsseln ab.
+    pub(super) fn apply_built(&mut self, built: Vec<Built>) {
+        self.building = false;
         self.repl
             .retain(|k, _| !(BUILT_BASE..=BUILT_MAX).contains(&k.0));
         self.subs
@@ -152,7 +142,6 @@ impl App {
         }
         self.sel_built = self.sel_built.min(built.len().saturating_sub(1));
         self.built = Some(built);
-        self.built_lists = self.lists.len();
         self.built_at = Some(std::time::Instant::now());
     }
 
@@ -166,7 +155,14 @@ impl App {
         let stale = self.lists.len() != self.built_lists
             && self.built_at.is_none_or(|t| t.elapsed().as_secs() >= 2);
         if self.built.is_none() || stale {
-            self.compute_built();
+            self.start_build();
+        }
+        if self.building && self.built.is_none() {
+            ui.horizontal(|ui| {
+                ui.spinner();
+                ui.label(tr!("lists.baue_decks"));
+            });
+            return;
         }
         ui.label(tr!(
             "lists.decks_sofort_ohne_wildcards",

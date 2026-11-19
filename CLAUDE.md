@@ -26,6 +26,9 @@ Offene Punkte: [ToDo.md](ToDo.md).
 Bibliothek (`src/lib.rs`) und Programm (`src/main.rs` startet nur; die
 Diagnose-Kommandozeile liegt in `src/cli/`). `src/app/` enthält nur Oberfläche
 und Verdrahtung – Logik gehört in die Fachmodule, damit sie testbar bleibt.
+Nichts Teures pro Bild berechnen: Auswertungen über `app/compute.rs`
+zwischenspeichern (Generationszähler `data_gen`), lange Rechnungen
+(Probehände, Deckbau) als Hintergrund-Thread mit `Msg` zurück.
 
 Große Module sind Ordner mit Teilmodulen nach Aufgabe; `mod.rs` beschreibt
 oben den Aufbau und exportiert die öffentlichen Teile, Pfade wie
