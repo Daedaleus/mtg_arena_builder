@@ -1,7 +1,8 @@
 # Notes for working on this project
 
 Features and download: [README.md](README.md). Building, tests, command line
-and releases: [CONTRIBUTING.md](CONTRIBUTING.md). Open items: [TODO.md](TODO.md).
+and releases: [CONTRIBUTING.md](CONTRIBUTING.md). Open items are GitHub issues
+(`gh issue list`); new ideas and found problems go there, not into a file.
 
 ## Language and style
 

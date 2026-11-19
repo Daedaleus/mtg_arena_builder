@@ -120,8 +120,9 @@ command line and the release process are described in
 Bug reports and ideas are welcome as
 [issues](https://github.com/Daedaleus/mtg_arena_builder/issues). For code
 changes see [CONTRIBUTING.md](CONTRIBUTING.md); security problems please
-report as described in [SECURITY.md](SECURITY.md). Open items are listed in
-[TODO.md](TODO.md).
+report as described in [SECURITY.md](SECURITY.md). Planned work and ideas
+are tracked as [issues](https://github.com/Daedaleus/mtg_arena_builder/issues)
+too.
 
 ## License
 
