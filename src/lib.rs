@@ -18,6 +18,7 @@ pub mod combat;
 pub mod deck;
 pub mod deckcheck;
 pub mod games;
+pub mod http;
 pub mod images;
 pub mod live;
 pub mod magicgg;

@@ -58,8 +58,8 @@ pub struct GameRecord {
     pub mulligans: u32,
     /// `Some(true)` = gewonnen.
     pub won: Option<bool>,
-    /// Arena-Grund, z. B. `ResultReason_Concede`.
-    pub reason: String,
+    /// Warum die Partie endete (in `games.json` als Arena-Wert).
+    pub reason: EndReason,
     /// Wurde die Partie von Anfang an mitgeschrieben?
     pub complete: bool,
     pub turns: Vec<TurnStat>,
@@ -79,6 +79,55 @@ pub struct GameRecord {
     /// Version der Auswertung, mit der die Partie erstellt wurde (siehe
     /// `PARSER_VERSION`); 0 = unbekannt (ältere Datei).
     pub parser: u32,
+}
+
+/// Warum eine Partie endete. In `games.json` steht der Arena-Wert
+/// (z. B. „ResultReason_Concede“), damit ältere Dateien gültig bleiben.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(from = "String", into = "String")]
+pub enum EndReason {
+    #[default]
+    Unknown,
+    /// Regulär entschieden (Leben auf 0, Bibliothek leer …).
+    Game,
+    Concede,
+    Timeout,
+    /// Anderer Arena-Wert, unverändert aufbewahrt.
+    Other(String),
+}
+
+impl EndReason {
+    pub fn from_arena(value: &str) -> EndReason {
+        match value {
+            "" => EndReason::Unknown,
+            "ResultReason_Game" => EndReason::Game,
+            "ResultReason_Concede" => EndReason::Concede,
+            "ResultReason_Timeout" => EndReason::Timeout,
+            other => EndReason::Other(other.to_string()),
+        }
+    }
+
+    pub fn to_arena(&self) -> &str {
+        match self {
+            EndReason::Unknown => "",
+            EndReason::Game => "ResultReason_Game",
+            EndReason::Concede => "ResultReason_Concede",
+            EndReason::Timeout => "ResultReason_Timeout",
+            EndReason::Other(v) => v,
+        }
+    }
+}
+
+impl From<String> for EndReason {
+    fn from(value: String) -> EndReason {
+        EndReason::from_arena(&value)
+    }
+}
+
+impl From<EndReason> for String {
+    fn from(r: EndReason) -> String {
+        r.to_arena().to_string()
+    }
 }
 
 /// Constructed-Rang laut Arena (`RankGetCombinedRankInfo`).
@@ -156,6 +205,6 @@ impl GameRecord {
     }
 
     pub fn conceded(&self) -> bool {
-        self.reason.contains("Concede")
+        self.reason == EndReason::Concede
     }
 }

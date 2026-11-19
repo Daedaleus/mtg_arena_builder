@@ -636,7 +636,7 @@ fn report_finds_mistakes() {
     t5.creatures_me = 1;
     let mut g1 = game("a", Some(false), vec![t1, t3, t4, t5]);
     g1.opening_hand = vec![MOUNTAIN, OGRE, OGRE, OGRE, OGRE, OGRE, OGRE];
-    g1.reason = "ResultReason_Concede".into();
+    g1.reason = EndReason::Concede;
     g1.opp_cards.insert(BEAR, 2);
     g1.opp_cards.insert(FOREST, 3);
     g1.damage_taken.insert(BEAR, 14);
@@ -708,4 +708,26 @@ fn colors_from_cards() {
     g.opp_cards.insert(MURDER, 1);
     g.opp_cards.insert(SPIRIT, 1);
     assert_eq!(opp_colors(&g, &db), "UB");
+}
+
+#[test]
+fn end_reasons_keep_arena_values() {
+    for value in [
+        "ResultReason_Game",
+        "ResultReason_Concede",
+        "ResultReason_Timeout",
+        "Etwas_Neues",
+        "",
+    ] {
+        let r = EndReason::from_arena(value);
+        assert_eq!(r.to_arena(), value);
+        let json = serde_json::to_string(&r).unwrap();
+        assert_eq!(json, format!("\"{value}\""), "in games.json unverändert");
+        assert_eq!(serde_json::from_str::<EndReason>(&json).unwrap(), r);
+    }
+    assert_eq!(
+        EndReason::from_arena("ResultReason_Concede"),
+        EndReason::Concede
+    );
+    assert!(matches!(EndReason::from_arena("X"), EndReason::Other(_)));
 }

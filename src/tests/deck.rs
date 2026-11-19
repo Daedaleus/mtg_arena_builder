@@ -135,3 +135,14 @@ fn exports_for_arena() {
     let text = export_arena(&eval, &db, None, false, false, |_| None);
     assert_eq!(text, "Deck\n4 Shock\n20 Mountain\n2 Missing Card\n");
 }
+
+#[test]
+fn usage_counts_count_lists_not_copies() {
+    let db = testutil::std_db();
+    let owned = HashMap::new();
+    let a = evaluate(&parse("4 Shock\n2 Hill Ogre\n"), &db, &owned);
+    let b = evaluate(&parse("1 Shock\n"), &db, &owned);
+    let counts = usage_counts([&a, &b]);
+    assert_eq!(counts["shock"], 2);
+    assert_eq!(counts["hill ogre"], 1);
+}

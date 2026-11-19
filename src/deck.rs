@@ -1,6 +1,6 @@
 //! Decklisten einlesen und gegen die Sammlung prüfen.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crate::carddb::{CardDb, Rarity};
 
@@ -244,6 +244,19 @@ pub fn export_arena(
         }
     }
     out
+}
+
+/// In wie vielen Listen kommt jede Karte vor (Kartenschlüssel -> Anzahl Listen)?
+/// Für den Deckbau: Karten aus Turnierlisten gelten als stärker.
+pub fn usage_counts<'a>(evals: impl IntoIterator<Item = &'a DeckEval>) -> HashMap<String, u32> {
+    let mut counts: HashMap<String, u32> = HashMap::new();
+    for eval in evals {
+        let keys: HashSet<&String> = eval.lines.iter().filter_map(|l| l.key.as_ref()).collect();
+        for key in keys {
+            *counts.entry(key.clone()).or_insert(0) += 1;
+        }
+    }
+    counts
 }
 
 #[cfg(test)]

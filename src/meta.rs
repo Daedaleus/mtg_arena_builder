@@ -5,7 +5,6 @@
 
 use std::collections::HashSet;
 use std::fs;
-use std::io::Read;
 use std::path::PathBuf;
 use std::thread::sleep;
 use std::time::{Duration, Instant, SystemTime};
@@ -14,6 +13,8 @@ use anyhow::{Context, Result};
 use regex::Regex;
 
 use crate::carddb::name_key;
+pub use crate::http::Http;
+use crate::http::Ureq;
 use crate::magicgg::{self, GgDeck, GgEvent};
 
 /// (MTGTop8-Kürzel, Anzeigename, Scryfall-Formatname)
@@ -25,7 +26,6 @@ pub const FORMATS: [(&str, &str, &str); 5] = [
     ("ALCH", "Alchemy", "alchemy"),
 ];
 
-const USER_AGENT: &str = "mtg_arena_builder/0.1 (privates Deckbau-Werkzeug)";
 const TOP8: &str = "https://www.mtgtop8.com";
 const TOP8_DELAY: Duration = Duration::from_secs(5);
 const GG: &str = "https://magic.gg";
@@ -50,25 +50,6 @@ pub struct DeckRef {
     pub event: String,
     pub rank: String,
     pub date: String,
-}
-
-/// Holt Adressen aus dem Netz. Austauschbar, damit Cache und Wartezeiten
-/// ohne Netz testbar sind.
-pub trait Http: Send {
-    /// Inhalt einer Adresse (höchstens 5 MB).
-    fn get(&self, url: &str, accept: &str) -> Result<Vec<u8>>;
-}
-
-/// Echter Netzabruf über `ureq`.
-struct Ureq(ureq::Agent);
-
-impl Http for Ureq {
-    fn get(&self, url: &str, accept: &str) -> Result<Vec<u8>> {
-        let resp = self.0.get(url).set("Accept", accept).call()?;
-        let mut bytes = Vec::new();
-        resp.into_reader().take(5_000_000).read_to_end(&mut bytes)?;
-        Ok(bytes)
-    }
 }
 
 /// Wartezeiten zwischen Anfragen an dieselbe Seite.
@@ -117,11 +98,11 @@ fn decode_entities(s: &str) -> String {
 
 impl Fetcher {
     pub fn new(cache: PathBuf) -> Fetcher {
-        let agent = ureq::AgentBuilder::new()
-            .timeout(Duration::from_secs(30))
-            .user_agent(USER_AGENT)
-            .build();
-        Fetcher::with_http(cache, Box::new(Ureq(agent)), Delays::default())
+        Fetcher::with_http(
+            cache,
+            Box::new(Ureq::new(Duration::from_secs(30))),
+            Delays::default(),
+        )
     }
 
     /// Wie [`Fetcher::new`], aber mit eigenem Netzabruf und eigenen Wartezeiten.
@@ -155,6 +136,7 @@ impl Fetcher {
         let bytes = self
             .http
             .get(url, "*/*")
+            .and_then(|b| b.ok_or_else(|| anyhow::anyhow!("404")))
             .with_context(|| tr!("meta.abruf_fehlgeschlagen", url = url))?;
         let text: String = if latin1 {
             bytes.iter().map(|&b| b as char).collect()
@@ -302,6 +284,7 @@ impl Fetcher {
             let bytes = self
                 .http
                 .get(&url, "application/json")
+                .and_then(|b| b.ok_or_else(|| anyhow::anyhow!("404")))
                 .map_err(|e| anyhow::anyhow!(tr!("meta.scryfall", e = format!("{e:#}"))))?;
             let page: serde_json::Value = serde_json::from_slice(&bytes)?;
             let (found, next) = parse_scryfall_page(&page);

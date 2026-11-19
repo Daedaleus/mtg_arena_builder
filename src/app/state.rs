@@ -43,8 +43,8 @@ impl App {
         self.settings.sort_by_fit = self.sort_by_fit;
         self.settings.tab = self.tab.saved();
         self.settings.paste_text = self.paste_text.clone();
-        self.settings.sel_arch = self.sel_arch;
-        self.settings.sel_deck = self.sel_deck;
+        self.settings.sel_arch = self.tour.sel_arch;
+        self.settings.sel_deck = self.tour.sel_deck;
         self.settings.set_replacements(&self.repl);
         if let Err(e) = self.settings_file.save(&self.settings) {
             self.status = tr!("state.einstellungen_nicht_gespeichert", e = e);
@@ -92,11 +92,11 @@ impl App {
         let format = self.settings.format;
         let _ = self.tx_job.send(Job::Clear);
         let _ = self.tx_job.send(Job::Archetypes { format, force });
-        self.archetypes.clear();
-        self.decks.clear();
-        self.list_requested.clear();
-        self.sel_arch = None;
-        self.sel_deck = None;
+        self.tour.archetypes.clear();
+        self.tour.decks.clear();
+        self.tour.requested.clear();
+        self.tour.sel_arch = None;
+        self.tour.sel_deck = None;
         self.subs.clear();
         self.built.decks = None;
         // magic.gg-Events beim nächsten Öffnen für das neue Format laden.
@@ -105,7 +105,7 @@ impl App {
         self.gg.sel_event = None;
         self.gg.sel_deck = None;
         self.status = tr!("state.lade_metagame_mtgtop8", v = FORMATS[format].1);
-        if self.legal_requested.insert(format) {
+        if self.tour.legal_requested.insert(format) {
             let (tx, cache) = (self.tx_msg.clone(), self.data_dir.join("cache"));
             std::thread::spawn(move || {
                 let r = Fetcher::new(cache)
@@ -134,6 +134,7 @@ impl App {
     /// günstigste Variante gefunden wird (eine Anfrage alle 5 s, dauerhaft gecacht).
     pub(super) fn queue_variants(&mut self, arch: u32) {
         let ids: Vec<u32> = self
+            .tour
             .decks
             .get(&arch)
             .into_iter()
@@ -141,7 +142,7 @@ impl App {
             .map(|d| d.id)
             .collect();
         for deck_id in ids {
-            if !self.lists.contains_key(&deck_id) && self.list_requested.insert(deck_id) {
+            if !self.lists.contains_key(&deck_id) && self.tour.requested.insert(deck_id) {
                 let _ = self.tx_job.send(Job::List {
                     deck_id,
                     urgent: false,
@@ -172,7 +173,7 @@ impl App {
     /// Ersetzt fehlende Karten automatisch so, dass die Wildcards reichen.
     pub(super) fn apply_budget(&mut self, deck_id: u32, eval: &DeckEval) {
         let Some(db) = &self.db else { return };
-        let legal = self.legal.get(&self.settings.format);
+        let legal = self.tour.legal.get(&self.settings.format);
         let plan = budget::plan(
             eval,
             db,
@@ -228,7 +229,8 @@ impl App {
 
     /// Günstigstes bereits bewertetes Deck eines Archetyps.
     pub(super) fn best_of_arch(&self, arch: u32) -> Option<Summary> {
-        self.decks
+        self.tour
+            .decks
             .get(&arch)?
             .iter()
             .filter_map(|d| self.summary(d.id))
@@ -237,12 +239,14 @@ impl App {
 
     /// Alle geladenen Turnierlisten des aktuellen Formats, nach Archetyp.
     pub(super) fn meta_archetypes(&self) -> Vec<deckcheck::MetaArchetype<'_>> {
-        self.archetypes
+        self.tour
+            .archetypes
             .iter()
             .map(|a| deckcheck::MetaArchetype {
                 id: a.id,
                 name: a.name.clone(),
                 lists: self
+                    .tour
                     .decks
                     .get(&a.id)
                     .into_iter()
@@ -257,8 +261,8 @@ impl App {
     /// die Empfehlung nach Spielstil.
     pub(super) fn style_candidates(&self, db: &CardDb) -> Vec<style::Candidate> {
         let mut out = Vec::new();
-        for a in &self.archetypes {
-            for d in self.decks.get(&a.id).into_iter().flatten() {
+        for a in &self.tour.archetypes {
+            for d in self.tour.decks.get(&a.id).into_iter().flatten() {
                 if let (Some(list), Some(summary)) = (self.lists.get(&d.id), self.summary(d.id)) {
                     out.push(style::Candidate {
                         deck_id: d.id,
@@ -296,13 +300,14 @@ impl App {
     /// Öffnet ein Turnierdeck in seinem Reiter (MTGTop8 oder magic.gg).
     pub(super) fn open_deck(&mut self, id: u32) {
         if let Some(arch) = self
+            .tour
             .decks
             .iter()
             .find(|(_, ds)| ds.iter().any(|d| d.id == id))
             .map(|(a, _)| *a)
         {
-            self.sel_arch = Some(arch);
-            self.sel_deck = Some(id);
+            self.tour.sel_arch = Some(arch);
+            self.tour.sel_deck = Some(id);
             self.tab = Tab::Meta;
         } else if let Some(slug) = self
             .gg

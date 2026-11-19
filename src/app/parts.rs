@@ -77,3 +77,23 @@ pub(super) struct BuiltState {
     /// Bauen läuft im Hintergrund.
     pub running: bool,
 }
+
+/// „Turnierdecks“ (MTGTop8): Archetypen, Decklisten-Verweise, Auswahl und
+/// Format-Legalität.
+#[derive(Default)]
+pub(super) struct TourState {
+    pub archetypes: Vec<Archetype>,
+    /// Decklisten-Verweise je Archetyp.
+    pub decks: HashMap<u32, Vec<DeckRef>>,
+    /// Schon angefragte Decklisten (nicht doppelt laden).
+    pub requested: HashSet<u32>,
+    pub sel_arch: Option<u32>,
+    pub sel_deck: Option<u32>,
+    /// Legale Kartenschlüssel je Format (Index in `FORMATS`).
+    pub legal: HashMap<usize, HashSet<String>>,
+    pub legal_requested: HashSet<usize>,
+    /// Offene Abrufe in der Warteschlange.
+    pub pending: usize,
+    /// „Alle bewerten“ läuft (Status am Ende auf „fertig“ setzen).
+    pub rating_all: bool,
+}

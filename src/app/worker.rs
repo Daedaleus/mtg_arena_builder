@@ -156,18 +156,18 @@ impl App {
                             format,
                             archetypes: list.clone(),
                         });
-                        self.archetypes = list;
+                        self.tour.archetypes = list;
                     }
                     Err(e) => self.status = e,
                 },
                 Msg::Decks(format, arch, result) if format == self.settings.format => {
                     match result {
                         Ok(list) => {
-                            if self.sel_arch == Some(arch) && self.sel_deck.is_none() {
-                                self.sel_deck = list.first().map(|d| d.id);
+                            if self.tour.sel_arch == Some(arch) && self.tour.sel_deck.is_none() {
+                                self.tour.sel_deck = list.first().map(|d| d.id);
                             }
-                            self.decks.insert(arch, list);
-                            if self.sel_arch == Some(arch) {
+                            self.tour.decks.insert(arch, list);
+                            if self.tour.sel_arch == Some(arch) {
                                 self.queue_variants(arch);
                             }
                         }
@@ -180,7 +180,7 @@ impl App {
                 },
                 Msg::Legal(format, result) => match result {
                     Ok(names) => {
-                        self.legal.insert(format, names);
+                        self.tour.legal.insert(format, names);
                         self.subs.clear();
                         self.built.decks = None;
                     }
@@ -200,8 +200,12 @@ impl App {
                 }
                 Msg::Restored(format) if format == self.settings.format => {
                     // Gemerkte Auswahl, deren Decks nicht (mehr) im Cache liegen, nachladen.
-                    if let Some(id) = self.sel_arch.filter(|id| !self.decks.contains_key(id)) {
-                        match self.archetypes.iter().find(|a| a.id == id).cloned() {
+                    if let Some(id) = self
+                        .tour
+                        .sel_arch
+                        .filter(|id| !self.tour.decks.contains_key(id))
+                    {
+                        match self.tour.archetypes.iter().find(|a| a.id == id).cloned() {
                             Some(arch) => {
                                 let _ = self.tx_job.send(Job::Decks {
                                     format,
@@ -210,8 +214,8 @@ impl App {
                                 });
                             }
                             None => {
-                                self.sel_arch = None;
-                                self.sel_deck = None;
+                                self.tour.sel_arch = None;
+                                self.tour.sel_deck = None;
                             }
                         }
                     }
@@ -243,9 +247,9 @@ impl App {
                 Msg::Trial(target, trial) => self.finish_trial(target, *trial),
                 Msg::Built(built) => self.apply_built(built),
                 Msg::Pending(n) => {
-                    self.pending = n;
-                    if n == 0 && self.rating_all {
-                        self.rating_all = false;
+                    self.tour.pending = n;
+                    if n == 0 && self.tour.rating_all {
+                        self.tour.rating_all = false;
                         self.status = tr!("worker.alle_archetypen_bewertet");
                     }
                 }

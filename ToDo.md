@@ -63,6 +63,10 @@ Stand: 16.11.2026. Erledigtes steht in der Git-Historie.
       Parser-Version je Partie, Schreibfehler gemeldet, `App` in Teilzustände,
       Live-Thread beendbar, `anyhow` statt `String`-Fehlern, Netzabruf hinter
       `meta::Http`.
+- [x] Review-Kleinigkeiten: Turnier-Präsenz in `deck::usage_counts`, Format in
+      `settings.json` als Kürzel, Kartenbilder über `http::Http` (Netzfehler
+      gelten nicht mehr als „Bild fehlt“), Aufgabegrund als `EndReason`,
+      Turnierdeck-Felder als `TourState`.
 - [ ] Rest aus dem Review: `GrpId`/`CardKey` als echte Newtypes statt Aliasen,
       `DeckSource`-Enum statt gemeinsamem `u32`-Raum (braucht Umstellung von
       `settings.json`), lange Oberflächen-Funktionen (`handle_messages`,

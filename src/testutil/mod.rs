@@ -1,11 +1,13 @@
 //! Hilfen für Tests: kleine Kartendatenbanken, künstliche Arena-Lognachrichten,
-//! Webseiten-Ausschnitte und temporäre Ordner.
+//! Webseiten-Ausschnitte, ein Netzabruf ohne Netz und temporäre Ordner.
 
 mod cards;
+mod http;
 mod log;
 mod pages;
 
 pub use cards::*;
+pub use http::*;
 pub use log::*;
 pub use pages::*;
 

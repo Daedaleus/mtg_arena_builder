@@ -23,7 +23,7 @@ impl App {
             .filter_map(|k| db.representative(k))
             .filter(|c| !c.is_land())
             .fold(0u8, |m, c| m | c.colors);
-        let legal = self.legal.get(&self.settings.format);
+        let legal = self.tour.legal.get(&self.settings.format);
         for line in eval.lines.iter().filter(|l| l.missing > 0) {
             let Some(key) = &line.key else { continue };
             let slot = (deck_id, key.clone());

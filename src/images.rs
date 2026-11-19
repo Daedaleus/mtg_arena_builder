@@ -9,7 +9,6 @@
 //! Druck in der Sprache, kommt das englische Bild.
 
 use std::fs;
-use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{Sender, channel};
 use std::thread::sleep;
@@ -17,9 +16,8 @@ use std::time::Duration;
 
 use serde_json::Value;
 
+use crate::http::{Http, Ureq};
 use crate::i18n::Locale;
-
-const USER_AGENT: &str = "mtg_arena_builder/0.1 (privates Deckbau-Werkzeug)";
 
 fn file_stem(name: &str) -> String {
     name.chars()
@@ -108,47 +106,44 @@ fn image_from_search(json: &str) -> Option<String> {
         .map(str::to_string)
 }
 
-/// Lädt eine Adresse; `Ok(None)` heißt „gibt es nicht“ (404).
-fn fetch(agent: &ureq::Agent, url: &str, accept: &str) -> Result<Option<Vec<u8>>, ()> {
+const IMAGE: &str = "image/*,*/*;q=0.8";
+
+/// Scryfall bittet um 50–100 ms Abstand zwischen Anfragen.
+fn polite_get(http: &dyn Http, url: &str, accept: &str) -> anyhow::Result<Option<Vec<u8>>> {
     sleep(Duration::from_millis(120));
-    match agent.get(url).set("Accept", accept).call() {
-        Ok(resp) => {
-            let mut bytes = Vec::new();
-            resp.into_reader()
-                .take(5_000_000)
-                .read_to_end(&mut bytes)
-                .map_err(|_| ())?;
-            Ok(Some(bytes))
-        }
-        Err(ureq::Error::Status(404, _)) => Ok(None),
-        Err(_) => Err(()),
-    }
+    http.get(url, accept)
 }
 
-fn download_english(agent: &ureq::Agent, name: &str) -> Option<Vec<u8>> {
-    // Erst exakter Name, sonst unscharfe Suche (z. B. bei doppelseitigen Karten).
+/// Englisches Bild: erst exakter Name, sonst unscharfe Suche (z. B. bei
+/// doppelseitigen Karten). `Ok(None)` = Scryfall kennt keins.
+fn download_english(http: &dyn Http, name: &str) -> anyhow::Result<Option<Vec<u8>>> {
     for mode in ["exact", "fuzzy"] {
-        match fetch(agent, &image_url(mode, name), "image/*,*/*;q=0.8") {
-            Ok(Some(bytes)) => return Some(bytes),
-            Ok(None) => continue,
-            Err(()) => return None,
+        if let Some(bytes) = polite_get(http, &image_url(mode, name), IMAGE)? {
+            return Ok(Some(bytes));
         }
     }
-    None
+    Ok(None)
 }
 
-fn download_localized(agent: &ureq::Agent, name: &str, lang: &str) -> Option<Vec<u8>> {
-    let json = fetch(agent, &search_url(name, lang), "application/json").ok()??;
-    let url = image_from_search(&String::from_utf8_lossy(&json))?;
-    fetch(agent, &url, "image/*,*/*;q=0.8").ok()?
+/// Bild eines Drucks in der Sprache `lang` (`Ok(None)` = keiner vorhanden).
+fn download_localized(http: &dyn Http, name: &str, lang: &str) -> anyhow::Result<Option<Vec<u8>>> {
+    let Some(json) = polite_get(http, &search_url(name, lang), "application/json")? else {
+        return Ok(None);
+    };
+    match image_from_search(&String::from_utf8_lossy(&json)) {
+        Some(url) => polite_get(http, &url, IMAGE),
+        None => Ok(None),
+    }
 }
 
-fn download(agent: &ureq::Agent, key: &str) -> Option<Vec<u8>> {
+/// Bild zu einem Schlüssel (siehe [`key`]); ohne Druck in der Sprache das englische.
+fn download(http: &dyn Http, key: &str) -> anyhow::Result<Option<Vec<u8>>> {
     match split_key(key) {
-        (name, Some(lang)) => {
-            download_localized(agent, name, lang).or_else(|| download_english(agent, name))
-        }
-        (name, None) => download_english(agent, name),
+        (name, Some(lang)) => match download_localized(http, name, lang)? {
+            Some(bytes) => Ok(Some(bytes)),
+            None => download_english(http, name),
+        },
+        (name, None) => download_english(http, name),
     }
 }
 
@@ -202,11 +197,15 @@ fn store(cache: &Path, name: &str, bytes: Option<&[u8]>) -> Option<Picture> {
     }
 }
 
-fn load(agent: &ureq::Agent, cache: &Path, name: &str) -> Option<Picture> {
+fn load(http: &dyn Http, cache: &Path, name: &str) -> Option<Picture> {
     match from_cache(cache, name) {
         Cached::Image(img) => Some(img),
         Cached::Missing => None,
-        Cached::Unknown => store(cache, name, download(agent, name).as_deref()),
+        Cached::Unknown => match download(http, name) {
+            Ok(bytes) => store(cache, name, bytes.as_deref()),
+            // Netzfehler: nicht als „fehlt“ merken, später erneut versuchen.
+            Err(_) => None,
+        },
     }
 }
 
@@ -219,12 +218,9 @@ pub fn spawn(
     let (tx, rx) = channel::<String>();
     let _ = fs::create_dir_all(&cache);
     std::thread::spawn(move || {
-        let agent = ureq::AgentBuilder::new()
-            .timeout(Duration::from_secs(20))
-            .user_agent(USER_AGENT)
-            .build();
+        let http = Ureq::new(Duration::from_secs(20));
         while let Ok(name) = rx.recv() {
-            let img = load(&agent, &cache, &name);
+            let img = load(&http, &cache, &name);
             done(name, img);
         }
     });

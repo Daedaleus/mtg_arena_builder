@@ -4,19 +4,20 @@ use super::*;
 
 impl App {
     pub(super) fn meta_tab(&mut self, ui: &mut egui::Ui) {
-        let Some(arch_id) = self.sel_arch else {
+        let Some(arch_id) = self.tour.sel_arch else {
             ui.add_space(20.0);
             ui.label(tr!("lists.links_einen_archetyp_auswaehlen"));
             return;
         };
         let name = self
+            .tour
             .archetypes
             .iter()
             .find(|a| a.id == arch_id)
             .map(|a| a.name.clone())
             .unwrap_or_default();
         ui.heading(name);
-        let Some(decks) = self.decks.get(&arch_id).cloned() else {
+        let Some(decks) = self.tour.decks.get(&arch_id).cloned() else {
             ui.horizontal(|ui| {
                 ui.spinner();
                 ui.label(tr!("lists.lade_turnierdecks"));
@@ -75,7 +76,7 @@ impl App {
                         body.row(20.0, |mut row| {
                             row.col(|ui| {
                                 if ui
-                                    .selectable_label(self.sel_deck == Some(d.id), &d.player)
+                                    .selectable_label(self.tour.sel_deck == Some(d.id), &d.player)
                                     .clicked()
                                 {
                                     clicked = Some(d.id);
@@ -108,9 +109,9 @@ impl App {
                 });
         });
         if let Some(id) = clicked {
-            self.sel_deck = Some(id);
+            self.tour.sel_deck = Some(id);
             if !self.lists.contains_key(&id) {
-                self.list_requested.insert(id);
+                self.tour.requested.insert(id);
                 let _ = self.tx_job.send(Job::List {
                     deck_id: id,
                     urgent: true,
@@ -118,7 +119,7 @@ impl App {
             }
         }
         ui.separator();
-        match self.sel_deck {
+        match self.tour.sel_deck {
             Some(id) if self.evals.contains_key(&id) => self.deck_view(ui, id),
             Some(_) => {
                 ui.horizontal(|ui| {

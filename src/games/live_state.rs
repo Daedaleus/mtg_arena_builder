@@ -154,7 +154,7 @@ impl Tracker {
     pub(super) fn finish(mut self, won: Option<bool>, reason: &str) -> GameRecord {
         self.close_turn();
         self.rec.won = won;
-        self.rec.reason = reason.to_string();
+        self.rec.reason = EndReason::from_arena(reason);
         self.rec.mulligans = self.mulligan_reqs.saturating_sub(1);
         self.rec.opp_cards = self
             .seen_cards

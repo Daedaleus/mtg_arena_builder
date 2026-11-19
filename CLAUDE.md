@@ -29,10 +29,11 @@ und Verdrahtung – Logik gehört in die Fachmodule, damit sie testbar bleibt.
 Nichts Teures pro Bild berechnen: Auswertungen über `app/compute.rs`
 zwischenspeichern (Generationszähler `data_gen`), lange Rechnungen
 (Probehände, Deckbau) als Hintergrund-Thread mit `Msg` zurück. Zustand der
-Oberfläche nach Bereich in `app/parts.rs` (Partien, magic.gg, Bilder,
-Probehände, gebaute Decks). egui nur in `src/app/` und `main.rs` – Fachmodule
+Oberfläche nach Bereich in `app/parts.rs` (Turnierdecks, Partien, magic.gg,
+Bilder, Probehände, gebaute Decks). egui nur in `src/app/` und `main.rs` – Fachmodule
 liefern eigene Typen (z. B. `images::Picture`) und nehmen Callbacks.
-Netzabruf über `meta::Http` (in Tests austauschbar), Fehler mit `anyhow`;
+Netzabruf über den Trait `http::Http` (in Tests `testutil::FakeHttp`), Fehler
+mit `anyhow`;
 Deck-Kennungen nur über `app::deck_ids`.
 
 Große Module sind Ordner mit Teilmodulen nach Aufgabe; `mod.rs` beschreibt
@@ -55,7 +56,7 @@ Aufzählungen wie `Mistake` oder `LandVerdict`.
 | `games/` | Mitschreiben: `arena` (Protokollwerte), `object`, `tracker`, `live_state`, `parser`; Speichern: `record` (Datentypen, Rang), `store` (`games.json`); Auswerten: `moments` (einzelne Züge), `mistake` (Fehlerarten), `report` |
 | `deckcheck/`, `opponents`, `progress` | Deck verbessern (`groups`, `mana`, `analysis`), Gegner und Archetyp-Erkennung, Verlauf |
 | `live/`, `turnplan`, `combat` | Begleitfenster-Logik (`view`, `hints`, `damage`, `follow`; gezeichnet in `app/companion`), Zugvorschlag, Blocks/Tricks/ungeblockter Schaden |
-| `settings`, `present`, `paths`, `images` | Einstellungen, Anzeigetexte, Pfade, Bild-Cache (Kartenbilder je Sprache) |
+| `settings`, `present`, `paths`, `images`, `http` | Einstellungen (Format als Kürzel gespeichert), Anzeigetexte, Pfade, Bild-Cache (Kartenbilder je Sprache), Netzabruf |
 | `i18n` | Sprache (Betriebssystem oder Einstellung), Makro `tr!`; Texte in `locales/app.yml` |
 | `testutil/` | Testhilfen: `cards`, `log` (künstliche Lognachrichten), `pages` (Webseiten) |
 

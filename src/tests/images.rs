@@ -91,3 +91,30 @@ fn worker_answers_from_cache() {
         ("Nichts".into(), false)
     );
 }
+
+#[test]
+fn downloads_localized_with_fallback() {
+    use crate::testutil::{FakeHttp, Reply};
+    let search = br#"{"data":[{"image_uris":{"normal":"https://img/schock.jpg"}}]}"#.to_vec();
+    let http = FakeHttp::new(vec![
+        ("lang%3Ade", Reply::Body(search)),
+        ("img/schock", Reply::Body(b"DE".to_vec())),
+        ("exact=Shock", Reply::Body(b"EN".to_vec())),
+        ("Opt", Reply::Fail),
+    ]);
+    assert_eq!(download(&http, "Shock@de").unwrap().unwrap(), b"DE");
+    assert_eq!(download(&http, "Shock").unwrap().unwrap(), b"EN");
+    // Kein deutscher Druck: englisches Bild; gar keins: None.
+    let http = FakeHttp::new(vec![("exact=Shock", Reply::Body(b"EN".to_vec()))]);
+    assert_eq!(download(&http, "Shock@de").unwrap().unwrap(), b"EN");
+    assert!(download(&http, "Unbekannt").unwrap().is_none());
+    // Netzfehler: nicht als „fehlt“ merken.
+    let dir = TempDir::new("img_fail");
+    let failing = FakeHttp::new(vec![("Opt", Reply::Fail)]);
+    assert!(load(&failing, &dir.0, "Opt").is_none());
+    assert!(matches!(from_cache(&dir.0, "Opt"), Cached::Unknown));
+    // Gibt es nicht: gemerkt.
+    let empty = FakeHttp::new(vec![]);
+    assert!(load(&empty, &dir.0, "Opt").is_none());
+    assert!(matches!(from_cache(&dir.0, "Opt"), Cached::Missing));
+}

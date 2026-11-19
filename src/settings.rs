@@ -28,6 +28,10 @@ pub struct Settings {
     pub zoom: f32,
     /// „Erste Schritte“ ausgeblendet?
     pub onboarding_hidden: bool,
+    /// Index in [`crate::meta::FORMATS`]; in der Datei als Kürzel („ST“), damit
+    /// eine geänderte Formatliste die Wahl nicht verschiebt. Ältere Dateien
+    /// mit Zahl werden weiter gelesen.
+    #[serde(with = "format_code")]
     pub format: usize,
     pub include_side: bool,
     pub with_sets: bool,
@@ -138,6 +142,31 @@ impl SettingsFile {
         paths::write_atomic(&self.path, &json)?;
         self.saved = json;
         Ok(true)
+    }
+}
+
+/// `format` als MTGTop8-Kürzel speichern, Zahl oder Kürzel lesen.
+mod format_code {
+    use serde::{Deserialize, Deserializer, Serializer};
+
+    use crate::meta::FORMATS;
+
+    pub fn serialize<S: Serializer>(format: &usize, s: S) -> Result<S::Ok, S::Error> {
+        s.serialize_str(FORMATS.get(*format).map_or(FORMATS[0].0, |f| f.0))
+    }
+
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum Stored {
+        Index(usize),
+        Code(String),
+    }
+
+    pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<usize, D::Error> {
+        Ok(match Stored::deserialize(d)? {
+            Stored::Index(i) => i.min(FORMATS.len() - 1),
+            Stored::Code(code) => FORMATS.iter().position(|f| f.0 == code).unwrap_or(0),
+        })
     }
 }
 

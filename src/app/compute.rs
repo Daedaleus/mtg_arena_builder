@@ -93,7 +93,7 @@ impl App {
         let sel = sel.min(groups.len().saturating_sub(1));
         let check = groups.get(sel).map(|group| {
             let meta = self.meta_archetypes();
-            let legal = self.legal.get(&self.settings.format);
+            let legal = self.tour.legal.get(&self.settings.format);
             deckcheck::check(group, &self.games.list, &db, &self.owned, legal, &meta)
         });
         Some(DeckAnalysis {
@@ -147,19 +147,14 @@ impl App {
         }
         self.built.running = true;
         // Turnier-Präsenz: in wie vielen geladenen Turnierlisten kommt eine Karte vor?
-        let mut meta_use: HashMap<String, u32> = HashMap::new();
-        for (_, eval) in self
-            .evals
-            .iter()
-            .filter(|(id, _)| deck_ids::is_tournament(**id))
-        {
-            let keys: HashSet<&String> = eval.lines.iter().filter_map(|l| l.key.as_ref()).collect();
-            for key in keys {
-                *meta_use.entry(key.clone()).or_insert(0) += 1;
-            }
-        }
+        let meta_use = deck::usage_counts(
+            self.evals
+                .iter()
+                .filter(|(id, _)| deck_ids::is_tournament(**id))
+                .map(|(_, e)| e),
+        );
         let owned = self.owned.clone();
-        let legal = self.legal.get(&self.settings.format).cloned();
+        let legal = self.tour.legal.get(&self.settings.format).cloned();
         let (tx, ctx) = (self.tx_msg.clone(), self.ctx.clone());
         self.built.lists = self.lists.len();
         std::thread::spawn(move || {

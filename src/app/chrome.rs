@@ -125,11 +125,14 @@ impl App {
         });
         egui::TopBottomPanel::bottom("status").show(ctx, |ui| {
             ui.horizontal(|ui| {
-                if self.pending > 0 || self.syncing {
+                if self.tour.pending > 0 || self.syncing {
                     ui.spinner();
                 }
-                if self.pending > 0 {
-                    ui.label(tr!("chrome.abrufe_warteschlange", pending = self.pending));
+                if self.tour.pending > 0 {
+                    ui.label(tr!(
+                        "chrome.abrufe_warteschlange",
+                        pending = self.tour.pending
+                    ));
                 }
                 ui.label(&self.status);
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
@@ -150,9 +153,10 @@ impl App {
                 ));
                 ui.horizontal(|ui| {
                     let todo: Vec<Archetype> = self
+                        .tour
                         .archetypes
                         .iter()
-                        .filter(|a| !self.decks.contains_key(&a.id))
+                        .filter(|a| !self.tour.decks.contains_key(&a.id))
                         .cloned()
                         .collect();
                     let hint = tr!("chrome.laedt_jedem_archetyp_neueste");
@@ -165,7 +169,7 @@ impl App {
                         .clicked()
                     {
                         self.status = tr!("chrome.bewerte_archetypen", todo_n = todo.len());
-                        self.rating_all = true;
+                        self.tour.rating_all = true;
                         for arch in todo {
                             let _ = self.tx_job.send(Job::Decks {
                                 format: self.settings.format,
@@ -187,6 +191,7 @@ impl App {
                 ui.separator();
 
                 let mut rows: Vec<(Archetype, Option<Summary>)> = self
+                    .tour
                     .archetypes
                     .iter()
                     .map(|a| (a.clone(), self.best_of_arch(a.id)))
@@ -214,7 +219,7 @@ impl App {
                             ui.horizontal(|ui| {
                                 let text = format!("{:>2} %  {}", arch.share, arch.name);
                                 if ui
-                                    .selectable_label(self.sel_arch == Some(arch.id), text)
+                                    .selectable_label(self.tour.sel_arch == Some(arch.id), text)
                                     .clicked()
                                 {
                                     clicked = Some(arch.clone());
@@ -237,13 +242,14 @@ impl App {
                     });
                 if let Some(arch) = clicked {
                     self.tab = Tab::Meta;
-                    self.sel_arch = Some(arch.id);
-                    self.sel_deck = self
+                    self.tour.sel_arch = Some(arch.id);
+                    self.tour.sel_deck = self
+                        .tour
                         .decks
                         .get(&arch.id)
                         .and_then(|d| d.first())
                         .map(|d| d.id);
-                    if self.decks.contains_key(&arch.id) {
+                    if self.tour.decks.contains_key(&arch.id) {
                         self.queue_variants(arch.id);
                     } else {
                         self.status = tr!("chrome.lade_decks", name = arch.name);
@@ -280,7 +286,7 @@ impl App {
                 tr!("chrome.arena_zahnrad_konto_detaillierte"),
             ),
             (
-                !self.archetypes.is_empty(),
+                !self.tour.archetypes.is_empty(),
                 tr!("chrome.turnierdecks_geladen"),
                 tr!("chrome.internetverbindung_pruefen_dann_aktualisieren"),
             ),

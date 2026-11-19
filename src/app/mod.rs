@@ -7,7 +7,7 @@
 //! `companion` (Begleitfenster). Logik gehört in die Fachmodule der Bibliothek.
 
 use compute::{DeckAnalysis, GamesAnalysis, SimTarget};
-use parts::{BuiltState, GamesState, GgState, ImageCache, SimState};
+use parts::{BuiltState, GamesState, GgState, ImageCache, SimState, TourState};
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::PathBuf;
 use std::sync::mpsc::{Receiver, Sender, channel};
@@ -141,23 +141,14 @@ pub struct App {
     tx_job: Sender<Job>,
     tx_msg: Sender<Msg>,
     rx_msg: Receiver<Msg>,
-    archetypes: Vec<Archetype>,
-    decks: HashMap<u32, Vec<DeckRef>>,
     lists: HashMap<u32, Deck>,
     evals: HashMap<u32, DeckEval>,
-    legal: HashMap<usize, HashSet<String>>,
-    legal_requested: HashSet<usize>,
-    /// Decklisten, deren Abruf schon eingereiht wurde.
-    list_requested: HashSet<u32>,
-    sel_arch: Option<u32>,
-    sel_deck: Option<u32>,
     tab: Tab,
     paste_text: String,
     /// (Deck, Kartenschlüssel) -> gewählte Ersatzkarte
     repl: HashMap<(u32, String), String>,
     subs: HashMap<(u32, String), Vec<Suggestion>>,
     status: String,
-    pending: usize,
     syncing: bool,
     sort_by_fit: bool,
     settings_file: SettingsFile,
@@ -167,8 +158,6 @@ pub struct App {
     /// Steigt mit jeder eingetroffenen Nachricht (siehe `compute`).
     data_gen: u64,
     deck_cache: Option<DeckAnalysis>,
-    /// „Alle bewerten“ läuft (Status am Ende auf „fertig“ setzen).
-    rating_all: bool,
     /// Geteilter Zustand des Begleitfensters (läuft, sobald es einmal geöffnet wurde).
     live: Option<std::sync::Arc<live::Shared>>,
     /// Anzahl Turnierlisten beim letzten Abgleich mit dem Begleitfenster.
@@ -179,6 +168,7 @@ pub struct App {
     images: ImageCache,
     sims: SimState,
     built: BuiltState,
+    tour: TourState,
 }
 
 impl App {
@@ -223,25 +213,16 @@ impl App {
             tx_job,
             tx_msg,
             rx_msg,
-            archetypes: Vec::new(),
-            decks: HashMap::new(),
             lists: HashMap::new(),
             evals: HashMap::new(),
-            legal: HashMap::new(),
-            legal_requested: HashSet::new(),
-            list_requested: HashSet::new(),
-            sel_arch: None,
-            sel_deck: None,
             subs: HashMap::new(),
             status: String::new(),
-            pending: 0,
             syncing: false,
             settings_file,
             ctx: cc.egui_ctx.clone(),
             sel_deck_group: 0,
             data_gen: 0,
             deck_cache: None,
-            rating_all: false,
             live: None,
             live_meta_lists: usize::MAX,
             show_settings: false,
@@ -251,13 +232,15 @@ impl App {
             images: ImageCache::new(img_tx),
             sims: SimState::default(),
             built: BuiltState::default(),
+
+            tour: TourState::default(),
         };
         app.settings.format = app.settings.format.min(FORMATS.len() - 1);
         app.load_db();
         app.load_format(false);
         // Auswahl und eingefügte Liste der letzten Sitzung wiederherstellen.
-        app.sel_arch = app.settings.sel_arch;
-        app.sel_deck = app.settings.sel_deck;
+        app.tour.sel_arch = app.settings.sel_arch;
+        app.tour.sel_deck = app.settings.sel_deck;
         if !app.paste_text.trim().is_empty() {
             app.set_list(PASTED, deck::parse(&app.paste_text));
         }
