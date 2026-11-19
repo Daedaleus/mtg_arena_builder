@@ -1,0 +1,25 @@
+# Wöchentliche Updates für Rust-Abhängigkeiten und GitHub Actions,
+# jeweils in einem gesammelten Pull Request.
+version: 2
+updates:
+  - package-ecosystem: cargo
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      cargo:
+        patterns: ['*']
+    # Ein Sprung bei egui/eframe (0.29 auf 0.30 usw.) ändert die API und ist
+    # ein eigener Umbau – nur Fehlerbehebungen automatisch.
+    ignore:
+      - dependency-name: 'egui*'
+        update-types: ['version-update:semver-minor', 'version-update:semver-major']
+      - dependency-name: eframe
+        update-types: ['version-update:semver-minor', 'version-update:semver-major']
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ['*']

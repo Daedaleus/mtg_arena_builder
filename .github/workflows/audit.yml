@@ -1,0 +1,24 @@
+# Prüft die Abhängigkeiten gegen die RustSec-Datenbank bekannter
+# Sicherheitslücken – bei Änderungen an Cargo.lock und wöchentlich, weil neue
+# Meldungen auch ohne eigene Änderung auftauchen.
+name: Audit
+
+on:
+  push:
+    branches: [main]
+    paths: [Cargo.toml, Cargo.lock, deny.toml, .github/workflows/audit.yml]
+  pull_request:
+    paths: [Cargo.toml, Cargo.lock, deny.toml, .github/workflows/audit.yml]
+  schedule:
+    - cron: '17 5 * * 1'
+  workflow_dispatch:
+
+jobs:
+  advisories:
+    name: Sicherheitsmeldungen (cargo-deny)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check advisories

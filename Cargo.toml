@@ -2,7 +2,7 @@
 name = "mtg_arena_builder"
 version = "0.1.0"
 edition = "2024"
-description = "Turnierdecks mit der eigenen MTG-Arena-Sammlung abgleichen"
+description = "Desktop companion for MTG Arena: tournament decks vs. your collection, deck building, game analysis and in-game hints"
 license = "GPL-3.0-or-later"
 repository = "https://github.com/Daedaleus/mtg_arena_builder"
 publish = false

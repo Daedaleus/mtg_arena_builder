@@ -6,6 +6,10 @@
 # Ein Versions-Tag (z. B. `v0.2.0`, passend zu `version` in Cargo.toml) löst
 # denselben Lauf aus; sind alle Prüfungen grün, entsteht daraus ein
 # GitHub-Release mit den Programmen und ihren SHA-256-Prüfsummen.
+#
+# Sicherheit: Jedes gebaute Programm wird auf Viren geprüft (Defender auf
+# Windows, ClamAV für alle), Releases bekommen einen signierten
+# Herkunftsnachweis. Abhängigkeiten prüft audit.yml.
 name: CI
 
 on:
@@ -92,11 +96,40 @@ jobs:
           else
             shasum -a 256 "$name" > "$name.sha256"
           fi
-      - uses: actions/upload-artifact@v6
+      # Die Windows-Rechner von GitHub haben Microsoft Defender dabei:
+      # Signaturen aktualisieren und das fertige Programm prüfen.
+      - name: Virenscan (Microsoft Defender)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $mp = Join-Path $env:ProgramFiles 'Windows Defender\MpCmdRun.exe'
+          & $mp -SignatureUpdate | Out-Host
+          & $mp -Scan -ScanType 3 -File (Resolve-Path dist) -DisableRemediation | Out-Host
+          if ($LASTEXITCODE -ne 0) { throw "Defender meldet einen Fund (Exit $LASTEXITCODE)" }
+      - uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.artifact }}
           path: dist/*
           if-no-files-found: error
+
+  scan:
+    name: Virenscan (ClamAV)
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: mtg_arena_builder-*
+          path: dist
+          merge-multiple: true
+      - name: ClamAV installieren und Signaturen laden
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clamav
+          sudo systemctl stop clamav-freshclam || true
+          sudo freshclam
+      - name: Programme prüfen
+        run: clamscan --recursive --infected dist
 
   coverage:
     name: Testabdeckung
@@ -123,10 +156,13 @@ jobs:
   release:
     name: GitHub-Release
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [fmt, build, coverage]
+    needs: [fmt, build, coverage, scan]
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      # für den Herkunftsnachweis (Build-Provenance)
+      id-token: write
+      attestations: write
     steps:
       - uses: actions/checkout@v5
       - name: Tag passt zur Version in Cargo.toml
@@ -138,11 +174,21 @@ jobs:
           fi
       # macOS darf fehlen (siehe oben) – dann enthält das Release nur
       # Windows und Linux.
-      - uses: actions/download-artifact@v6
+      - uses: actions/download-artifact@v8
         with:
           pattern: mtg_arena_builder-*
           path: dist
           merge-multiple: true
+      - name: Gemeinsame Prüfsummen-Datei
+        run: |
+          cd dist
+          sha256sum $(ls | grep -v '\.sha256$') > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+      # Signierter Nachweis, dass genau diese Dateien von diesem Workflow aus
+      # diesem Commit gebaut wurden (prüfbar mit `gh attestation verify`).
+      - uses: actions/attest-build-provenance@v4
+        with:
+          subject-checksums: dist/SHA256SUMS.txt
       - name: Release anlegen
         env:
           GH_TOKEN: ${{ github.token }}
@@ -150,4 +196,5 @@ jobs:
           gh release create "$GITHUB_REF_NAME" dist/*
           --verify-tag
           --title "MTG Arena Builder $GITHUB_REF_NAME"
+          --notes-file .github/release-notes.md
           --generate-notes

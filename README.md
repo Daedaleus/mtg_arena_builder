@@ -1,168 +1,110 @@
 # MTG Arena Builder
 
-Desktop-App (Rust, egui) für Spieler von **Magic: The Gathering Arena**, die
-nicht gern selbst Decks bauen. Sie gleicht aktuelle Turnierdecks mit der
-eigenen Sammlung ab, baut Decks aus vorhandenen Karten, wertet die eigenen
-Partien aus und gibt während einer Partie Hinweise in einem kleinen
-Begleitfenster.
+[![CI](https://github.com/Daedaleus/mtg_arena_builder/actions/workflows/ci.yml/badge.svg)](https://github.com/Daedaleus/mtg_arena_builder/actions/workflows/ci.yml)
+[![Audit](https://github.com/Daedaleus/mtg_arena_builder/actions/workflows/audit.yml/badge.svg)](https://github.com/Daedaleus/mtg_arena_builder/actions/workflows/audit.yml)
+[![Release](https://img.shields.io/github/v/release/Daedaleus/mtg_arena_builder)](https://github.com/Daedaleus/mtg_arena_builder/releases/latest)
+[![License: GPL-3.0-or-later](https://img.shields.io/badge/license-GPL--3.0--or--later-blue)](LICENSE)
 
-Im Alltag genutzt wird die Windows-Version; Linux
-und macOS werden in der CI gebaut und getestet, sind aber noch nicht im
-echten Einsatz ausprobiert (siehe [ToDo.md](ToDo.md)).
+A desktop companion for **Magic: The Gathering Arena** players who would
+rather not build decks themselves. It compares current tournament decks with
+your own collection, builds decks from the cards you own, analyses your games
+and gives hints during a match in a small companion window.
 
-## Funktionen
+The interface is available in **English and German** (follows the operating
+system, changeable under *Settings*); card names and card images use the same
+language.
 
-Die Oberfläche gibt es auf Deutsch und Englisch – standardmäßig in der Sprache
-des Betriebssystems, unter „Einstellungen“ änderbar. Kartennamen und
-Kartenbilder erscheinen in derselben Sprache.
+> Day-to-day use is on Windows. Linux and macOS builds are compiled and tested
+> in CI but have not been tried in real use yet.
 
-| Reiter | Was er tut |
+## Features
+
+| Tab | What it does |
 |---|---|
-| **Turnierdecks** | Archetypen und Decklisten von MTGTop8 je Format. Zeigt, was mit der eigenen Sammlung fehlt und ob die Wildcards reichen; Ersatzkarten aus der Sammlung, „Budget-Version bauen“, **Wildcard-Plan** (was jetzt herstellbar ist und in welcher Reihenfolge der Rest folgt), **Probehände** und Export für den Arena-Import. |
-| **Offizielle Events** | Decklisten von magic.gg: World Championship, Arena Championship, Regional Championships und jede Woche Ranglisten-Decks (Traditional). Archetyp wird aus den MTGTop8-Listen erkannt; gleiche Deckansicht wie bei den Turnierdecks. |
-| **Aus meiner Sammlung** | Baut 60-Karten-Decks je Farbe/Farbpaar nur aus eigenen Karten (Manakurve, Kreaturen, Removal, passende Länder). |
-| **Eigene Liste** | Eine beliebige Deckliste einfügen und gegen die Sammlung prüfen. |
-| **Meine Partien** | Auswertung aus dem Arena-Log: typische Fehler mit Beispielen („Land nicht gespielt“, „Besserer Zug möglich“, „Gefahrlosen Angriff ausgelassen“ …), **Spielstil** mit passenden Turnierdecks (Aggro, Midrange oder Control – je nachdem, womit du gewinnst), Gegner-Analyse, Partienliste (10 je Seite) und **Verlauf** (Constructed- und Limited-Rang, Siegquote je Deck als Diagramm). |
-| **Deck verbessern** | Kartennutzung je Deck, Länder-Check, Probehände, Vergleich mit dem passenden Turnier-Archetyp und Tauschvorschläge. |
+| **Tournament decks** | Archetypes and decklists from MTGTop8 per format. Shows what your collection is missing and whether your wildcards are enough; replacement cards from your collection, *Build budget version*, a **wildcard plan** (what you can craft now and in which order the rest follows), **sample hands** and export for the Arena import. |
+| **Official events** | Decklists from magic.gg: World Championship, Arena Championship, Regional Championships and the weekly ranked decks. Archetypes are recognised from the MTGTop8 lists. |
+| **From my collection** | Builds 60-card decks per colour or colour pair using only cards you own (mana curve, creatures, removal, matching lands). |
+| **Own list** | Paste any decklist and check it against your collection. |
+| **My games** | Analysis of the Arena log: typical mistakes with examples ("land not played", "better play available", "safe attack skipped" …), your **play style** with matching tournament decks, opponent analysis, a game list and **progress** (constructed and limited rank, win rate per deck). |
+| **Improve deck** | Card usage per deck, land check, sample hands, comparison with the matching tournament archetype and swap suggestions. |
 
-**Probehände:** spielt ein Deck 1000-mal bis Zug 6 durch (Mulligan, Land legen,
-Zauber nach dem Zugvorschlag) und zeigt, wie oft Länder oder Farben fehlen,
-wie oft Länder zu viel sind und wie viel Mana genutzt wird – mit Empfehlungen.
-Dabei spielt ein schneller Gegner mit (eine Kreatur je Zug, greift mit allem an).
-Du blockst, setzt Entfernung ein und greifst selbst an, wenn es sich lohnt: Die
-App zeigt, wer nach Zug 6 vorne liegt und ob das Deck gegen Aggro zu langsam ist.
-Mit genug eigenen Partien kommt ein persönlicher Vergleich dazu: gegen deine
-echten Gegner (wie viel Kraft sie je Zug ins Spiel bringen, wie oft sie eine
-Kreatur entfernen oder einen Kampftrick haben) bis Zug 10 – einmal mit dem
-Zugvorschlag und einmal so, wie du laut deinen Partien spielst.
+**Sample hands** play a deck 1000 times up to turn 6 (mulligan, land drops,
+spells following the turn suggestion) against a fast opponent and show how
+often lands or colours are missing, how much mana is used and who is ahead
+after turn 6. With enough recorded games you also get a personal comparison
+up to turn 10 against *your* real opponents – once with the suggested plays
+and once the way you actually play.
 
-**Begleitfenster** (oben rechts einschalten): liest das Arena-Log live mit und
-zeigt Mulligan-Rat, Zugvorschlag (Land und Zauber mit Farbprüfung, auch Mana
-aus Kreaturen), gefahrlose Angriffe, tödlichen Schaden, Blockvorschläge (auch
-gegen Bedrohlich) und Warnungen vor typischen Tricks des Gegners. Es greift
-nicht ins Spiel ein.
+**Companion window** (switch on at the top right) follows the Arena log live:
+mulligan advice, turn suggestion (land and spells with colour check), safe
+attacks, lethal damage, block suggestions and warnings about likely combat
+tricks. It never acts in the game.
 
-## Voraussetzungen
+## Download
 
-- MTG Arena, in den Arena-Einstellungen **Konto > „Detaillierte Logs
-  (Plugin-Unterstützung)“** eingeschaltet (danach Arena neu starten).
-- Zum Lesen der Sammlung muss Arena laufen (Hauptmenü). Windows fragt dafür
-  nach Administratorrechten.
-- Zum Bauen: Rust (Edition 2024, getestet mit 1.100) und unter Windows die
-  MSVC-Build-Tools.
+Get the latest version from the
+[releases page](https://github.com/Daedaleus/mtg_arena_builder/releases/latest).
+It is a single executable – no installation needed.
 
-## Bauen und starten
+Every release file is built by GitHub Actions from the tagged commit, scanned
+for malware (ClamAV, plus Microsoft Defender for Windows) and comes with a
+SHA-256 checksum and a signed
+[build provenance attestation](https://docs.github.com/actions/security-guides/using-artifact-attestations-to-establish-provenance-for-builds):
 
 ```powershell
-.\build.ps1             # fmt, Clippy, Tests, Release-Build, Desktop-Verknüpfung
-.\build.ps1 -Coverage   # zusätzlich Testabdeckung (mindestens 90 %)
-.\build.ps1 -SkipChecks # nur bauen
+gh attestation verify mtg_arena_builder-windows-x64.exe --repo Daedaleus/mtg_arena_builder
 ```
 
-Ergebnis: `dist\MTG Arena Builder.exe` (statisch gelinkt, ohne Installation
-lauffähig) plus versionierte Kopie mit SHA-256. Die Verknüpfung „MTG Arena
-Builder“ auf dem Desktop zeigt immer auf die aktuelle Version. Eine laufende
-App wird beim Bauen beendet und danach neu gestartet.
+The executable is not code-signed, so Windows SmartScreen may warn on the
+first start (*More info* > *Run anyway*).
 
-Für die Entwicklung: `cargo run`, `cargo test`.
+## Requirements
 
-## Tests
+- MTG Arena with **Account > "Detailed Logs (Plugin Support)"** enabled in
+  the Arena options (restart Arena afterwards).
+- To read your collection, Arena must be running (main menu). Windows asks
+  for administrator rights for this step – see [Privacy and safety](#privacy-and-safety).
+
+## Building from source
+
+Requires Rust (edition 2024) and, on Windows, the MSVC build tools.
 
 ```powershell
-cargo test              # alle Tests
-.\coverage.ps1 -Open    # Abdeckung messen, HTML-Bericht öffnen
+cargo run --release
 ```
 
-Die Tests liegen je Modul in `src/tests/`. Sie brauchen weder Arena noch
-Internet: Kartendatenbanken, Arena-Lognachrichten und Turnierseiten werden in
-`src/testutil.rs` künstlich erzeugt. Die Abdeckung wird ohne Oberfläche
-(`src/app/`) und Programmstart (`main.rs`) gemessen; `coverage.ps1` schlägt unter
-90 % fehl. Für `coverage.ps1` einmalig:
+On Windows, `.\build.ps1` runs all checks, builds the release version into
+`dist\` and creates a desktop shortcut. Tests, coverage, the diagnostic
+command line and the release process are described in
+[CONTRIBUTING.md](CONTRIBUTING.md).
 
-```powershell
-rustup component add llvm-tools-preview
-cargo install cargo-llvm-cov --locked
-```
+## Privacy and safety
 
-## CI
+- **Collection:** read *read-only* from Arena's memory via
+  [mtga-reader](https://github.com/mtgatool/mtga-reader), like other Arena
+  trackers do. This is the only step that needs administrator rights. Arena
+  itself is never modified. Use at your own risk.
+- **Games and rank:** read from Arena's `Player.log`.
+- **Card data:** Arena's local card database (`Raw_CardDatabase_*.mtga`).
+- **Network:** only public pages are fetched – [MTGTop8](https://www.mtgtop8.com)
+  (at most one request every 5 s), [magic.gg](https://magic.gg/decklists) and
+  [Scryfall](https://scryfall.com) – and everything is cached. Nothing about
+  you or your games is sent anywhere.
+- **Your data** stays on your computer in `%APPDATA%\mtg_arena_builder\data`
+  (Linux/macOS: the corresponding data directory): settings, the last read
+  collection, all analysed games and the cache.
 
-Bei jedem Push auf `main` und bei Pull Requests prüft GitHub Actions
-([.github/workflows/ci.yml](.github/workflows/ci.yml)) auf Windows, Linux und
-macOS: Formatierung, Clippy, Tests, Release-Build und Testabdeckung. Die
-gebauten Programme liegen als Artefakte am jeweiligen Lauf. Findet GitHub keinen freien macOS-Rechner,
-bleibt der Lauf trotzdem grün; Windows und Linux müssen immer bestehen.
+## Contributing
 
-### Release veröffentlichen
+Bug reports and ideas are welcome as
+[issues](https://github.com/Daedaleus/mtg_arena_builder/issues). For code
+changes see [CONTRIBUTING.md](CONTRIBUTING.md); security problems please
+report as described in [SECURITY.md](SECURITY.md). Open items are listed in
+[TODO.md](TODO.md).
 
-1. `version` in `Cargo.toml` erhöhen (z. B. `0.2.0`), `.\build.ps1`, committen
-   und pushen.
-2. Tag setzen und pushen:
+## License
 
-   ```powershell
-   git tag v0.2.0
-   git push origin v0.2.0
-   ```
-
-Der Tag löst den vollen CI-Lauf aus. Sind alle Prüfungen grün und passt der
-Tag zur Version in `Cargo.toml`, legt der Job „GitHub-Release“ ein Release mit
-den Programmen (Windows, Linux, macOS falls gebaut) und ihren
-`.sha256`-Dateien an; die Notizen erzeugt GitHub aus den Commits.
-
-## Kommandozeile (Diagnose)
-
-| Aufruf | Zweck |
-|---|---|
-| `--check` | Kartendaten, Sammlung und Turnierseiten prüfen |
-| `--report [FORMAT]` | alle Archetypen gegen die gespeicherte Sammlung bewerten |
-| `--variants FORMAT NAME` | alle Listen eines Archetyps bewerten |
-| `--build [FORMAT]` | Deckvorschläge aus der Sammlung |
-| `--budget FORMAT NAME` | Budget-Version und Wildcard-Plan eines Archetyps |
-| `--sim` | Probehände für alle gespielten Decks |
-| `--gg [FORMAT]` | Events und Decks von magic.gg |
-| `--style` | Spielstil und Einteilung der zwischengespeicherten Turnierlisten |
-| `--games` | Partien einlesen und auswerten |
-| `--decks [FORMAT]` | „Deck verbessern“ und Gegner-Analyse |
-| `--parse LOG…` | Logdatei einlesen, ohne gespeicherte Partien zu ändern |
-| `--replay LOG [N]` | Begleitfenster-Hinweise für ein Log nachspielen |
-| `--image NAME…` | Kartenbilder laden |
-
-`FORMAT` ist das MTGTop8-Kürzel (`ST` Standard, `PI`, `EXP`, `HI`, `ALCH`).
-Die Release-Version hat kein Konsolenfenster; für die Ausgabe `cargo run --
---games` usw. verwenden.
-
-## Daten
-
-Alles liegt in `%APPDATA%\mtg_arena_builder\data` (Linux/macOS: der
-entsprechende Datenordner):
-
-| Datei | Inhalt |
-|---|---|
-| `settings.json` | Einstellungen und zuletzt gewählte Ansicht |
-| `collection.json` | zuletzt gelesene Sammlung und Wildcards |
-| `games.json` | alle ausgewerteten Partien (Arena überschreibt sein Log bei jedem Start) |
-| `cache\` | MTGTop8-Seiten, Decklisten, Scryfall-Legalität, Kartenbilder |
-
-## Datenquellen
-
-- Kartendaten: die lokale Arena-Datenbank `Raw_CardDatabase_*.mtga` (SQLite).
-- Sammlung: Arbeitsspeicher von Arena über
-  [mtga-reader](https://github.com/mtgatool/mtga-reader) (GPL-3.0).
-- Partien und Rang: `Player.log` von Arena („Detaillierte Logs“).
-- Turnierdecks: [MTGTop8](https://www.mtgtop8.com) (5 s Abstand je Anfrage, Cache)
-  und [magic.gg](https://magic.gg/decklists) (2 s Abstand, Cache).
-- Legalität und Kartenbilder: [Scryfall](https://scryfall.com) (ohne API-Schlüssel).
-
-## Hinweise
-
-- Die Sammlung wird – wie bei anderen Arena-Trackern – nur lesend aus dem
-  Arbeitsspeicher von Arena gelesen (dafür Administratorrechte). Arena selbst
-  wird nicht verändert; die Nutzung geschieht auf eigene Verantwortung.
-- Alle anderen Daten kommen aus dem Arena-Log, der lokalen Kartendatenbank
-  und öffentlichen Webseiten (siehe „Datenquellen“).
-
-## Lizenz
-
-[GPL-3.0-or-later](LICENSE) (wegen mtga-reader).
+[GPL-3.0-or-later](LICENSE) (required by mtga-reader).
 
 MTG Arena Builder is unofficial Fan Content permitted under the
 [Fan Content Policy](https://company.wizards.com/en/legal/fancontentpolicy).
