@@ -35,6 +35,10 @@ impl App {
     /// Schreibt Einstellungen und Sitzungszustand nach `settings.json`
     /// (nur wenn sich etwas geändert hat).
     pub(super) fn save_settings(&mut self) {
+        // Der Fotomodus verändert Reiter und Sprache nur für sich.
+        if self.shooter.is_some() {
+            return;
+        }
         self.settings.sort_by_fit = self.sort_by_fit;
         self.settings.tab = self.tab.saved();
         self.settings.paste_text = self.paste_text.clone();
@@ -51,16 +55,25 @@ impl App {
         }
     }
 
+    /// Stand der Kartendatenbank – erst beim Anzeigen formuliert, damit ein
+    /// Sprachwechsel ihn erfasst.
+    pub(super) fn db_status(&self) -> String {
+        match &self.db {
+            Some(db) => tr!(
+                "state.kartendaten_karten_arena",
+                cards_n = db.cards.len(),
+                version = db.version
+            ),
+            None => self.db_error.clone(),
+        }
+    }
+
     pub(super) fn load_db(&mut self) {
         let found =
             paths::find_card_db(Some(&self.settings.mtga_dir)).and_then(|p| CardDb::load(&p));
         match found {
             Ok(db) => {
-                self.db_status = tr!(
-                    "state.kartendaten_karten_arena",
-                    cards_n = db.cards.len(),
-                    version = db.version
-                );
+                self.db_error.clear();
                 self.db = Some(std::sync::Arc::new(db));
                 // Das Begleitfenster liest mit der neuen Datenbank weiter.
                 if let Some(live) = self.live.take() {
@@ -68,7 +81,7 @@ impl App {
                 }
             }
             Err(e) => {
-                self.db_status = format!("{e:#}");
+                self.db_error = format!("{e:#}");
                 self.db = None;
             }
         }

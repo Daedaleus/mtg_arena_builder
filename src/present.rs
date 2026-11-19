@@ -44,7 +44,7 @@ pub fn fit(s: &Summary, have_collection: bool, wildcards: [u32; 4]) -> (Fit, Str
         return (Fit::Unknown, "–".into());
     }
     if s.complete() {
-        return (Fit::Complete, "komplett".into());
+        return (Fit::Complete, tr!("present.komplett"));
     }
     let mut text = if s.need[2] + s.need[3] > 0 {
         format!("{} R / {} M", s.need[2], s.need[3])

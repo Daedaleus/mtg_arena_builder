@@ -104,6 +104,7 @@ mod games_tab;
 mod lists;
 mod parts;
 mod progress_view;
+mod screenshots;
 mod settings_view;
 mod state;
 mod tasks;
@@ -153,7 +154,8 @@ pub struct App {
     net: std::sync::Arc<dyn crate::http::Http>,
     settings: Settings,
     db: Option<std::sync::Arc<CardDb>>,
-    db_status: String,
+    /// Fehler beim Laden der Kartendatenbank (Text für die Anzeige).
+    db_error: String,
     collection: Option<Collection>,
     owned: HashMap<String, u32>,
     tx_job: Sender<Job>,
@@ -186,14 +188,30 @@ pub struct App {
     sims: SimState,
     built: BuiltState,
     tour: TourState,
+    /// Fotomodus für das README (`--screenshots`), sonst `None`.
+    shooter: Option<screenshots::Shooter>,
 }
 
 impl App {
     pub fn new(cc: &eframe::CreationContext<'_>) -> App {
+        App::start(cc, None)
+    }
+
+    /// Startet im Fotomodus: englische Oberfläche, Bilder nach `dir`, danach
+    /// schließt das Fenster (siehe `screenshots`).
+    pub fn for_screenshots(cc: &eframe::CreationContext<'_>, dir: PathBuf) -> App {
+        App::start(cc, Some(dir))
+    }
+
+    fn start(cc: &eframe::CreationContext<'_>, shots: Option<PathBuf>) -> App {
         let data_dir = paths::data_dir();
         let (settings_file, settings) = SettingsFile::load(&data_dir);
         let load_problem = settings_file.problem.clone();
-        crate::i18n::set(settings.language.resolve());
+        crate::i18n::set(match shots {
+            // Vor allem anderen, damit auch Hintergrundrechnungen englisch sind.
+            Some(_) => crate::i18n::Locale::English,
+            None => settings.language.resolve(),
+        });
 
         // Etwas großzügigere Abstände und die gewählte Textgröße.
         cc.egui_ctx.style_mut(|style| {
@@ -239,7 +257,7 @@ impl App {
             tasks: Tasks::spawn(tx_msg.clone(), cc.egui_ctx.clone()),
             settings,
             db: None,
-            db_status: String::new(),
+            db_error: String::new(),
             owned: HashMap::new(),
             tx_job,
             rx_msg,
@@ -264,6 +282,7 @@ impl App {
             built: BuiltState::default(),
 
             tour: TourState::default(),
+            shooter: shots.map(screenshots::Shooter::new),
         };
         app.load_db();
         app.load_format(false);
@@ -289,6 +308,7 @@ impl eframe::App for App {
 
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.handle_messages();
+        self.drive_screenshots(ctx);
         self.companion(ctx);
         self.top_bar(ctx);
         self.settings_window(ctx);
@@ -299,7 +319,7 @@ impl eframe::App for App {
         }
         egui::CentralPanel::default().show(ctx, |ui| {
             if self.db.is_none() {
-                ui.label(RichText::new(&self.db_status).color(RED));
+                ui.label(RichText::new(self.db_status()).color(RED));
                 ui.label(tr!("app.arena_ordner_kannst_unter"));
                 ui.separator();
             }

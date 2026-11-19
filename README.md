@@ -17,6 +17,8 @@ language.
 > Day-to-day use is on Windows. Linux and macOS builds are compiled and tested
 > in CI but have not been tried in real use yet.
 
+![Tournament decks: what your collection is missing for a deck, wildcards and replacements](docs/screenshots/tournament-decks.png)
+
 ## Features
 
 | Tab | What it does |
@@ -27,6 +29,25 @@ language.
 | **Own list** | Paste any decklist and check it against your collection. |
 | **My games** | Analysis of the Arena log: typical mistakes with examples ("land not played", "better play available", "safe attack skipped" …), your **play style** with matching tournament decks, opponent analysis, a game list and **progress** (constructed and limited rank, win rate per deck). |
 | **Improve deck** | Card usage per deck, land check, sample hands, comparison with the matching tournament archetype and swap suggestions. |
+
+<table>
+  <tr>
+    <td><img src="docs/screenshots/my-games.png" alt="My games: results, play style and what to improve"></td>
+    <td><img src="docs/screenshots/improve-deck.png" alt="Improve deck: how you actually use each card"></td>
+  </tr>
+  <tr>
+    <td align="center"><em>My games</em> – play style and what to improve</td>
+    <td align="center"><em>Improve deck</em> – how you use each card</td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/from-my-collection.png" alt="From my collection: decks built only from cards you own"></td>
+    <td><img src="docs/screenshots/official-events.png" alt="Official events: decklists from magic.gg"></td>
+  </tr>
+  <tr>
+    <td align="center"><em>From my collection</em> – decks from cards you own</td>
+    <td align="center"><em>Official events</em> – decklists from magic.gg</td>
+  </tr>
+</table>
 
 **Sample hands** play a deck 1000 times up to turn 6 (mulligan, land drops,
 spells following the turn suggestion) against a fast opponent and show how

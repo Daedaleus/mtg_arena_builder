@@ -32,6 +32,21 @@ carddb.uncommon:
 carddb_color.mono:
   de: "Mono-%{v}"
   en: "Mono-%{v}"
+carddb_color.weiss:
+  de: "Weiß"
+  en: "White"
+carddb_color.blau:
+  de: "Blau"
+  en: "Blue"
+carddb_color.schwarz:
+  de: "Schwarz"
+  en: "Black"
+carddb_color.rot:
+  de: "Rot"
+  en: "Red"
+carddb_color.gruen:
+  de: "Grün"
+  en: "Green"
 carddb_color.unbekannt:
   de: "Unbekannt"
   en: "Unknown"
@@ -1172,6 +1187,9 @@ present.gewonnen:
 present.karten_gibt_arena_nicht:
   de: "\n%{unavailable} Karten gibt es in Arena nicht"
   en: "\n%{unavailable} cards are not available in Arena"
+present.komplett:
+  de: "komplett"
+  en: "complete"
 present.nur_c_u:
   de: "nur %{need} C/U"
   en: "only %{need} C/U"

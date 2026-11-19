@@ -126,7 +126,7 @@ impl App {
                 }
                 ui.label(&self.status);
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    ui.label(RichText::new(&self.db_status).weak());
+                    ui.label(RichText::new(self.db_status()).weak());
                 });
             });
         });
@@ -237,7 +237,7 @@ impl App {
     }
 
     /// Archetyp auswählen; seine Decks laden oder weitere Listen nachladen.
-    fn select_archetype(&mut self, arch: Archetype) {
+    pub(super) fn select_archetype(&mut self, arch: Archetype) {
         self.tab = Tab::Meta;
         self.tour.sel_arch = Some(arch.id);
         self.tour.sel_deck = self

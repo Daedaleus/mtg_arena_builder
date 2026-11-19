@@ -72,6 +72,13 @@ The release build has no console window; use `cargo run -- <args>`.
 
 `FORMAT` is the MTGTop8 code (`ST` Standard, `PI`, `EXP`, `HI`, `ALCH`).
 
+### Screenshots
+
+`cargo run -- --screenshots [DIR]` (default `docs/screenshots`) opens the
+interface in English, goes through the tabs, selects an archetype and an
+event, saves one PNG per tab and closes. It uses your own data and changes no
+settings. Takes about a minute (MTGTop8 is fetched at most every 5 s).
+
 ## Data files
 
 Everything lives in `%APPDATA%\mtg_arena_builder\data` (Linux/macOS: the

@@ -94,7 +94,7 @@ impl App {
                 ui.text_edit_singleline(&mut self.settings.mtga_dir);
                 ui.horizontal(|ui| {
                     reload_db = ui.button(tr!("chrome.kartendaten_neu_laden")).clicked();
-                    ui.label(RichText::new(&self.db_status).weak());
+                    ui.label(RichText::new(self.db_status()).weak());
                 });
                 ui.separator();
                 if ui

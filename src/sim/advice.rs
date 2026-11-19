@@ -21,7 +21,7 @@ pub(super) fn advice(r: &SimReport) -> Vec<String> {
     if r.color_screw >= 0.2 {
         let color = r
             .missing_color
-            .map(|i| tr!("sim_advice.meist", names = crate::carddb::color::NAMES[i]))
+            .map(|i| tr!("sim_advice.meist", names = crate::carddb::color::name(i)))
             .unwrap_or_default();
         out.push(tr!(
             "sim_advice.farben_fehlen_partien_war",

@@ -18,10 +18,12 @@ Open items and ideas. Finished work is in the Git history and the
       collection needs root there). macOS only when an opportunity arises.
 - [ ] Code signing for the Windows executable (e.g. SignPath for open source)
       so SmartScreen stops warning.
-- [ ] Screenshots in the README.
 
 ## Recently done
 
+- Screenshots in the README, taken by the app itself (`--screenshots`);
+  colour names, "complete" and the card-data status now follow the
+  interface language.
 - Releases from version tags with malware scan (ClamAV, Defender), SHA-256
   checksums and signed build provenance; weekly dependency audit
   (cargo-deny) and Dependabot.

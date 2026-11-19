@@ -3,8 +3,18 @@
 
 /// Manasymbole.
 pub const LETTERS: [char; 5] = ['W', 'U', 'B', 'R', 'G'];
-/// Namen wie in der deutschen Arena-Version.
-pub const NAMES: [&str; 5] = ["Weiß", "Blau", "Schwarz", "Rot", "Grün"];
+/// Name einer Farbe (Index wie in [`LETTERS`]) in der eingestellten Sprache,
+/// so wie Arena sie nennt.
+pub fn name(index: usize) -> String {
+    match index {
+        0 => tr!("carddb_color.weiss"),
+        1 => tr!("carddb_color.blau"),
+        2 => tr!("carddb_color.schwarz"),
+        3 => tr!("carddb_color.rot"),
+        4 => tr!("carddb_color.gruen"),
+        _ => "?".to_string(),
+    }
+}
 /// Standardländer (englische Kartennamen).
 pub const BASIC_LANDS: [&str; 5] = ["Plains", "Island", "Swamp", "Mountain", "Forest"];
 
@@ -20,18 +30,18 @@ pub fn letters(mask: u8) -> String {
 
 /// Lesbarer Name aus Farbbuchstaben: „Mono-Rot“, „Blau-Rot“; ohne Farbe „Unbekannt“.
 pub fn label(letters: &str) -> String {
-    let name = |c: char| {
+    let of = |c: char| {
         LETTERS
             .iter()
             .position(|l| *l == c)
-            .map_or("?", |i| NAMES[i])
+            .map_or_else(|| "?".to_string(), name)
     };
     match letters.len() {
         0 => tr!("carddb_color.unbekannt"),
         1 => tr!(
             "carddb_color.mono",
-            v = name(letters.chars().next().unwrap_or('?'))
+            v = of(letters.chars().next().unwrap_or('?'))
         ),
-        _ => letters.chars().map(name).collect::<Vec<_>>().join("-"),
+        _ => letters.chars().map(of).collect::<Vec<_>>().join("-"),
     }
 }

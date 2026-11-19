@@ -51,15 +51,19 @@ impl App {
                         }
                     });
                 if let Some(slug) = clicked {
-                    self.gg.sel_deck = None;
-                    if !self.gg.decks.contains_key(&slug) && self.gg.requested.insert(slug.clone())
-                    {
-                        self.status = tr!("events.lade_decks_magic_gg");
-                        let _ = self.tx_job.send(Job::GgDecks { slug: slug.clone() });
-                    }
-                    self.gg.sel_event = Some(slug);
+                    self.select_event(slug);
                 }
             });
+    }
+
+    /// Event auswählen und seine Decks laden, falls noch nicht geschehen.
+    pub(super) fn select_event(&mut self, slug: String) {
+        self.gg.sel_deck = None;
+        if !self.gg.decks.contains_key(&slug) && self.gg.requested.insert(slug.clone()) {
+            self.status = tr!("events.lade_decks_magic_gg");
+            let _ = self.tx_job.send(Job::GgDecks { slug: slug.clone() });
+        }
+        self.gg.sel_event = Some(slug);
     }
 
     /// Decks des gewählten Events und die Ansicht des gewählten Decks.
