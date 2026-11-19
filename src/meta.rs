@@ -52,9 +52,45 @@ pub struct DeckRef {
     pub date: String,
 }
 
+/// Holt Adressen aus dem Netz. Austauschbar, damit Cache und Wartezeiten
+/// ohne Netz testbar sind.
+pub trait Http: Send {
+    /// Inhalt einer Adresse (höchstens 5 MB).
+    fn get(&self, url: &str, accept: &str) -> Result<Vec<u8>>;
+}
+
+/// Echter Netzabruf über `ureq`.
+struct Ureq(ureq::Agent);
+
+impl Http for Ureq {
+    fn get(&self, url: &str, accept: &str) -> Result<Vec<u8>> {
+        let resp = self.0.get(url).set("Accept", accept).call()?;
+        let mut bytes = Vec::new();
+        resp.into_reader().take(5_000_000).read_to_end(&mut bytes)?;
+        Ok(bytes)
+    }
+}
+
+/// Wartezeiten zwischen Anfragen an dieselbe Seite.
+#[derive(Clone, Copy, Debug)]
+pub struct Delays {
+    pub top8: Duration,
+    pub gg: Duration,
+}
+
+impl Default for Delays {
+    fn default() -> Delays {
+        Delays {
+            top8: TOP8_DELAY,
+            gg: GG_DELAY,
+        }
+    }
+}
+
 pub struct Fetcher {
-    agent: ureq::Agent,
+    http: Box<dyn Http>,
     cache: PathBuf,
+    delays: Delays,
     last_top8: Option<Instant>,
     last_gg: Option<Instant>,
 }
@@ -81,14 +117,20 @@ fn decode_entities(s: &str) -> String {
 
 impl Fetcher {
     pub fn new(cache: PathBuf) -> Fetcher {
-        let _ = fs::create_dir_all(&cache);
         let agent = ureq::AgentBuilder::new()
             .timeout(Duration::from_secs(30))
             .user_agent(USER_AGENT)
             .build();
+        Fetcher::with_http(cache, Box::new(Ureq(agent)), Delays::default())
+    }
+
+    /// Wie [`Fetcher::new`], aber mit eigenem Netzabruf und eigenen Wartezeiten.
+    pub fn with_http(cache: PathBuf, http: Box<dyn Http>, delays: Delays) -> Fetcher {
+        let _ = fs::create_dir_all(&cache);
         Fetcher {
-            agent,
+            http,
             cache,
+            delays,
             last_top8: None,
             last_gg: None,
         }
@@ -110,18 +152,16 @@ impl Fetcher {
     /// Lädt eine Seite herunter (höchstens 5 MB) und legt sie im Cache ab.
     /// `latin1`: MTGTop8 liefert ISO-8859-1, magic.gg UTF-8.
     fn download(&self, url: &str, file: &str, latin1: bool) -> Result<String> {
-        let resp = self
-            .agent
-            .get(url)
-            .call()
+        let bytes = self
+            .http
+            .get(url, "*/*")
             .with_context(|| tr!("meta.abruf_fehlgeschlagen", url = url))?;
-        let mut bytes = Vec::new();
-        resp.into_reader().take(5_000_000).read_to_end(&mut bytes)?;
         let text: String = if latin1 {
             bytes.iter().map(|&b| b as char).collect()
         } else {
             String::from_utf8_lossy(&bytes).into_owned()
         };
+        // Ein Cache-Schreibfehler ist unkritisch: dann wird beim nächsten Mal neu geladen.
         let _ = fs::write(self.cache.join(file), &text);
         Ok(text)
     }
@@ -131,7 +171,7 @@ impl Fetcher {
         if let Some(hit) = self.cached(file, max_age_secs) {
             return Ok(hit);
         }
-        throttle(&mut self.last_top8, TOP8_DELAY);
+        throttle(&mut self.last_top8, self.delays.top8);
         self.download(&format!("{TOP8}/{path}"), file, true)
     }
 
@@ -140,7 +180,7 @@ impl Fetcher {
         if let Some(hit) = self.cached(file, max_age_secs) {
             return Ok(hit);
         }
-        throttle(&mut self.last_gg, GG_DELAY);
+        throttle(&mut self.last_gg, self.delays.gg);
         self.download(&format!("{GG}/{path}"), file, false)
     }
 
@@ -259,13 +299,11 @@ impl Fetcher {
             "https://api.scryfall.com/cards/search?q=f%3A{scryfall_format}+game%3Aarena&unique=cards"
         );
         loop {
-            let resp = self
-                .agent
-                .get(&url)
-                .set("Accept", "application/json")
-                .call()
-                .map_err(|e| anyhow::anyhow!(tr!("meta.scryfall", e = e)))?;
-            let page: serde_json::Value = serde_json::from_reader(resp.into_reader())?;
+            let bytes = self
+                .http
+                .get(&url, "application/json")
+                .map_err(|e| anyhow::anyhow!(tr!("meta.scryfall", e = format!("{e:#}"))))?;
+            let page: serde_json::Value = serde_json::from_slice(&bytes)?;
             let (found, next) = parse_scryfall_page(&page);
             names.extend(found);
             match next {
@@ -277,6 +315,7 @@ impl Fetcher {
         if names.is_empty() {
             anyhow::bail!(tr!("meta.scryfall_kennt_dieses_format"));
         }
+        // Cache-Schreibfehler unkritisch (siehe `download`).
         let _ = fs::write(self.cache.join(&file), serde_json::to_string(&names)?);
         Ok(names.into_iter().collect())
     }

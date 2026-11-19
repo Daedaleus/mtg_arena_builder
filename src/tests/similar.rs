@@ -119,3 +119,17 @@ fn similarity_measure() {
     assert_eq!(jaccard(&[1, 2], &[2, 3]), 1.0 / 3.0);
     assert_eq!(jaccard(&[1], &[1]), 1.0);
 }
+
+#[test]
+fn suggestion_for_a_chosen_card() {
+    let db = crate::testutil::std_db();
+    let owned: HashMap<String, u32> = [("hill ogre".to_string(), 3)].into();
+    let s = Suggestion::for_card(&db, &owned, "hill ogre").unwrap();
+    assert_eq!(
+        (s.name.as_str(), s.owned, s.info.as_str()),
+        ("Hill Ogre", 3, "{2}{R}")
+    );
+    let basic = Suggestion::for_card(&db, &owned, "mountain").unwrap();
+    assert_eq!((basic.owned, basic.info.as_str()), (0, "Standardland"));
+    assert!(Suggestion::for_card(&db, &owned, "gibt es nicht").is_none());
+}

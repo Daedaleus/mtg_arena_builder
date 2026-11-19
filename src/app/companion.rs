@@ -6,6 +6,12 @@ impl App {
     /// Öffnet bzw. pflegt das Begleitfenster (eigenes Fenster, immer im Vordergrund).
     pub(super) fn companion(&mut self, ctx: &egui::Context) {
         if !self.settings.companion {
+            // Fenster aus: Mitlesen beenden.
+            if let Some(shared) = self.live.take() {
+                shared
+                    .stop
+                    .store(true, std::sync::atomic::Ordering::Relaxed);
+            }
             return;
         }
         let id = egui::ViewportId::from_hash_of("companion");
@@ -13,7 +19,10 @@ impl App {
             && let Some(db) = &self.db
         {
             let shared = std::sync::Arc::new(live::Shared::default());
-            live::spawn(db.clone(), shared.clone(), ctx.clone(), id);
+            let ctx = ctx.clone();
+            live::spawn(db.clone(), shared.clone(), move || {
+                ctx.request_repaint_of(id)
+            });
             self.live = Some(shared);
         }
         let Some(shared) = self.live.clone() else {
@@ -25,7 +34,7 @@ impl App {
         {
             self.live_meta_lists = self.lists.len();
             let shares = opponents::arch_shares(&self.meta_archetypes(), db);
-            *shared.meta.write().unwrap() = shares;
+            *shared.meta.write().unwrap_or_else(|e| e.into_inner()) = shares;
         }
         if shared
             .close_requested
@@ -51,9 +60,49 @@ impl App {
                     .store(true, std::sync::atomic::Ordering::Relaxed);
             }
             egui::CentralPanel::default().show(ctx, |ui| {
-                let view = shared.view.lock().unwrap().clone();
-                live::draw(ui, &view);
+                let view = shared
+                    .view
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner())
+                    .clone();
+                draw(ui, &view);
             });
         });
+    }
+}
+
+/// Zeichnet das Begleitfenster.
+pub(super) fn draw(ui: &mut egui::Ui, view: &live::CompanionView) {
+    let green = egui::Color32::from_rgb(110, 200, 120);
+    let yellow = egui::Color32::from_rgb(235, 195, 80);
+    ui.heading(&view.status);
+    if let Some((me, opp)) = view.life {
+        ui.horizontal(|ui| {
+            ui.label(
+                egui::RichText::new(tr!("live_draw.du", me = me))
+                    .strong()
+                    .size(18.0),
+            );
+            ui.label(egui::RichText::new(tr!("live_draw.gegner", opp = opp)).size(18.0));
+        });
+    }
+    if !view.board.is_empty() {
+        ui.label(egui::RichText::new(&view.board).weak());
+    }
+    ui.separator();
+    for (level, text) in &view.hints {
+        let rich = egui::RichText::new(text);
+        ui.label(match level {
+            live::Level::Good => rich.color(green).strong(),
+            live::Level::Warn => rich.color(yellow).strong(),
+            live::Level::Info => rich,
+        });
+    }
+    if !view.opponent.is_empty() {
+        ui.separator();
+        ui.label(egui::RichText::new(tr!("live_draw.gegner_2", opponent = view.opponent)).strong());
+        if !view.opp_cards.is_empty() {
+            ui.label(egui::RichText::new(view.opp_cards.join(", ")).weak());
+        }
     }
 }

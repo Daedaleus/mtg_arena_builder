@@ -44,9 +44,9 @@ pub(super) enum Msg {
     /// Wiederherstellung aus dem Cache ist abgeschlossen.
     Restored(usize),
     /// Partien aus den Arena-Logs; `bool` = „Detaillierte Logs“ ist aus.
-    Games(Vec<GameRecord>, bool),
+    Games(games::Synced, bool),
     /// Kartenbild von Scryfall (None = keins gefunden).
-    Image(String, Option<egui::ColorImage>),
+    Image(String, Option<images::Picture>),
     Pending(usize),
     /// Probehände fertig.
     Trial(SimTarget, Box<sim::Trial>),
@@ -182,7 +182,7 @@ impl App {
                     Ok(names) => {
                         self.legal.insert(format, names);
                         self.subs.clear();
-                        self.built = None;
+                        self.built.decks = None;
                     }
                     Err(e) => self.status = tr!("worker.format_legalitaet_nicht_verfuegbar", e = e),
                 },
@@ -218,22 +218,27 @@ impl App {
                 }
                 Msg::Image(name, img) => match img {
                     Some(img) => {
+                        let img = egui::ColorImage::from_rgba_unmultiplied(img.size, &img.rgba);
                         let tex =
                             self.ctx
                                 .load_texture(format!("card:{name}"), img, Default::default());
-                        self.textures.insert(name, tex);
+                        self.images.textures.insert(name, tex);
                     }
                     None => {
-                        self.img_missing.insert(name);
+                        self.images.missing.insert(name);
                     }
                 },
-                Msg::Games(games, disabled) => {
-                    self.games_loading = false;
-                    self.logs_disabled = disabled;
-                    if games.len() != self.games.len() {
-                        self.sel_game = None;
+                Msg::Games(synced, disabled) => {
+                    self.games.loading = false;
+                    self.games.logs_disabled = disabled;
+                    if let Some(e) = synced.save_error {
+                        self.status = e;
                     }
-                    self.games = games;
+                    let games = synced.games;
+                    if games.len() != self.games.list.len() {
+                        self.games.sel = None;
+                    }
+                    self.games.list = games;
                 }
                 Msg::Trial(target, trial) => self.finish_trial(target, *trial),
                 Msg::Built(built) => self.apply_built(built),
@@ -247,7 +252,7 @@ impl App {
                 Msg::GgEvents(format, result) if format == self.settings.format => match result {
                     Ok(list) => {
                         self.status = tr!("worker.events_magic_gg_geladen", list_n = list.len());
-                        self.gg_events = list;
+                        self.gg.events = list;
                     }
                     Err(e) => self.status = e,
                 },
@@ -260,10 +265,10 @@ impl App {
                             self.set_list(id, d.deck.clone());
                             list.push((id, d));
                         }
-                        self.gg_decks.insert(slug, list);
+                        self.gg.decks.insert(slug, list);
                     }
                     Err(e) => {
-                        self.gg_requested.remove(&slug);
+                        self.gg.requested.remove(&slug);
                         self.status = e;
                     }
                 },

@@ -138,3 +138,33 @@ fn personal_sim_renders() {
         });
     }
 }
+
+#[test]
+fn draws_companion_window() {
+    let view = live::CompanionView {
+        status: "Zug 3".into(),
+        life: Some((20, 4)),
+        board: "Länder: 3".into(),
+        hints: vec![
+            (live::Level::Good, "gut".into()),
+            (live::Level::Warn, "Vorsicht".into()),
+            (live::Level::Info, "Info".into()),
+        ],
+        opponent: "Mono-Rot".into(),
+        opp_cards: vec!["Shock".into()],
+    };
+    let ctx = egui::Context::default();
+    for v in [view, live::CompanionView::default()] {
+        let _ = ctx.run(egui::RawInput::default(), |ctx| {
+            egui::CentralPanel::default().show(ctx, |ui| super::companion::draw(ui, &v));
+        });
+    }
+}
+
+#[test]
+fn tabs_roundtrip_through_settings() {
+    for tab in Tab::SAVED {
+        assert!(Tab::from_saved(tab.saved()) == tab);
+    }
+    assert!(Tab::from_saved(99) == Tab::Meta, "unbekannt: erster Reiter");
+}

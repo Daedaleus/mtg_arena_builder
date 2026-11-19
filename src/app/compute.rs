@@ -44,8 +44,8 @@ impl App {
     /// Auswertung „Meine Partien“, nur bei geänderter Grundlage neu berechnet.
     /// `None`, solange Kartendaten fehlen.
     pub(super) fn games_analysis(&mut self) -> Option<GamesAnalysis> {
-        let key = (self.data_gen, self.games_event.clone(), i18n::current());
-        if let Some(a) = self.games_cache.take()
+        let key = (self.data_gen, self.games.event.clone(), i18n::current());
+        if let Some(a) = self.games.cache.take()
             && a.key == key
         {
             return Some(a);
@@ -53,8 +53,9 @@ impl App {
         let db = self.db.clone()?;
         let games: Vec<GameRecord> = self
             .games
+            .list
             .iter()
-            .filter(|g| self.games_event.as_ref().is_none_or(|e| &g.event == e))
+            .filter(|g| self.games.event.as_ref().is_none_or(|e| &g.event == e))
             .cloned()
             .collect();
         let report = games::report(&games, &db);
@@ -88,12 +89,12 @@ impl App {
             return Some(a);
         }
         let db = self.db.clone()?;
-        let groups = deckcheck::group_decks(&self.games, &db);
+        let groups = deckcheck::group_decks(&self.games.list, &db);
         let sel = sel.min(groups.len().saturating_sub(1));
         let check = groups.get(sel).map(|group| {
             let meta = self.meta_archetypes();
             let legal = self.legal.get(&self.settings.format);
-            deckcheck::check(group, &self.games, &db, &self.owned, legal, &meta)
+            deckcheck::check(group, &self.games.list, &db, &self.owned, legal, &meta)
         });
         Some(DeckAnalysis {
             key,
@@ -106,10 +107,14 @@ impl App {
     /// Startet Probehände im Hintergrund (nichts, wenn sie schon laufen).
     pub(super) fn start_trial(&mut self, target: SimTarget, deck: Vec<u32>) {
         let Some(db) = self.db.clone() else { return };
-        if !self.sims_running.insert(target.clone()) {
+        if !self.sims.running.insert(target.clone()) {
             return;
         }
-        let (tx, ctx, history) = (self.tx_msg.clone(), self.ctx.clone(), self.games.clone());
+        let (tx, ctx, history) = (
+            self.tx_msg.clone(),
+            self.ctx.clone(),
+            self.games.list.clone(),
+        );
         std::thread::spawn(move || {
             let trial = sim::trial(&deck, &db, &history, sim::DEFAULT_GAMES, 1);
             let _ = tx.send(Msg::Trial(target, Box::new(trial)));
@@ -118,18 +123,18 @@ impl App {
     }
 
     pub(super) fn trial_running(&self, target: &SimTarget) -> bool {
-        self.sims_running.contains(target)
+        self.sims.running.contains(target)
     }
 
     /// Ergebnis von Probehänden übernehmen.
     pub(super) fn finish_trial(&mut self, target: SimTarget, trial: sim::Trial) {
-        self.sims_running.remove(&target);
+        self.sims.running.remove(&target);
         match target {
             SimTarget::Deck(id) => {
-                self.sims.insert(id, trial);
+                self.sims.decks.insert(id, trial);
             }
             SimTarget::Group(deck) => {
-                self.group_sims.insert(deck, trial);
+                self.sims.groups.insert(deck, trial);
             }
         }
     }
@@ -137,13 +142,17 @@ impl App {
     /// Baut Deckvorschläge aus der Sammlung im Hintergrund.
     pub(super) fn start_build(&mut self) {
         let Some(db) = self.db.clone() else { return };
-        if self.building {
+        if self.built.running {
             return;
         }
-        self.building = true;
+        self.built.running = true;
         // Turnier-Präsenz: in wie vielen geladenen Turnierlisten kommt eine Karte vor?
         let mut meta_use: HashMap<String, u32> = HashMap::new();
-        for (_, eval) in self.evals.iter().filter(|(id, _)| **id > BUILT_MAX) {
+        for (_, eval) in self
+            .evals
+            .iter()
+            .filter(|(id, _)| deck_ids::is_tournament(**id))
+        {
             let keys: HashSet<&String> = eval.lines.iter().filter_map(|l| l.key.as_ref()).collect();
             for key in keys {
                 *meta_use.entry(key.clone()).or_insert(0) += 1;
@@ -152,7 +161,7 @@ impl App {
         let owned = self.owned.clone();
         let legal = self.legal.get(&self.settings.format).cloned();
         let (tx, ctx) = (self.tx_msg.clone(), self.ctx.clone());
-        self.built_lists = self.lists.len();
+        self.built.lists = self.lists.len();
         std::thread::spawn(move || {
             let built = builder::build_all(&db, &owned, legal.as_ref(), &meta_use);
             let _ = tx.send(Msg::Built(built));

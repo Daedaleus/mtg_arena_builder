@@ -22,7 +22,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::carddb::keyword as kw;
-use crate::carddb::{Card, CardDb, color};
+use crate::carddb::{Card, CardDb, GrpId, color};
 use arena::{Phase, annotation, card_state, message, step, zone};
 
 pub mod arena;

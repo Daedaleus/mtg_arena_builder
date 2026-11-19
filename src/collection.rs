@@ -9,6 +9,7 @@ use std::fs;
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use anyhow::{Context, Result, anyhow, bail};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -44,9 +45,9 @@ impl Collection {
         crate::paths::read_json(path)
     }
 
-    pub fn save(&self, path: &Path) -> Result<(), String> {
-        let json = serde_json::to_vec(self).map_err(|e| e.to_string())?;
-        crate::paths::write_atomic(path, &json).map_err(|e| format!("{}: {e}", path.display()))
+    pub fn save(&self, path: &Path) -> Result<()> {
+        let json = serde_json::to_vec(self)?;
+        crate::paths::write_atomic(path, &json).with_context(|| path.display().to_string())
     }
 
     /// Besitz je Kartenname (alle Drucke zusammengezählt).
@@ -111,11 +112,11 @@ fn err_of(v: &Value) -> Option<String> {
 }
 
 /// Liest Sammlung und Inventar aus dem laufenden Arena-Prozess.
-pub fn read_from_game() -> Result<Collection, String> {
+pub fn read_from_game() -> Result<Collection> {
     // Der Speicherleser kann bei unerwarteten Strukturen paniken – abfangen.
     let (cards, inv) = std::thread::spawn(raw_read)
         .join()
-        .map_err(|_| tr!("collection.speicher_mtg_arena_konnte"))?;
+        .map_err(|_| anyhow!(tr!("collection.speicher_mtg_arena_konnte")))?;
 
     from_reader(&cards, &inv, now_unix())
 }
@@ -128,9 +129,9 @@ fn now_unix() -> u64 {
 }
 
 /// Baut die Sammlung aus den Antworten des Speicherlesers (Karten und Inventar).
-pub fn from_reader(cards: &Value, inv: &Value, now: u64) -> Result<Collection, String> {
+pub fn from_reader(cards: &Value, inv: &Value, now: u64) -> Result<Collection> {
     if let Some(e) = err_of(cards) {
-        return Err(e);
+        bail!(e);
     }
     let mut out = Collection::default();
     for c in cards
@@ -150,7 +151,7 @@ pub fn from_reader(cards: &Value, inv: &Value, now: u64) -> Result<Collection, S
         }
     }
     if out.cards.is_empty() {
-        return Err(tr!("collection.arena_hat_keine_karten"));
+        bail!(tr!("collection.arena_hat_keine_karten"));
     }
     if err_of(inv).is_none() {
         let num = |v: &Value, k: &str| v.get(k).and_then(Value::as_i64).unwrap_or(0).max(0) as u32;
@@ -176,7 +177,7 @@ pub fn run_sync_helper(out: &Path) -> i32 {
     match read_from_game().and_then(|c| c.save(out)) {
         Ok(()) => 0,
         Err(e) => {
-            let _ = fs::write(&err_path, e);
+            let _ = fs::write(&err_path, format!("{e:#}"));
             1
         }
     }
@@ -185,9 +186,9 @@ pub fn run_sync_helper(out: &Path) -> i32 {
 /// Startet diese App erneut mit Administratorrechten (UAC-Abfrage), um die
 /// Sammlung zu lesen. Nur unter Windows.
 #[cfg(windows)]
-pub fn read_elevated(out: &Path) -> Result<Collection, String> {
+pub fn read_elevated(out: &Path) -> Result<Collection> {
     use std::os::windows::process::CommandExt;
-    let exe = std::env::current_exe().map_err(|e| e.to_string())?;
+    let exe = std::env::current_exe()?;
     let err_path = out.with_extension("error.txt");
     let _ = fs::remove_file(&err_path);
     let before = fs::metadata(out).and_then(|m| m.modified()).ok();
@@ -201,22 +202,50 @@ pub fn read_elevated(out: &Path) -> Result<Collection, String> {
         .args(["-NoProfile", "-NonInteractive", "-Command", &script])
         .creation_flags(0x0800_0000) // CREATE_NO_WINDOW
         .status()
-        .map_err(|e| tr!("collection.powershell_konnte_nicht_gestartet", e = e))?;
+        .map_err(|e| anyhow!(tr!("collection.powershell_konnte_nicht_gestartet", e = e)))?;
     if let Ok(e) = fs::read_to_string(&err_path) {
-        return Err(e);
+        bail!(e);
     }
     let after = fs::metadata(out).and_then(|m| m.modified()).ok();
     if !status.success() || after.is_none() || after == before {
-        return Err(tr!(
+        bail!(tr!(
             "collection.lesen_administratorrechten_wurde_abgebrochen"
         ));
     }
-    Collection::load(out).ok_or_else(|| tr!("collection.gespeicherte_sammlung_unlesbar"))
+    Collection::load(out).ok_or_else(|| anyhow!(tr!("collection.gespeicherte_sammlung_unlesbar")))
 }
 
 #[cfg(not(windows))]
-pub fn read_elevated(_out: &Path) -> Result<Collection, String> {
-    Err(tr!("collection.bitte_app_root_rechten"))
+pub fn read_elevated(_out: &Path) -> Result<Collection> {
+    bail!(tr!("collection.bitte_app_root_rechten"))
+}
+
+/// Liest die Sammlung aus dem laufenden Arena und speichert sie unter `path`.
+/// Läuft Arena mit höheren Rechten, wird unter Windows einmalig per UAC
+/// nachgefragt. Unter Linux gibt es keine Prozesserkennung – dort wird
+/// direkt gelesen (Fehlermeldung, falls Arena nicht läuft).
+pub fn sync(path: &Path) -> Result<Collection> {
+    let running = cfg!(target_os = "linux") || mtga_reader::api::find_process(PROCESS);
+    if !running {
+        bail!(tr!("state.mtg_arena_laeuft_nicht"));
+    }
+    let result = read_from_game().or_else(|first| {
+        if cfg!(windows) && !is_admin() {
+            read_elevated(path).map_err(|e| {
+                anyhow!(tr!(
+                    "state.ohne_adminrechte",
+                    e = format!("{e:#}"),
+                    first = format!("{first:#}")
+                ))
+            })
+        } else {
+            Err(first)
+        }
+    });
+    if let Ok(c) = &result {
+        let _ = c.save(path);
+    }
+    result
 }
 
 #[cfg(test)]

@@ -82,13 +82,17 @@ fn pips_and_types() {
     let db = testutil::std_db();
     let s = &db.cards[&testutil::SHOCK];
     assert!(s.is_instant() && s.has_role(ROLE_REMOVAL) && !s.has_role(ROLE_DRAW));
-    assert_eq!(rarity_label(0), "Land");
-    assert_eq!(rarity_label(1), "Land");
-    assert_eq!(rarity_label(2), "Common");
-    assert_eq!(rarity_label(3), "Uncommon");
-    assert_eq!(rarity_label(4), "Rare");
-    assert_eq!(rarity_label(5), "Mythic");
-    assert_eq!(rarity_label(9), "?");
+    assert_eq!(Rarity::from_arena(0).label(), "Land");
+    assert_eq!(Rarity::from_arena(1).label(), "Land");
+    assert_eq!(Rarity::from_arena(2).label(), "Common");
+    assert_eq!(Rarity::from_arena(3).label(), "Uncommon");
+    assert_eq!(Rarity::from_arena(4).label(), "Rare");
+    assert_eq!(Rarity::from_arena(5).label(), "Mythic");
+    assert_eq!(
+        Rarity::from_arena(9).label(),
+        "Land",
+        "unbekannt wie Spielstein"
+    );
 }
 
 #[test]
@@ -131,8 +135,8 @@ fn lookup_and_printings() {
     assert_eq!(db.representative("back").unwrap().grp_id, 14);
     assert!(db.representative("nix").is_none());
     // Günstigste Seltenheit über alle Drucke.
-    assert_eq!(db.craft_rarity("opt"), 2);
-    assert_eq!(db.craft_rarity("nix"), 0);
+    assert_eq!(db.craft_rarity("opt"), Rarity::Common);
+    assert_eq!(db.craft_rarity("nix"), Rarity::Token);
     assert_eq!(db.names().count(), 3);
 }
 
@@ -275,4 +279,17 @@ fn display_names_follow_language() {
         "ohne deutschen Namen englisch"
     );
     assert_eq!(db.display_name("Unbekannte Karte"), "Unbekannte Karte");
+}
+
+#[test]
+fn rarity_order_and_wildcards() {
+    assert!(Rarity::Mythic > Rarity::Rare && Rarity::Common > Rarity::BasicLand);
+    assert_eq!(Rarity::from_arena(9), Rarity::Token);
+    assert!(!Rarity::BasicLand.needs_wildcard() && Rarity::Common.needs_wildcard());
+    let slots: Vec<usize> = Rarity::WILDCARDS
+        .iter()
+        .map(|r| r.wildcard_slot())
+        .collect();
+    assert_eq!(slots, [0, 1, 2, 3]);
+    assert_eq!(Rarity::Token.wildcard_slot(), 0);
 }

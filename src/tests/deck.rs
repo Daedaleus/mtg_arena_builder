@@ -63,7 +63,7 @@ fn evaluates_against_collection() {
     assert_eq!(l[4].key, None);
     assert_eq!(l[4].missing, 2);
     assert!(l[5].side);
-    assert_eq!(l[5].rarity, 2);
+    assert_eq!(l[5].rarity, crate::carddb::Rarity::Common);
 
     let s = eval.summary(true, |_| 0);
     assert_eq!(s.total, 35);

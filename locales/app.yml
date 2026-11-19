@@ -842,6 +842,9 @@ games_report.lag_hand:
 games_report.schaden_bei_leben_genommen:
   de: "%{lost} Schaden bei %{before} Leben genommen, %{my_untapped_creatures} eigene Kreatur(en) hätten blocken können"
   en: "took %{lost} damage at %{before} life, %{my_untapped_creatures} of your creature(s) could have blocked"
+games_store.speichern_fehlgeschlagen:
+  de: "Partien konnten nicht gespeichert werden: %{e}"
+  en: "Could not save the games: %{e}"
 games_tab.alle_modi:
   de: "Alle Modi"
   en: "All modes"
@@ -1247,6 +1250,9 @@ sim_profile.gegner_meist:
 sim_profile.schneller_gegner:
   de: "schneller Gegner"
   en: "fast opponent"
+state.einstellungen_nicht_gespeichert:
+  de: "Einstellungen konnten nicht gespeichert werden: %{e}"
+  en: "Could not save the settings: %{e}"
 state.kartendaten_karten_arena:
   de: "Kartendaten: %{cards_n} Karten (Arena %{version})"
   en: "Card data: %{cards_n} cards (Arena %{version})"

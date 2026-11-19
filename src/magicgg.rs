@@ -117,6 +117,7 @@ pub fn parse_event(html: &str) -> Vec<GgDeck> {
 
 /// Feste Kennung für Deck `index` eines Events: im oberen Zahlenbereich, damit
 /// sie nicht mit MTGTop8-Kennungen, eigenen Listen oder Vorschlägen kollidiert.
+/// Liegt immer ab 2³¹ – oberhalb der MTGTop8-Decknummern.
 pub fn deck_id(slug: &str, index: usize) -> u32 {
     // FNV-1a
     let mut h: u32 = 0x811c_9dc5;

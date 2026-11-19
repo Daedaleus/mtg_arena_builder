@@ -13,8 +13,8 @@ impl App {
     ) -> Option<usize> {
         let mut clicked = None;
         let (start, end, pages, page) =
-            present::page_range(games.len(), self.games_page.get(), present::PAGE_SIZE);
-        self.games_page.set(page);
+            present::page_range(games.len(), self.games.page.get(), present::PAGE_SIZE);
+        self.games.page.set(page);
         // --- Blättern ---
         if pages > 1 {
             ui.horizontal(|ui| {
@@ -22,7 +22,7 @@ impl App {
                     .add_enabled(page > 0, egui::Button::new(tr!("game_list.zurueck")))
                     .clicked()
                 {
-                    self.games_page.set(page - 1);
+                    self.games.page.set(page - 1);
                 }
                 ui.label(tr!(
                     "game_list.seite_partien",
@@ -36,7 +36,7 @@ impl App {
                     .add_enabled(page + 1 < pages, egui::Button::new(tr!("game_list.weiter")))
                     .clicked()
                 {
-                    self.games_page.set(page + 1);
+                    self.games.page.set(page + 1);
                 }
             });
         }
@@ -79,7 +79,7 @@ impl App {
                             row.col(|ui| {
                                 if ui
                                     .selectable_label(
-                                        self.sel_game == Some(i),
+                                        self.games.sel == Some(i),
                                         format!("#{}", i + 1),
                                     )
                                     .clicked()

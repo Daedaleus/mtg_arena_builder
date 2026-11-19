@@ -98,7 +98,7 @@ impl CardDb {
                     .flatten()
                     .map(|s| strip_tags(&s))
                     .filter(|s| !s.is_empty() && !s.starts_with('#')),
-                rarity: r.get::<_, i64>(3)? as u8,
+                rarity: Rarity::from_arena(r.get::<_, i64>(3)? as u8),
                 set: text(r, 4),
                 collector: text(r, 5),
                 is_primary: r.get::<_, i64>(6).unwrap_or(0) != 0,

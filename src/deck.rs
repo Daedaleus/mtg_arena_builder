@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 
-use crate::carddb::{CardDb, RARITY_COMMON};
+use crate::carddb::{CardDb, Rarity};
 
 #[derive(Clone, Debug)]
 pub struct DeckEntry {
@@ -84,7 +84,7 @@ pub struct LineEval {
     /// Schlüssel in der Kartendatenbank; `None` = Karte gibt es in Arena nicht.
     pub key: Option<String>,
     pub side: bool,
-    pub rarity: u8,
+    pub rarity: Rarity,
     /// Besitz insgesamt (alle Drucke).
     pub owned: u32,
     pub missing: u32,
@@ -140,7 +140,7 @@ pub fn evaluate(deck: &Deck, db: &CardDb, owned: &HashMap<String, u32>) -> DeckE
             name: entry.name.clone(),
             key: key.clone(),
             side,
-            rarity: 0,
+            rarity: Rarity::Token,
             owned: 0,
             missing: entry.qty,
             basic: false,
@@ -180,8 +180,8 @@ impl DeckEval {
             }
             if line.key.is_none() {
                 s.unavailable += missing;
-            } else if line.rarity >= RARITY_COMMON {
-                s.need[(line.rarity - RARITY_COMMON).min(3) as usize] += missing;
+            } else if line.rarity.needs_wildcard() {
+                s.need[line.rarity.wildcard_slot()] += missing;
             }
         }
         s

@@ -7,6 +7,7 @@
 //! `companion` (Begleitfenster). Logik gehört in die Fachmodule der Bibliothek.
 
 use compute::{DeckAnalysis, GamesAnalysis, SimTarget};
+use parts::{BuiltState, GamesState, GgState, ImageCache, SimState};
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::PathBuf;
 use std::sync::mpsc::{Receiver, Sender, channel};
@@ -16,7 +17,7 @@ use egui_extras::{Column, TableBuilder};
 
 use crate::budget;
 use crate::builder::{self, Built};
-use crate::carddb::{CardDb, RARITY_COMMON, rarity_label};
+use crate::carddb::{CardDb, Rarity};
 use crate::collection::{self, Collection};
 use crate::deck::{self, Deck, DeckEval, LineEval, Summary};
 use crate::deckcheck;
@@ -37,22 +38,47 @@ use crate::style;
 const GREEN: Color32 = Color32::from_rgb(110, 200, 120);
 const YELLOW: Color32 = Color32::from_rgb(235, 195, 80);
 const RED: Color32 = Color32::from_rgb(235, 115, 105);
-const RARITY_NAMES: [&str; 4] = ["Common", "Uncommon", "Rare", "Mythic"];
-/// Schlüssel der selbst eingefügten Liste in den Deck-Tabellen.
-const PASTED: u32 = 0;
-/// Schlüsselbereich der aus der Sammlung gebauten Decks (MTGTop8-IDs sind viel größer).
-const BUILT_BASE: u32 = 1;
-const BUILT_MAX: u32 = 99;
+/// Kennungen der Decks in den Deck-Tabellen (`lists`, `evals`, Ersatzkarten).
+/// Ein gemeinsamer Zahlenraum, damit sie in `settings.json` als Zahl stehen:
+///
+/// | Bereich | Deck |
+/// |---|---|
+/// | 0 | selbst eingefügte Liste |
+/// | 1–99 | aus der Sammlung gebaute Decks |
+/// | 100 bis 2³¹ − 1 | MTGTop8-Decknummern |
+/// | ab 2³¹ | magic.gg-Listen (siehe [`magicgg::deck_id`]) |
+mod deck_ids {
+    /// Selbst eingefügte Liste.
+    pub const PASTED: u32 = 0;
+    const BUILT_FIRST: u32 = 1;
+    const BUILT_LAST: u32 = 99;
 
-fn rarity_color(r: u8) -> Color32 {
+    /// Kennung des `i`-ten gebauten Decks.
+    pub fn built(i: usize) -> u32 {
+        (BUILT_FIRST + i as u32).min(BUILT_LAST)
+    }
+
+    pub fn is_built(id: u32) -> bool {
+        (BUILT_FIRST..=BUILT_LAST).contains(&id)
+    }
+
+    /// Turnierliste (MTGTop8 oder magic.gg)?
+    pub fn is_tournament(id: u32) -> bool {
+        id > BUILT_LAST
+    }
+}
+use deck_ids::PASTED;
+
+fn rarity_color(r: Rarity) -> Color32 {
     match r {
-        3 => Color32::from_rgb(170, 200, 220),
-        4 => Color32::from_rgb(230, 195, 100),
-        5 => Color32::from_rgb(240, 130, 60),
+        Rarity::Uncommon => Color32::from_rgb(170, 200, 220),
+        Rarity::Rare => Color32::from_rgb(230, 195, 100),
+        Rarity::Mythic => Color32::from_rgb(240, 130, 60),
         _ => Color32::GRAY,
     }
 }
 
+mod card_info;
 mod chrome;
 mod companion;
 mod compute;
@@ -63,7 +89,9 @@ mod game_list;
 mod games_overview;
 mod games_tab;
 mod lists;
+mod parts;
 mod progress_view;
+mod settings_view;
 mod state;
 mod widgets;
 mod worker;
@@ -81,6 +109,26 @@ enum Tab {
     Built,
     Games,
     DeckCheck,
+}
+
+impl Tab {
+    /// Reihenfolge wie in `settings.json` gespeichert (Index = gespeicherte Zahl).
+    const SAVED: [Tab; 6] = [
+        Tab::Meta,
+        Tab::Paste,
+        Tab::Built,
+        Tab::Games,
+        Tab::DeckCheck,
+        Tab::Events,
+    ];
+
+    fn from_saved(n: u8) -> Tab {
+        Tab::SAVED.get(usize::from(n)).copied().unwrap_or(Tab::Meta)
+    }
+
+    fn saved(self) -> u8 {
+        Tab::SAVED.iter().position(|t| *t == self).unwrap_or(0) as u8
+    }
 }
 
 pub struct App {
@@ -113,57 +161,24 @@ pub struct App {
     syncing: bool,
     sort_by_fit: bool,
     settings_file: SettingsFile,
-    /// Aus der Sammlung gebaute Deckvorschläge (None = noch nicht berechnet).
-    built: Option<Vec<Built>>,
-    sel_built: usize,
-    /// Anzahl Turnierlisten und Zeitpunkt bei der letzten Berechnung der Vorschläge.
-    built_lists: usize,
-    built_at: Option<std::time::Instant>,
     ctx: egui::Context,
-    games: Vec<GameRecord>,
-    games_loading: bool,
-    games_scanned: Option<std::time::Instant>,
-    logs_disabled: bool,
-    /// Filter nach Arena-Event (None = alle).
-    games_event: Option<String>,
-    sel_game: Option<usize>,
     /// Gewähltes Deck im Reiter „Deck verbessern“.
     sel_deck_group: usize,
-    img_tx: Sender<String>,
-    textures: HashMap<String, egui::TextureHandle>,
-    img_requested: std::cell::RefCell<HashSet<String>>,
-    /// Aktuelle Seite der Partienliste (Zelle, damit die Liste sie beim Zeichnen ändern kann).
-    games_page: std::cell::Cell<usize>,
-    img_missing: HashSet<String>,
-    /// magic.gg: Events des Formats, für das sie geladen wurden.
-    gg_events: Vec<GgEvent>,
-    gg_format: Option<usize>,
-    /// magic.gg: Decks je Event (Kennung, Deck).
-    gg_decks: HashMap<String, Vec<(u32, GgDeck)>>,
-    gg_requested: HashSet<String>,
-    sel_gg_event: Option<String>,
-    sel_gg_deck: Option<u32>,
-    /// Ergebnisse der Probehände je Deck (Turnierdeck, Vorschlag, eigene Liste).
-    sims: HashMap<u32, sim::Trial>,
-    /// Laufende Probehände.
-    sims_running: HashSet<SimTarget>,
     /// Steigt mit jeder eingetroffenen Nachricht (siehe `compute`).
     data_gen: u64,
-    games_cache: Option<GamesAnalysis>,
     deck_cache: Option<DeckAnalysis>,
-    /// Deckbau aus der Sammlung läuft.
-    building: bool,
     /// „Alle bewerten“ läuft (Status am Ende auf „fertig“ setzen).
     rating_all: bool,
-    /// Probehände für gespielte Decks („Deck verbessern“), nach Deck-Bezeichnung.
-    group_sims: HashMap<Vec<u32>, sim::Trial>,
     /// Geteilter Zustand des Begleitfensters (läuft, sobald es einmal geöffnet wurde).
     live: Option<std::sync::Arc<live::Shared>>,
     /// Anzahl Turnierlisten beim letzten Abgleich mit dem Begleitfenster.
     live_meta_lists: usize,
     show_settings: bool,
-    /// Unterseite von „Meine Partien“: 0 = Übersicht, 1 = Partienliste.
-    games_view: u8,
+    games: GamesState,
+    gg: GgState,
+    images: ImageCache,
+    sims: SimState,
+    built: BuiltState,
 }
 
 impl App {
@@ -196,14 +211,7 @@ impl App {
         let repl = settings.replacement_map();
         let mut app = App {
             sort_by_fit: settings.sort_by_fit,
-            tab: match settings.tab {
-                1 => Tab::Paste,
-                2 => Tab::Built,
-                3 => Tab::Games,
-                4 => Tab::DeckCheck,
-                5 => Tab::Events,
-                _ => Tab::Meta,
-            },
+            tab: Tab::from_saved(settings.tab),
             paste_text: settings.paste_text.clone(),
             repl,
             collection: Collection::load(&data_dir.join("collection.json")),
@@ -229,41 +237,20 @@ impl App {
             pending: 0,
             syncing: false,
             settings_file,
-            built: None,
-            sel_built: 0,
-            built_lists: 0,
-            built_at: None,
             ctx: cc.egui_ctx.clone(),
-            games: Vec::new(),
-            games_loading: false,
-            games_scanned: None,
-            logs_disabled: false,
-            games_event: None,
-            sel_game: None,
             sel_deck_group: 0,
-            img_tx,
-            textures: HashMap::new(),
-            img_requested: std::cell::RefCell::new(HashSet::new()),
-            games_page: std::cell::Cell::new(0),
-            img_missing: HashSet::new(),
-            gg_events: Vec::new(),
-            gg_format: None,
-            gg_decks: HashMap::new(),
-            gg_requested: HashSet::new(),
-            sel_gg_event: None,
-            sel_gg_deck: None,
-            sims: HashMap::new(),
-            sims_running: HashSet::new(),
             data_gen: 0,
-            games_cache: None,
             deck_cache: None,
-            building: false,
             rating_all: false,
-            group_sims: HashMap::new(),
             live: None,
             live_meta_lists: usize::MAX,
             show_settings: false,
-            games_view: 0,
+
+            games: GamesState::default(),
+            gg: GgState::default(),
+            images: ImageCache::new(img_tx),
+            sims: SimState::default(),
+            built: BuiltState::default(),
         };
         app.settings.format = app.settings.format.min(FORMATS.len() - 1);
         app.load_db();

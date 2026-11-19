@@ -1,8 +1,8 @@
 //! Kartenbaukasten und eine kleine Standard-Kartendatenbank.
 
 use crate::carddb::{
-    Card, CardDb, ROLE_COUNTER, ROLE_DRAW, ROLE_REMOVAL, ROLE_WIPE, TYPE_CREATURE, TYPE_INSTANT,
-    TYPE_LAND, TYPE_SORCERY,
+    Card, CardDb, ROLE_COUNTER, ROLE_DRAW, ROLE_REMOVAL, ROLE_WIPE, Rarity, TYPE_CREATURE,
+    TYPE_INSTANT, TYPE_LAND, TYPE_SORCERY,
 };
 
 /// Bitmaske der Farben, die in Manakosten wie `{1}{U}{U}` vorkommen.
@@ -21,7 +21,7 @@ pub fn card(grp: u32, name: &str) -> CardBuilder {
     CardBuilder(Card {
         grp_id: grp,
         name: name.into(),
-        rarity: 2,
+        rarity: Rarity::Common,
         set: "TST".into(),
         collector: grp.to_string(),
         is_primary: true,
@@ -61,11 +61,11 @@ impl CardBuilder {
     }
     pub fn basic(mut self) -> Self {
         self.0.basic = true;
-        self.0.rarity = 1;
+        self.0.rarity = Rarity::BasicLand;
         self
     }
     pub fn rarity(mut self, r: u8) -> Self {
-        self.0.rarity = r;
+        self.0.rarity = Rarity::from_arena(r);
         self
     }
     pub fn removal(mut self) -> Self {

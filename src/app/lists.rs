@@ -132,17 +132,15 @@ impl App {
 
     /// Übernimmt fertige Deckvorschläge und legt sie unter eigenen Schlüsseln ab.
     pub(super) fn apply_built(&mut self, built: Vec<Built>) {
-        self.building = false;
-        self.repl
-            .retain(|k, _| !(BUILT_BASE..=BUILT_MAX).contains(&k.0));
-        self.subs
-            .retain(|k, _| !(BUILT_BASE..=BUILT_MAX).contains(&k.0));
+        self.built.running = false;
+        self.repl.retain(|k, _| !deck_ids::is_built(k.0));
+        self.subs.retain(|k, _| !deck_ids::is_built(k.0));
         for (i, b) in built.iter().enumerate() {
-            self.set_list(BUILT_BASE + i as u32, b.deck.clone());
+            self.set_list(deck_ids::built(i), b.deck.clone());
         }
-        self.sel_built = self.sel_built.min(built.len().saturating_sub(1));
-        self.built = Some(built);
-        self.built_at = Some(std::time::Instant::now());
+        self.built.sel = self.built.sel.min(built.len().saturating_sub(1));
+        self.built.decks = Some(built);
+        self.built.at = Some(std::time::Instant::now());
     }
 
     pub(super) fn built_tab(&mut self, ui: &mut egui::Ui) {
@@ -152,12 +150,12 @@ impl App {
         }
         // Neu rechnen, wenn inzwischen weitere Turnierlisten geladen wurden
         // (beim Start kommen sie erst nach und nach aus dem Zwischenspeicher).
-        let stale = self.lists.len() != self.built_lists
-            && self.built_at.is_none_or(|t| t.elapsed().as_secs() >= 2);
-        if self.built.is_none() || stale {
+        let stale = self.lists.len() != self.built.lists
+            && self.built.at.is_none_or(|t| t.elapsed().as_secs() >= 2);
+        if self.built.decks.is_none() || stale {
             self.start_build();
         }
-        if self.building && self.built.is_none() {
+        if self.built.running && self.built.decks.is_none() {
             ui.horizontal(|ui| {
                 ui.spinner();
                 ui.label(tr!("lists.baue_decks"));
@@ -169,7 +167,7 @@ impl App {
             v = FORMATS[self.settings.format].1
         ));
         ui.label(RichText::new(tr!("lists.kartenstaerke_geschaetzt_seltenheit_vorkommen")).weak());
-        let built = self.built.clone().unwrap_or_default();
+        let built = self.built.decks.clone().unwrap_or_default();
         if built.is_empty() {
             ui.label(RichText::new(tr!("lists.aus_deiner_sammlung_laesst")).color(YELLOW));
             return;
@@ -179,23 +177,23 @@ impl App {
             for (i, b) in built.iter().enumerate() {
                 let text = format!("{}  {:.1}", b.label, b.score);
                 if ui
-                    .selectable_label(self.sel_built == i, text)
+                    .selectable_label(self.built.sel == i, text)
                     .on_hover_text(tr!("lists.geschaetzte_staerke_hoeher_besser"))
                     .clicked()
                 {
-                    self.sel_built = i;
+                    self.built.sel = i;
                 }
             }
             if ui.button(tr!("lists.neu_berechnen")).clicked() {
-                self.built = None;
+                self.built.decks = None;
             }
         });
-        let Some(b) = built.get(self.sel_built) else {
+        let Some(b) = built.get(self.built.sel) else {
             return;
         };
         ui.label(tr!("lists.kreaturen_removal_mana_rares", label = b.label, creatures = b.creatures, removal = b.removal, avg_cmc = b.avg_cmc : {:.1}, rares = b.rares, meta_cards = b.meta_cards));
         ui.separator();
-        self.deck_view(ui, BUILT_BASE + self.sel_built as u32);
+        self.deck_view(ui, deck_ids::built(self.built.sel));
     }
 
     pub(super) fn paste_tab(&mut self, ui: &mut egui::Ui) {

@@ -9,7 +9,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use crate::carddb::{CardDb, RARITY_COMMON, color};
+use crate::carddb::{CardDb, Rarity, color};
 use crate::deck::DeckEval;
 use crate::similar;
 
@@ -30,7 +30,7 @@ struct Need {
     name: String,
     qty: u32,
     missing: u32,
-    rarity: u8,
+    rarity: Rarity,
     land: bool,
     cmc: u32,
 }
@@ -87,7 +87,7 @@ fn needs(eval: &DeckEval, db: &CardDb, include_side: bool) -> Vec<Need> {
 impl Need {
     /// Wildcard-Fach (0 = Common … 3 = Mythic).
     fn slot(&self) -> usize {
-        (self.rarity.max(RARITY_COMMON) - RARITY_COMMON).min(3) as usize
+        self.rarity.wildcard_slot()
     }
 }
 

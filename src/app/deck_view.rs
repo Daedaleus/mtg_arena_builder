@@ -54,7 +54,7 @@ impl App {
                 ui.label(tr!("common.rechne"));
             });
         }
-        if let Some(report) = self.sims.get(&deck_id) {
+        if let Some(report) = self.sims.decks.get(&deck_id) {
             sim_view(ui, report);
         }
         if self.collection.is_some()
@@ -66,7 +66,7 @@ impl App {
             wildcard_plan_view(ui, &plan, db);
         }
         if clicked.reset || clicked.budget {
-            self.sims.remove(&deck_id);
+            self.sims.decks.remove(&deck_id);
         }
         if clicked.reset {
             self.repl.retain(|k, _| k.0 != deck_id);
@@ -116,7 +116,7 @@ impl App {
                             RichText::new(tr!(
                                 "deck_view.hast",
                                 need = summary.need[i],
-                                rarity_names = RARITY_NAMES[i],
+                                rarity_names = Rarity::WILDCARDS[i].label(),
                                 wc = wc[i]
                             ))
                             .color(if enough { GREEN } else { RED }),
@@ -317,7 +317,7 @@ impl App {
         });
         row.col(|ui| {
             if line.key.is_some() {
-                ui.label(RichText::new(rarity_label(line.rarity)).color(rarity_color(line.rarity)));
+                ui.label(RichText::new(line.rarity.label()).color(rarity_color(line.rarity)));
             }
         });
         row.col(|ui| {
@@ -369,47 +369,5 @@ impl App {
                     }
                 });
         });
-    }
-
-    /// Zeigt beim Überfahren eines Kartennamens das Kartenbild (lädt es bei Bedarf).
-    /// Kartenname in der eingestellten Sprache.
-    pub(super) fn shown(&self, name: &str) -> String {
-        self.db
-            .as_ref()
-            .map_or_else(|| name.to_string(), |db| db.display_name(name))
-    }
-
-    pub(super) fn card_hover(
-        &self,
-        resp: egui::Response,
-        name: &str,
-        extra: Option<String>,
-    ) -> egui::Response {
-        let key = images::key(name, crate::i18n::current());
-        if resp.hovered()
-            && !self.textures.contains_key(&key)
-            && !self.img_missing.contains(&key)
-            && self.img_requested.borrow_mut().insert(key.clone())
-        {
-            let _ = self.img_tx.send(key.clone());
-        }
-        resp.on_hover_ui(|ui| {
-            if let Some(tex) = self.textures.get(&key) {
-                ui.add(
-                    egui::Image::new((tex.id(), tex.size_vec2()))
-                        .fit_to_exact_size(egui::vec2(244.0, 340.0)),
-                );
-            } else if self.img_missing.contains(&key) {
-                ui.label(RichText::new(tr!("deck_view.kein_bild_verfuegbar")).weak());
-            } else {
-                ui.horizontal(|ui| {
-                    ui.spinner();
-                    ui.label(tr!("deck_view.bild_geladen"));
-                });
-            }
-            if let Some(text) = &extra {
-                ui.label(text);
-            }
-        })
     }
 }

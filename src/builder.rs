@@ -8,7 +8,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use crate::carddb::{Card, CardDb, ROLE_DRAW, ROLE_REMOVAL, ROLE_WIPE, color};
+use crate::carddb::{Card, CardDb, ROLE_DRAW, ROLE_REMOVAL, ROLE_WIPE, Rarity, color};
 use crate::deck::{Deck, DeckEntry};
 
 const DECK_SIZE: u32 = 60;
@@ -30,9 +30,9 @@ pub struct Built {
 /// Geschätzte Stärke einer Karte (höher = besser).
 fn rating(card: &Card, meta_use: u32, colors: u8, copies: u32) -> f32 {
     let mut r = match card.rarity {
-        5 => 3.0,
-        4 => 2.6,
-        3 => 1.6,
+        Rarity::Mythic => 3.0,
+        Rarity::Rare => 2.6,
+        Rarity::Uncommon => 1.6,
         _ => 1.0,
     };
     // Karten, die in Turnierdecks gespielt werden, sind erwiesenermaßen gut.
@@ -182,7 +182,7 @@ impl<'a> Selection<'a> {
         if removal {
             self.removal += qty;
         }
-        if card.rarity >= 4 {
+        if card.rarity >= Rarity::Rare {
             self.rares += qty;
         }
         if c.meta > 0 {

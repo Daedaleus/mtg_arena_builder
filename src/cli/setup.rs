@@ -61,7 +61,7 @@ pub fn check() -> i32 {
                 "  {} {:<34} {:<9} Besitz {} fehlt {}{}",
                 l.qty,
                 l.name,
-                carddb::rarity_label(l.rarity),
+                l.rarity.label(),
                 l.owned,
                 l.missing,
                 if l.key.is_none() {

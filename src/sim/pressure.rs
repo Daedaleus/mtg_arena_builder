@@ -268,7 +268,7 @@ impl Board {
             .filter(|u| u.ready && !u.tapped && u.c.power > 0)
             .map(|u| u.c.clone())
             .collect();
-        let lethal = crate::live::unblocked_damage(&able, &blockers) >= self.opp_life;
+        let lethal = combat::unblocked_damage(&able, &blockers) >= self.opp_life;
         // Gegenschlag im nächsten Zug: alle gegnerischen Kreaturen greifen an.
         let threat: i32 = self.opp.iter().map(|u| u.c.power).sum();
         let attackers: Vec<LiveCreature> = if lethal {

@@ -21,7 +21,7 @@ pub struct TurnStat {
     /// Ungetappte eigene Länder am Zugende.
     pub untapped_lands: u32,
     /// Eigene Handkarten (grpIds) am Zugende.
-    pub hand: Vec<u32>,
+    pub hand: Vec<GrpId>,
     pub land_played: bool,
     /// Vom aktiven Spieler gewirkte Zauber.
     pub spells: u32,
@@ -31,17 +31,17 @@ pub struct TurnStat {
     pub creatures_at_start: u32,
     /// Mein Zug: einsatzbereite Kreaturen (grpIds), die gefahrlos hätten
     /// angreifen können, es aber nicht taten.
-    pub safe_idle: Vec<u32>,
+    pub safe_idle: Vec<GrpId>,
     /// Gegnerzug: habe ich geblockt?
     pub blocked: bool,
     /// Gegnerzug: meine ungetappten Kreaturen vor dem Kampf.
     pub my_untapped_creatures: u32,
     /// Von mir in diesem Zug gewirkte Karten (grpIds), auch im Gegnerzug.
-    pub cast: Vec<u32>,
+    pub cast: Vec<GrpId>,
     /// Meine Länder im Spiel am Zugende (grpIds, für die Farben).
-    pub lands: Vec<u32>,
+    pub lands: Vec<GrpId>,
     /// Kreaturen des Gegners am Zugende: (grpId, Kraft).
-    pub opp_creatures: Vec<(u32, i32)>,
+    pub opp_creatures: Vec<(GrpId, i32)>,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -64,18 +64,21 @@ pub struct GameRecord {
     pub complete: bool,
     pub turns: Vec<TurnStat>,
     /// Eigenes Deck (grpIds, Mehrfachnennung = Anzahl).
-    pub deck: Vec<u32>,
+    pub deck: Vec<GrpId>,
     /// Vom Gegner gesehene Karten (grpId -> Anzahl Exemplare).
-    pub opp_cards: HashMap<u32, u32>,
+    pub opp_cards: HashMap<GrpId, u32>,
     pub discards_me: u32,
     /// Behaltene Starthand (grpIds).
-    pub opening_hand: Vec<u32>,
+    pub opening_hand: Vec<GrpId>,
     /// Schaden an mir je Quelle (grpId -> Schaden).
-    pub damage_taken: HashMap<u32, u32>,
+    pub damage_taken: HashMap<GrpId, u32>,
     /// Schaden meiner Karten am Gegner (grpId -> Schaden).
-    pub damage_dealt: HashMap<u32, u32>,
+    pub damage_dealt: HashMap<GrpId, u32>,
     /// Constructed-Rang, den Arena nach dieser Partie gemeldet hat.
     pub rank_after: Option<Rank>,
+    /// Version der Auswertung, mit der die Partie erstellt wurde (siehe
+    /// `PARSER_VERSION`); 0 = unbekannt (ältere Datei).
+    pub parser: u32,
 }
 
 /// Constructed-Rang laut Arena (`RankGetCombinedRankInfo`).

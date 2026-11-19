@@ -98,14 +98,15 @@ impl Follower {
     }
 }
 
-/// Startet das Mitlesen im Hintergrund.
-pub fn spawn(db: Arc<CardDb>, shared: Arc<Shared>, ctx: egui::Context, viewport: egui::ViewportId) {
+/// Startet das Mitlesen im Hintergrund. `repaint` wird aufgerufen, wenn sich
+/// die Anzeige geändert hat; [`Shared::stop`] beendet den Thread.
+pub fn spawn(db: Arc<CardDb>, shared: Arc<Shared>, repaint: impl Fn() + Send + 'static) {
     std::thread::spawn(move || {
         let mut follower = Follower::default();
-        loop {
+        while !shared.stop.load(std::sync::atomic::Ordering::Relaxed) {
             let view = match find_log() {
                 Some(path) => {
-                    let meta = shared.meta.read().unwrap();
+                    let meta = shared.meta.read().unwrap_or_else(|e| e.into_inner());
                     follower.poll(&path, &db, &meta)
                 }
                 None => CompanionView {
@@ -114,7 +115,7 @@ pub fn spawn(db: Arc<CardDb>, shared: Arc<Shared>, ctx: egui::Context, viewport:
                 },
             };
             let changed = {
-                let mut cur = shared.view.lock().unwrap();
+                let mut cur = shared.view.lock().unwrap_or_else(|e| e.into_inner());
                 let changed = *cur != view;
                 if changed {
                     *cur = view;
@@ -122,7 +123,7 @@ pub fn spawn(db: Arc<CardDb>, shared: Arc<Shared>, ctx: egui::Context, viewport:
                 changed
             };
             if changed {
-                ctx.request_repaint_of(viewport);
+                repaint();
             }
             sleep(Duration::from_millis(300));
         }

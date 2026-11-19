@@ -11,7 +11,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use crate::carddb::{Card, CardDb, name_key};
+use crate::carddb::{Card, CardDb, Rarity, name_key};
 use crate::deck::Deck;
 use crate::games::GameRecord;
 use crate::similar;
@@ -46,7 +46,7 @@ pub struct CardStat {
     pub key: String,
     pub name: String,
     pub copies: u32,
-    pub rarity: u8,
+    pub rarity: Rarity,
     pub cmc: u32,
     pub land: bool,
     /// In wie vielen Partien gezogen bzw. gewirkt.

@@ -550,12 +550,15 @@ fn parses_log_files_and_syncs_store() {
     assert!(!detailed_logs_disabled(&dir.path("fehlt.log")));
 
     let store = dir.path("games.json");
-    let games = sync(&store, &[partial.clone(), log.clone()]);
+    let synced = sync(&store, &[partial.clone(), log.clone()]);
+    assert!(synced.save_error.is_none());
+    let games = synced.games;
     assert_eq!(games.len(), 1);
+    assert_eq!(games[0].parser, PARSER_VERSION);
     assert!(store.exists());
     let written = std::fs::metadata(&store).unwrap().modified().unwrap();
     // Zweiter Abgleich ohne neue Partien schreibt nichts.
-    let again = sync(&store, std::slice::from_ref(&log));
+    let again = sync(&store, std::slice::from_ref(&log)).games;
     assert_eq!(again.len(), 1);
     assert_eq!(
         std::fs::metadata(&store).unwrap().modified().unwrap(),
@@ -565,10 +568,23 @@ fn parses_log_files_and_syncs_store() {
     let mut legacy = games.clone();
     legacy[0].turns.clear();
     std::fs::write(&store, serde_json::to_vec(&legacy).unwrap()).unwrap();
-    let upgraded = sync(&store, &[log]);
+    let upgraded = sync(&store, std::slice::from_ref(&log)).games;
     assert_eq!(upgraded[0].turns.len(), games[0].turns.len());
-    // Ohne Logs bleiben gespeicherte Partien erhalten.
-    assert_eq!(sync(&store, &[]).len(), 1);
+    // Ohne Logs bleiben gespeicherte Partien erhalten – mit ihrer alten Version.
+    let mut old = games.clone();
+    old[0].parser = 0;
+    let file = serde_json::json!({ "version": 2, "games": old });
+    std::fs::write(&store, serde_json::to_vec(&file).unwrap()).unwrap();
+    let kept = sync(&store, &[]).games;
+    assert_eq!(kept.len(), 1);
+    assert_eq!(kept[0].parser, 2, "Version aus der alten Datei");
+    // Mit Log wird sie neu berechnet, auch bei gleicher Qualität.
+    assert_eq!(sync(&store, &[log]).games[0].parser, PARSER_VERSION);
+    // Schreibfehler kommt beim Aufrufer an (Ordner statt Datei).
+    let blocked = dir.path("blocked.json");
+    std::fs::create_dir(&blocked).unwrap();
+    let failed = sync(&blocked, std::slice::from_ref(&partial));
+    assert!(failed.save_error.is_some());
 }
 
 // ------------------------------------------------------------ Auswertung ----

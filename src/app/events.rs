@@ -6,8 +6,8 @@ impl App {
     /// Lädt die Events des aktuellen Formats, falls noch nicht geschehen.
     fn ensure_gg_events(&mut self, force: bool) {
         let format = self.settings.format;
-        if force || self.gg_format != Some(format) {
-            self.gg_format = Some(format);
+        if force || self.gg.format != Some(format) {
+            self.gg.format = Some(format);
             self.status = tr!("events.lade_decklisten_magic_gg");
             let _ = self.tx_job.send(Job::GgEvents { format, force });
         }
@@ -36,11 +36,11 @@ impl App {
                 egui::ScrollArea::vertical()
                     .auto_shrink([false, false])
                     .show(ui, |ui| {
-                        if self.gg_events.is_empty() {
+                        if self.gg.events.is_empty() {
                             ui.label(RichText::new(tr!("events.noch_keine_events_geladen")).weak());
                         }
-                        for e in &self.gg_events {
-                            let selected = self.sel_gg_event.as_deref() == Some(e.slug.as_str());
+                        for e in &self.gg.events {
+                            let selected = self.gg.sel_event.as_deref() == Some(e.slug.as_str());
                             let resp = ui.selectable_label(selected, &e.title);
                             if !e.date.is_empty() {
                                 ui.label(RichText::new(&e.date).weak().small());
@@ -51,32 +51,33 @@ impl App {
                         }
                     });
                 if let Some(slug) = clicked {
-                    self.sel_gg_deck = None;
-                    if !self.gg_decks.contains_key(&slug) && self.gg_requested.insert(slug.clone())
+                    self.gg.sel_deck = None;
+                    if !self.gg.decks.contains_key(&slug) && self.gg.requested.insert(slug.clone())
                     {
                         self.status = tr!("events.lade_decks_magic_gg");
                         let _ = self.tx_job.send(Job::GgDecks { slug: slug.clone() });
                     }
-                    self.sel_gg_event = Some(slug);
+                    self.gg.sel_event = Some(slug);
                 }
             });
     }
 
     /// Decks des gewählten Events und die Ansicht des gewählten Decks.
     pub(super) fn events_tab(&mut self, ui: &mut egui::Ui) {
-        let Some(slug) = self.sel_gg_event.clone() else {
+        let Some(slug) = self.gg.sel_event.clone() else {
             ui.add_space(20.0);
             ui.label(tr!("events.links_event_waehlen_magic"));
             return;
         };
-        let Some(decks) = self.gg_decks.get(&slug).cloned() else {
+        let Some(decks) = self.gg.decks.get(&slug).cloned() else {
             ui.add_space(20.0);
             ui.label(tr!("events.decks_werden_geladen"));
             return;
         };
         let Some(db) = self.db.clone() else { return };
         let title = self
-            .gg_events
+            .gg
+            .events
             .iter()
             .find(|e| e.slug == slug)
             .map(|e| e.title.clone())
@@ -115,7 +116,7 @@ impl App {
                     .show(ui, |ui| {
                         for (id, who, label, summary) in &rows {
                             if ui
-                                .selectable_label(self.sel_gg_deck == Some(*id), label)
+                                .selectable_label(self.gg.sel_deck == Some(*id), label)
                                 .clicked()
                             {
                                 clicked = Some(*id);
@@ -136,9 +137,9 @@ impl App {
                     });
             });
         if let Some(id) = clicked {
-            self.sel_gg_deck = Some(id);
+            self.gg.sel_deck = Some(id);
         }
-        if let Some(id) = self.sel_gg_deck {
+        if let Some(id) = self.gg.sel_deck {
             ui.separator();
             self.deck_view(ui, id);
         }

@@ -9,10 +9,18 @@ use serde::{Deserialize, Serialize};
 use crate::i18n::Language;
 use crate::paths;
 
+/// Aktuelle Version von `settings.json`. Wird sie erhöht, passt
+/// [`Settings::migrate`] ältere Dateien an.
+pub const SETTINGS_VERSION: u32 = 1;
+
 /// Alles, was einen Neustart überleben soll.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Settings {
+    /// Version der Datei (0 = vor Einführung der Versionsnummer; fehlt das
+    /// Feld, gilt 0 – nicht der Standardwert der neuen Einstellungen).
+    #[serde(default)]
+    pub version: u32,
     pub mtga_dir: String,
     /// Begleitfenster geöffnet?
     pub companion: bool,
@@ -38,6 +46,7 @@ pub struct Settings {
 impl Default for Settings {
     fn default() -> Settings {
         Settings {
+            version: SETTINGS_VERSION,
             mtga_dir: String::new(),
             companion: false,
             zoom: 1.0,
@@ -60,6 +69,13 @@ impl Default for Settings {
 pub const ZOOM_RANGE: (f32, f32) = (0.8, 1.6);
 
 impl Settings {
+    /// Bringt Einstellungen aus einer älteren Datei auf den aktuellen Stand.
+    /// Version 0 (ohne Nummer) hat dieselben Felder – nur die Nummer fehlt.
+    pub fn migrate(mut self) -> Settings {
+        self.version = SETTINGS_VERSION;
+        self
+    }
+
     /// Zoomfaktor im erlaubten Bereich.
     pub fn zoom(&self) -> f32 {
         self.zoom.clamp(ZOOM_RANGE.0, ZOOM_RANGE.1)
@@ -96,22 +112,32 @@ impl SettingsFile {
     /// beschädigt, gelten die Standardwerte.
     pub fn load(dir: &Path) -> (SettingsFile, Settings) {
         let path = dir.join("settings.json");
-        let settings: Settings = paths::read_json(&path).unwrap_or_default();
-        let saved = serde_json::to_vec_pretty(&settings).unwrap_or_default();
+        let raw: Option<Settings> = paths::read_json(&path);
+        // Gespeicherten Stand vor der Migration merken – dann wird eine
+        // angepasste Datei beim nächsten Speichern neu geschrieben.
+        let saved = raw
+            .as_ref()
+            .and_then(|s| serde_json::to_vec_pretty(s).ok())
+            .unwrap_or_default();
+        let settings = raw.map(Settings::migrate).unwrap_or_default();
+        let saved = if saved.is_empty() {
+            serde_json::to_vec_pretty(&settings).unwrap_or_default()
+        } else {
+            saved
+        };
         (SettingsFile { path, saved }, settings)
     }
 
     /// Schreibt die Einstellungen, falls sie sich seit dem letzten Speichern
-    /// geändert haben. Gibt zurück, ob geschrieben wurde.
-    pub fn save(&mut self, settings: &Settings) -> bool {
-        let Ok(json) = serde_json::to_vec_pretty(settings) else {
-            return false;
-        };
-        if json == self.saved || paths::write_atomic(&self.path, &json).is_err() {
-            return false;
+    /// geändert haben. `Ok(true)` = geschrieben, `Ok(false)` = unverändert.
+    pub fn save(&mut self, settings: &Settings) -> std::io::Result<bool> {
+        let json = serde_json::to_vec_pretty(settings)?;
+        if json == self.saved {
+            return Ok(false);
         }
+        paths::write_atomic(&self.path, &json)?;
         self.saved = json;
-        true
+        Ok(true)
     }
 }
 

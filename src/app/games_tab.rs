@@ -6,7 +6,8 @@ impl App {
     pub(super) fn games_tab(&mut self, ui: &mut egui::Ui) {
         // Beim Öffnen des Reiters automatisch nachladen (höchstens einmal pro Minute).
         if self
-            .games_scanned
+            .games
+            .scanned
             .is_none_or(|t| t.elapsed().as_secs() > 60)
         {
             self.scan_games();
@@ -14,66 +15,67 @@ impl App {
         ui.horizontal(|ui| {
             if ui
                 .add_enabled(
-                    !self.games_loading,
+                    !self.games.loading,
                     egui::Button::new(tr!("games_tab.logs_neu_einlesen")),
                 )
                 .clicked()
             {
                 self.scan_games();
             }
-            if self.games_loading {
+            if self.games.loading {
                 ui.spinner();
             }
-            let mut events: Vec<String> = self.games.iter().map(|g| g.event.clone()).collect();
+            let mut events: Vec<String> = self.games.list.iter().map(|g| g.event.clone()).collect();
             events.sort();
             events.dedup();
             let shown = self
-                .games_event
+                .games
+                .event
                 .as_deref()
                 .map(event_label)
                 .unwrap_or_else(|| tr!("games_tab.alle_modi"));
-            let before = self.games_event.clone();
+            let before = self.games.event.clone();
             egui::ComboBox::from_id_salt("games_event")
                 .selected_text(shown)
                 .show_ui(ui, |ui| {
-                    ui.selectable_value(&mut self.games_event, None, tr!("games_tab.alle_modi"));
+                    ui.selectable_value(&mut self.games.event, None, tr!("games_tab.alle_modi"));
                     for e in events {
                         let label = event_label(&e);
-                        ui.selectable_value(&mut self.games_event, Some(e), label);
+                        ui.selectable_value(&mut self.games.event, Some(e), label);
                     }
                 });
-            if before != self.games_event {
-                self.sel_game = None;
-                self.games_page.set(0);
+            if before != self.games.event {
+                self.games.sel = None;
+                self.games.page.set(0);
             }
             ui.label(
                 RichText::new(tr!(
                     "games_tab.partien_gespeichert",
-                    games_n = self.games.len()
+                    games_n = self.games.list.len()
                 ))
                 .weak(),
             );
         });
         ui.horizontal(|ui| {
             ui.selectable_value(
-                &mut self.games_view,
+                &mut self.games.view,
                 0,
                 RichText::new(tr!("games_tab.uebersicht_tipps")).strong(),
             );
             ui.selectable_value(
-                &mut self.games_view,
+                &mut self.games.view,
                 1,
                 RichText::new(tr!("games_tab.partienliste")).strong(),
             );
             ui.selectable_value(
-                &mut self.games_view,
+                &mut self.games.view,
                 2,
                 RichText::new(tr!("games_tab.verlauf")).strong(),
             );
         });
         ui.separator();
-        let overview = self.games_view == 0;
-        if self.logs_disabled {
+        let overview = self.games.view == 0;
+        if self.games.logs_disabled {
             ui.label(
                 RichText::new(tr!("games_tab.arena_detaillierte_logs_ausgeschaltet")).color(YELLOW),
             );
@@ -86,12 +88,12 @@ impl App {
         if a.games.is_empty() {
             ui.add_space(10.0);
             ui.label(tr!("games_tab.noch_keine_partien_spiel"));
-            self.games_cache = Some(a);
+            self.games.cache = Some(a);
             return;
         }
-        if self.games_view == 2 {
+        if self.games.view == 2 {
             progress_view(ui, &a.games, &db);
-            self.games_cache = Some(a);
+            self.games.cache = Some(a);
             return;
         }
         let mut clicked: Option<usize> = None;
@@ -112,22 +114,22 @@ impl App {
                     );
                 } else {
                     clicked = self.game_list(ui, &a.games, &db, &a.opp_names);
-                    if let Some(i) = self.sel_game
+                    if let Some(i) = self.games.sel
                         && let Some(g) = a.games.get(i)
                     {
                         game_detail(ui, i, g, &db);
                     }
                 }
             });
-        self.games_cache = Some(a);
+        self.games.cache = Some(a);
         if let Some(id) = open {
             self.open_deck(id);
         }
         if let Some(i) = clicked {
-            self.sel_game = Some(i);
+            self.games.sel = Some(i);
             // Auf die Seite der angeklickten Partie springen.
-            self.games_page.set(i / present::PAGE_SIZE);
-            self.games_view = 1;
+            self.games.page.set(i / present::PAGE_SIZE);
+            self.games.view = 1;
         }
     }
 }

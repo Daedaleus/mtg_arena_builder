@@ -104,7 +104,7 @@ pub(super) fn wildcards_text(short: &[u32; 4]) -> String {
         .iter()
         .enumerate()
         .filter(|(_, n)| **n > 0)
-        .map(|(i, n)| format!("{n} {}", RARITY_NAMES[i]))
+        .map(|(i, n)| format!("{n} {}", Rarity::WILDCARDS[i].label()))
         .collect();
     if parts.is_empty() {
         tr!("common.keine")
@@ -123,7 +123,7 @@ pub(super) fn wildcard_plan_view(ui: &mut egui::Ui, plan: &budget::WildcardPlan,
             if !plan.now.is_empty() {
                 ui.label(RichText::new(tr!("widgets.jetzt_deinen_wildcards_herstellen")).color(GREEN).strong());
                 for s in &plan.now {
-                    ui.label(format!("• {}× {} ({})", s.qty, db.display_name(&s.name), RARITY_NAMES[s.slot]));
+                    ui.label(format!("• {}× {} ({})", s.qty, db.display_name(&s.name), Rarity::WILDCARDS[s.slot].label()));
                 }
                 if let Some(last) = plan.now.last() {
                     ui.label(RichText::new(tr!("widgets.danach_deck_komplett", complete = last.complete : {:.0})).weak());
@@ -132,7 +132,7 @@ pub(super) fn wildcard_plan_view(ui: &mut egui::Ui, plan: &budget::WildcardPlan,
             if !plan.later.is_empty() {
                 ui.label(RichText::new(tr!("widgets.danach_dieser_reihenfolge")).strong());
                 for s in &plan.later {
-                    ui.label(tr!("widgets.dafuer_fehlen_insgesamt_noch", qty = s.qty, name = db.display_name(&s.name), rarity_names = RARITY_NAMES[s.slot], v = wildcards_text(&s.short), complete = s.complete : {:.0}));
+                    ui.label(tr!("widgets.dafuer_fehlen_insgesamt_noch", qty = s.qty, name = db.display_name(&s.name), rarity_names = Rarity::WILDCARDS[s.slot].label(), v = wildcards_text(&s.short), complete = s.complete : {:.0}));
                 }
                 ui.label(
                     RichText::new(

@@ -13,7 +13,8 @@ struct Clicks {
 impl App {
     pub(super) fn deck_check_tab(&mut self, ui: &mut egui::Ui) {
         if self
-            .games_scanned
+            .games
+            .scanned
             .is_none_or(|t| t.elapsed().as_secs() > 60)
         {
             self.scan_games();
@@ -49,7 +50,7 @@ impl App {
         });
         let target = SimTarget::Group(group.deck.clone());
         let running = self.trial_running(&target);
-        let sim_report = self.group_sims.get(&group.deck);
+        let sim_report = self.sims.groups.get(&group.deck);
 
         egui::ScrollArea::vertical()
             .id_salt("deck_check_scroll")

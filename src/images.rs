@@ -15,7 +15,6 @@ use std::sync::mpsc::{Sender, channel};
 use std::thread::sleep;
 use std::time::Duration;
 
-use eframe::egui::ColorImage;
 use serde_json::Value;
 
 use crate::i18n::Locale;
@@ -34,10 +33,22 @@ fn file_stem(name: &str) -> String {
         .collect()
 }
 
-fn decode(bytes: &[u8]) -> Option<ColorImage> {
+/// Dekodiertes Kartenbild: RGBA-Pixel Zeile für Zeile (unabhängig von der
+/// Oberfläche; die App macht daraus eine Textur).
+#[derive(Clone, Debug, PartialEq)]
+pub struct Picture {
+    /// Breite und Höhe in Pixeln.
+    pub size: [usize; 2],
+    pub rgba: Vec<u8>,
+}
+
+fn decode(bytes: &[u8]) -> Option<Picture> {
     let img = image::load_from_memory(bytes).ok()?.to_rgba8();
     let size = [img.width() as usize, img.height() as usize];
-    Some(ColorImage::from_rgba_unmultiplied(size, img.as_raw()))
+    Some(Picture {
+        size,
+        rgba: img.into_raw(),
+    })
 }
 
 /// Trenner zwischen Kartenname und Sprachkürzel im Schlüssel.
@@ -143,7 +154,7 @@ fn download(agent: &ureq::Agent, key: &str) -> Option<Vec<u8>> {
 
 /// Was der Bild-Cache zu einer Karte weiß.
 enum Cached {
-    Image(ColorImage),
+    Image(Picture),
     /// Scryfall kennt kein Bild (gemerkt, damit nicht erneut gefragt wird).
     Missing,
     Unknown,
@@ -174,7 +185,7 @@ fn from_cache(cache: &Path, name: &str) -> Cached {
 }
 
 /// Merkt ein heruntergeladenes Bild bzw. dass es keines gibt.
-fn store(cache: &Path, name: &str, bytes: Option<&[u8]>) -> Option<ColorImage> {
+fn store(cache: &Path, name: &str, bytes: Option<&[u8]>) -> Option<Picture> {
     let (file, missing) = cache_files(cache, name);
     match bytes {
         Some(bytes) => {
@@ -191,7 +202,7 @@ fn store(cache: &Path, name: &str, bytes: Option<&[u8]>) -> Option<ColorImage> {
     }
 }
 
-fn load(agent: &ureq::Agent, cache: &Path, name: &str) -> Option<ColorImage> {
+fn load(agent: &ureq::Agent, cache: &Path, name: &str) -> Option<Picture> {
     match from_cache(cache, name) {
         Cached::Image(img) => Some(img),
         Cached::Missing => None,
@@ -203,7 +214,7 @@ fn load(agent: &ureq::Agent, cache: &Path, name: &str) -> Option<ColorImage> {
 /// `done` wird mit dem Bild (oder `None`) aufgerufen.
 pub fn spawn(
     cache: PathBuf,
-    done: impl Fn(String, Option<ColorImage>) + Send + 'static,
+    done: impl Fn(String, Option<Picture>) + Send + 'static,
 ) -> Sender<String> {
     let (tx, rx) = channel::<String>();
     let _ = fs::create_dir_all(&cache);

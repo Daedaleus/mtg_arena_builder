@@ -78,7 +78,7 @@ fn priorities() {
         name: String::new(),
         qty,
         missing: qty,
-        rarity: 2,
+        rarity: crate::carddb::Rarity::Common,
         land,
         cmc: 1,
     };

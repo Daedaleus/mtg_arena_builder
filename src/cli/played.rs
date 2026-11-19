@@ -5,7 +5,7 @@ use super::*;
 /// `--games`: Partien aus den Arena-Logs einlesen und auswerten.
 pub fn games_cli() -> anyhow::Result<()> {
     let db = carddb::CardDb::load(&paths::find_card_db(None)?)?;
-    let games = games::sync(&paths::data_dir().join("games.json"), &paths::player_logs());
+    let games = games::sync(&paths::data_dir().join("games.json"), &paths::player_logs()).games;
     for (i, g) in games.iter().enumerate() {
         let (me, opp) = g.final_life();
         println!(
@@ -82,7 +82,7 @@ pub fn decks_cli(format: &str) -> anyhow::Result<()> {
     let col = collection::Collection::load(&paths::data_dir().join("collection.json"))
         .ok_or_else(|| anyhow::anyhow!("Keine gespeicherte Sammlung"))?;
     let owned = col.owned_by_name(&db);
-    let games = games::sync(&paths::data_dir().join("games.json"), &paths::player_logs());
+    let games = games::sync(&paths::data_dir().join("games.json"), &paths::player_logs()).games;
     let mut fetcher = meta::Fetcher::new(paths::data_dir().join("cache"));
     let scry = meta::FORMATS
         .iter()
@@ -248,7 +248,7 @@ pub fn replay(path: &str, limit: usize) -> anyhow::Result<()> {
 /// `--sim`: Probehände für alle gespielten Decks.
 pub fn sim() -> anyhow::Result<()> {
     let db = carddb::CardDb::load(&paths::find_card_db(None)?)?;
-    let games = games::sync(&paths::data_dir().join("games.json"), &paths::player_logs());
+    let games = games::sync(&paths::data_dir().join("games.json"), &paths::player_logs()).games;
     let opponent = sim::opponent_from(&games, &db);
     let habits = sim::habits_from(&games, &db);
     match &opponent {
@@ -309,7 +309,7 @@ pub fn sim() -> anyhow::Result<()> {
 /// `--style`: Spielstil und Einteilung aller zwischengespeicherten Turnierlisten.
 pub fn style_cli() -> anyhow::Result<()> {
     let db = carddb::CardDb::load(&paths::find_card_db(None)?)?;
-    let games = games::sync(&paths::data_dir().join("games.json"), &paths::player_logs());
+    let games = games::sync(&paths::data_dir().join("games.json"), &paths::player_logs()).games;
     let report = games::report(&games, &db);
     let s = mtg_arena_builder::style::analyze(&games, &db, &report);
     for r in &s.records {

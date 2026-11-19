@@ -195,3 +195,47 @@ fn restores_opened_gg_events() {
     assert_eq!(restored[0].1.len(), 2);
     assert!(f.cached_gg("pioneer").is_empty());
 }
+
+/// Netzabruf für Tests: liefert festen Inhalt und zählt die Abrufe.
+struct FakeHttp {
+    calls: std::sync::Arc<std::sync::atomic::AtomicUsize>,
+    body: &'static [u8],
+}
+
+impl Http for FakeHttp {
+    fn get(&self, url: &str, _accept: &str) -> Result<Vec<u8>> {
+        self.calls
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        if url.contains("fehler") {
+            anyhow::bail!("kein Netz");
+        }
+        Ok(self.body.to_vec())
+    }
+}
+
+#[test]
+fn downloads_once_then_uses_cache() {
+    let dir = TempDir::new("meta_http");
+    let calls = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let http = FakeHttp {
+        calls: calls.clone(),
+        body: b"Caf\xe9",
+    };
+    let delays = Delays {
+        top8: Duration::ZERO,
+        gg: Duration::ZERO,
+    };
+    let mut f = Fetcher::with_http(dir.0.clone(), Box::new(http), delays);
+    // MTGTop8 liefert ISO-8859-1.
+    assert_eq!(f.top8("seite", "seite.html", None).unwrap(), "Café");
+    assert_eq!(f.top8("seite", "seite.html", None).unwrap(), "Café");
+    assert_eq!(
+        calls.load(std::sync::atomic::Ordering::Relaxed),
+        1,
+        "zweites Mal aus dem Cache"
+    );
+    // Fehler kommen mit Adresse zurück und landen nicht im Cache.
+    let err = f.top8("fehler", "fehler.html", None).unwrap_err();
+    assert!(format!("{err:#}").contains("fehler"), "{err:#}");
+    assert!(!dir.path("fehler.html").exists());
+}

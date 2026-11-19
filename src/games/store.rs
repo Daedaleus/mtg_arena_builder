@@ -13,8 +13,21 @@ pub(super) struct Store {
     pub(super) games: Vec<GameRecord>,
 }
 
+/// Ergebnis von [`sync`].
+#[derive(Debug, Default)]
+pub struct Synced {
+    pub games: Vec<GameRecord>,
+    /// `games.json` konnte nicht geschrieben werden (die Partien sind trotzdem da).
+    pub save_error: Option<String>,
+}
+
 /// Gespeicherte Partien laden, neue aus den Logs dazunehmen und speichern.
-pub fn sync(store: &Path, logs: &[PathBuf]) -> Vec<GameRecord> {
+///
+/// Jede Partie kennt die Version der Auswertung, mit der sie erstellt wurde.
+/// Eine bessere Aufzeichnung ersetzt eine schlechtere; eine gleich gute nur,
+/// wenn die gespeicherte mit einer älteren Auswertung entstand. Partien,
+/// deren Log nicht mehr existiert, behalten ihre alte Version.
+pub fn sync(store: &Path, logs: &[PathBuf]) -> Synced {
     // Ältere Dateien enthielten nur die Liste der Partien.
     let saved: Store = crate::paths::read_json::<Store>(store)
         .or_else(|| {
@@ -22,18 +35,20 @@ pub fn sync(store: &Path, logs: &[PathBuf]) -> Vec<GameRecord> {
                 .map(|games| Store { version: 1, games })
         })
         .unwrap_or_default();
-    let outdated = saved.version < PARSER_VERSION;
-    let before = serde_json::to_vec(&saved.games).unwrap_or_default();
+    let file_outdated = saved.version < PARSER_VERSION;
     let mut games = saved.games;
+    // Ältere Dateien kannten nur eine Version für alle Partien.
+    for g in games.iter_mut().filter(|g| g.parser == 0) {
+        g.parser = saved.version;
+    }
+    let before = serde_json::to_vec(&games).unwrap_or_default();
     for log in logs {
-        for rec in parse_log(log) {
+        for mut rec in parse_log(log) {
+            rec.parser = PARSER_VERSION;
             match games.iter_mut().find(|g| g.id == rec.id) {
-                // Vollständigere oder mit neuerer Auswertung erzeugte Aufzeichnung gewinnt.
-                // Bessere Aufzeichnung gewinnt; nach einem Update der Auswertung
-                // auch eine gleich gute (dann mit den neuen Daten), nie eine schlechtere.
                 Some(old)
                     if quality(&rec) > quality(old)
-                        || (outdated && quality(&rec) >= quality(old)) =>
+                        || (old.parser < PARSER_VERSION && quality(&rec) >= quality(old)) =>
                 {
                     *old = rec
                 }
@@ -43,16 +58,24 @@ pub fn sync(store: &Path, logs: &[PathBuf]) -> Vec<GameRecord> {
         }
     }
     games.sort_by_key(|g| std::cmp::Reverse(g.started_ms));
-    let changed = outdated || serde_json::to_vec(&games).unwrap_or_default() != before;
-    if changed {
-        let out = Store {
-            version: PARSER_VERSION,
+    let changed = file_outdated || serde_json::to_vec(&games).unwrap_or_default() != before;
+    if !changed {
+        return Synced {
             games,
+            save_error: None,
         };
-        if let Ok(json) = serde_json::to_vec(&out) {
-            let _ = crate::paths::write_atomic(store, &json);
-        }
-        return out.games;
     }
-    games
+    let out = Store {
+        version: PARSER_VERSION,
+        games,
+    };
+    let save_error = serde_json::to_vec(&out)
+        .map_err(|e| e.to_string())
+        .and_then(|json| crate::paths::write_atomic(store, &json).map_err(|e| e.to_string()))
+        .err()
+        .map(|e| tr!("games_store.speichern_fehlgeschlagen", e = e));
+    Synced {
+        games: out.games,
+        save_error,
+    }
 }

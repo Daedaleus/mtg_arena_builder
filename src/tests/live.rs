@@ -1,5 +1,6 @@
 use super::*;
 use crate::deck;
+use crate::games::LiveCreature;
 use crate::testutil::*;
 
 fn c(power: i32, flying: bool, reach: bool, menace: bool) -> LiveCreature {
@@ -408,7 +409,7 @@ fn log_tail_follows_file() {
 }
 
 #[test]
-fn draws_companion_window() {
+fn companion_view_has_hints() {
     let db = std_db();
     let mut ls = base();
     ls.hand = vec![MOUNTAIN, OGRE];
@@ -418,13 +419,6 @@ fn draws_companion_window() {
     ls.life_opp = 4;
     let view = build_view(Some(&ls), None, &db, &[]);
     assert!(view.hints.iter().any(|(l, _)| *l == Level::Good));
-    let ctx = egui::Context::default();
-    let _ = ctx.run(egui::RawInput::default(), |ctx| {
-        egui::CentralPanel::default().show(ctx, |ui| draw(ui, &view));
-    });
-    let _ = ctx.run(egui::RawInput::default(), |ctx| {
-        egui::CentralPanel::default().show(ctx, |ui| draw(ui, &CompanionView::default()));
-    });
 }
 
 /// Logzeilen einer kurzen Partie, die Sitz `winner` gewinnt.

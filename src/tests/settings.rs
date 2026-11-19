@@ -16,14 +16,14 @@ fn roundtrip_and_change_detection() {
     let dir = TempDir::new("settings");
     let (mut file, mut s) = SettingsFile::load(&dir.0);
     // Unverändert: nichts schreiben.
-    assert!(!file.save(&s));
+    assert!(!file.save(&s).unwrap());
     assert!(!dir.path("settings.json").exists());
 
     s.companion = true;
     s.tab = 3;
     s.paste_text = "4 Shock".into();
-    assert!(file.save(&s));
-    assert!(!file.save(&s), "zweites Speichern ohne Änderung");
+    assert!(file.save(&s).unwrap());
+    assert!(!file.save(&s).unwrap(), "zweites Speichern ohne Änderung");
 
     let (_, loaded) = SettingsFile::load(&dir.0);
     assert_eq!(loaded, s);
@@ -51,4 +51,25 @@ fn replacements_map_roundtrip() {
     s.set_replacements(&map);
     assert_eq!(s.replacements[0].1, "a", "sortiert");
     assert_eq!(s.replacement_map(), map);
+}
+
+#[test]
+fn old_files_get_a_version_and_write_errors_are_reported() {
+    let dir = TempDir::new("settings");
+    std::fs::write(dir.path("settings.json"), br#"{ "companion": true }"#).unwrap();
+    let (mut file, s) = SettingsFile::load(&dir.0);
+    assert_eq!(s.version, SETTINGS_VERSION, "migriert");
+    assert!(s.companion);
+    assert!(
+        file.save(&s).unwrap(),
+        "migrierte Datei wird neu geschrieben"
+    );
+    let text = std::fs::read_to_string(dir.path("settings.json")).unwrap();
+    assert!(text.contains("\"version\": 1"), "{text}");
+    // Schreibfehler kommt beim Aufrufer an (Ordner statt Datei).
+    let blocked = TempDir::new("settings_blocked");
+    std::fs::create_dir(blocked.path("settings.json")).unwrap();
+    let (mut file, mut s) = SettingsFile::load(&blocked.0);
+    s.companion = true;
+    assert!(file.save(&s).is_err());
 }

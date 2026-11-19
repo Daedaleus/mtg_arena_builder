@@ -28,7 +28,12 @@ Diagnose-Kommandozeile liegt in `src/cli/`). `src/app/` enthält nur Oberfläche
 und Verdrahtung – Logik gehört in die Fachmodule, damit sie testbar bleibt.
 Nichts Teures pro Bild berechnen: Auswertungen über `app/compute.rs`
 zwischenspeichern (Generationszähler `data_gen`), lange Rechnungen
-(Probehände, Deckbau) als Hintergrund-Thread mit `Msg` zurück.
+(Probehände, Deckbau) als Hintergrund-Thread mit `Msg` zurück. Zustand der
+Oberfläche nach Bereich in `app/parts.rs` (Partien, magic.gg, Bilder,
+Probehände, gebaute Decks). egui nur in `src/app/` und `main.rs` – Fachmodule
+liefern eigene Typen (z. B. `images::Picture`) und nehmen Callbacks.
+Netzabruf über `meta::Http` (in Tests austauschbar), Fehler mit `anyhow`;
+Deck-Kennungen nur über `app::deck_ids`.
 
 Große Module sind Ordner mit Teilmodulen nach Aufgabe; `mod.rs` beschreibt
 oben den Aufbau und exportiert die öffentlichen Teile, Pfade wie
@@ -40,7 +45,7 @@ Aufzählungen wie `Mistake` oder `LandVerdict`.
 
 | Modul | Aufgabe |
 |---|---|
-| `carddb/` | Arena-Kartendatenbank: `load` (SQLite), `text` (Rollen, Brand, Mana aus Kartentext); Fachbegriffe für alle: `color` (Farben, Standardländer), `keyword` (Schlüsselwörter wie Fliegend) |
+| `carddb/` | Arena-Kartendatenbank: `load` (SQLite), `text` (Rollen, Brand, Mana aus Kartentext); Fachbegriffe für alle: `color` (Farben, Standardländer), `keyword` (Schlüsselwörter wie Fliegend), `Rarity`, `GrpId`, `CardKey` |
 | `collection` | Sammlung aus dem Arena-Speicher (mtga-reader, Adminrechte) |
 | `meta`, `magicgg` | MTGTop8 und magic.gg (Abruf mit Cache, Parser), Scryfall-Legalität |
 | `deck`, `similar`, `budget` | Listen prüfen, Ersatzkarten, Budget-Version, Wildcard-Plan |
@@ -49,7 +54,7 @@ Aufzählungen wie `Mistake` oder `LandVerdict`.
 | `builder` | Decks nur aus eigenen Karten |
 | `games/` | Mitschreiben: `arena` (Protokollwerte), `object`, `tracker`, `live_state`, `parser`; Speichern: `record` (Datentypen, Rang), `store` (`games.json`); Auswerten: `moments` (einzelne Züge), `mistake` (Fehlerarten), `report` |
 | `deckcheck/`, `opponents`, `progress` | Deck verbessern (`groups`, `mana`, `analysis`), Gegner und Archetyp-Erkennung, Verlauf |
-| `live/`, `turnplan`, `combat` | Begleitfenster (`view`, `hints`, `damage`, `follow`, `draw`), Zugvorschlag, Blocks/Tricks |
+| `live/`, `turnplan`, `combat` | Begleitfenster-Logik (`view`, `hints`, `damage`, `follow`; gezeichnet in `app/companion`), Zugvorschlag, Blocks/Tricks/ungeblockter Schaden |
 | `settings`, `present`, `paths`, `images` | Einstellungen, Anzeigetexte, Pfade, Bild-Cache (Kartenbilder je Sprache) |
 | `i18n` | Sprache (Betriebssystem oder Einstellung), Makro `tr!`; Texte in `locales/app.yml` |
 | `testutil/` | Testhilfen: `cards`, `log` (künstliche Lognachrichten), `pages` (Webseiten) |

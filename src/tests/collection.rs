@@ -28,18 +28,20 @@ fn builds_from_reader_output() {
 fn reader_errors() {
     let err = json!({ "error": "Prozess nicht gefunden" });
     assert_eq!(
-        from_reader(&err, &json!({}), 0).unwrap_err(),
+        from_reader(&err, &json!({}), 0).unwrap_err().to_string(),
         "Prozess nicht gefunden"
     );
     let err_obj = json!({ "error": { "code": 5 } });
     assert!(
         from_reader(&err_obj, &json!({}), 0)
             .unwrap_err()
+            .to_string()
             .contains("5")
     );
     assert!(
         from_reader(&json!({ "cards": [] }), &json!({}), 0)
             .unwrap_err()
+            .to_string()
             .contains("keine Karten")
     );
     // Fehler beim Inventar: Karten bleiben, Wildcards leer.

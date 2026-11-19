@@ -7,19 +7,19 @@ impl App {
     /// Neue Sprache: zwischengespeicherte Texte (Probehände, eigene Decks)
     /// neu berechnen lassen.
     pub(super) fn on_language_changed(&mut self) {
-        self.sims.clear();
-        self.group_sims.clear();
-        self.built = None;
-        self.games_cache = None;
+        self.sims.decks.clear();
+        self.sims.groups.clear();
+        self.built.decks = None;
+        self.games.cache = None;
         self.deck_cache = None;
     }
 
     pub(super) fn scan_games(&mut self) {
-        if self.games_loading {
+        if self.games.loading {
             return;
         }
-        self.games_loading = true;
-        self.games_scanned = Some(std::time::Instant::now());
+        self.games.loading = true;
+        self.games.scanned = Some(std::time::Instant::now());
         let (tx, ctx, store) = (
             self.tx_msg.clone(),
             self.ctx.clone(),
@@ -41,19 +41,14 @@ impl App {
     /// (nur wenn sich etwas geändert hat).
     pub(super) fn save_settings(&mut self) {
         self.settings.sort_by_fit = self.sort_by_fit;
-        self.settings.tab = match self.tab {
-            Tab::Meta => 0,
-            Tab::Paste => 1,
-            Tab::Built => 2,
-            Tab::Games => 3,
-            Tab::DeckCheck => 4,
-            Tab::Events => 5,
-        };
+        self.settings.tab = self.tab.saved();
         self.settings.paste_text = self.paste_text.clone();
         self.settings.sel_arch = self.sel_arch;
         self.settings.sel_deck = self.sel_deck;
         self.settings.set_replacements(&self.repl);
-        self.settings_file.save(&self.settings);
+        if let Err(e) = self.settings_file.save(&self.settings) {
+            self.status = tr!("state.einstellungen_nicht_gespeichert", e = e);
+        }
     }
 
     pub(super) fn load_db(&mut self) {
@@ -83,7 +78,7 @@ impl App {
             _ => HashMap::new(),
         };
         self.subs.clear();
-        self.built = None;
+        self.built.decks = None;
         self.evals.clear();
         if let Some(db) = &self.db {
             for (id, list) in &self.lists {
@@ -103,12 +98,12 @@ impl App {
         self.sel_arch = None;
         self.sel_deck = None;
         self.subs.clear();
-        self.built = None;
+        self.built.decks = None;
         // magic.gg-Events beim nächsten Öffnen für das neue Format laden.
-        self.gg_events.clear();
-        self.gg_format = None;
-        self.sel_gg_event = None;
-        self.sel_gg_deck = None;
+        self.gg.events.clear();
+        self.gg.format = None;
+        self.gg.sel_event = None;
+        self.gg.sel_deck = None;
         self.status = tr!("state.lade_metagame_mtgtop8", v = FORMATS[format].1);
         if self.legal_requested.insert(format) {
             let (tx, cache) = (self.tx_msg.clone(), self.data_dir.join("cache"));
@@ -130,23 +125,7 @@ impl App {
             self.data_dir.join("collection.json"),
         );
         std::thread::spawn(move || {
-            let running = cfg!(target_os = "linux") || mtga_reader::api::find_process("MTGA");
-            let result = if !running {
-                Err(tr!("state.mtg_arena_laeuft_nicht"))
-            } else {
-                collection::read_from_game().or_else(|first| {
-                    if cfg!(windows) && !collection::is_admin() {
-                        // Arena läuft mit höheren Rechten -> einmalig per UAC nachfragen.
-                        collection::read_elevated(&path)
-                            .map_err(|e| tr!("state.ohne_adminrechte", e = e, first = first))
-                    } else {
-                        Err(first)
-                    }
-                })
-            };
-            if let Ok(c) = &result {
-                let _ = c.save(&path);
-            }
+            let result = collection::sync(&path).map_err(|e| format!("{e:#}"));
             let _ = tx.send(Msg::Collection(result));
             ctx.request_repaint();
         });
@@ -209,18 +188,8 @@ impl App {
                 .subs
                 .get(&slot)
                 .is_some_and(|s| s.iter().any(|o| &o.key == rep));
-            if !listed && let Some(c) = db.representative(rep) {
-                self.subs.entry(slot).or_default().push(Suggestion {
-                    key: rep.clone(),
-                    name: c.name.clone(),
-                    owned: self.owned.get(rep).copied().unwrap_or(0),
-                    score: 0.0,
-                    info: if c.basic {
-                        tr!("state.standardland")
-                    } else {
-                        c.mana_cost.clone()
-                    },
-                });
+            if !listed && let Some(s) = Suggestion::for_card(db, &self.owned, rep) {
+                self.subs.entry(slot).or_default().push(s);
             }
         }
         self.repl.retain(|k, _| k.0 != deck_id);
@@ -302,7 +271,7 @@ impl App {
             }
         }
         let shares = opponents::arch_shares(&self.meta_archetypes(), db);
-        for decks in self.gg_decks.values() {
+        for decks in self.gg.decks.values() {
             for (id, d) in decks {
                 let Some(summary) = self.summary(*id) else {
                     continue;
@@ -336,13 +305,14 @@ impl App {
             self.sel_deck = Some(id);
             self.tab = Tab::Meta;
         } else if let Some(slug) = self
-            .gg_decks
+            .gg
+            .decks
             .iter()
             .find(|(_, ds)| ds.iter().any(|(i, _)| *i == id))
             .map(|(s, _)| s.clone())
         {
-            self.sel_gg_event = Some(slug);
-            self.sel_gg_deck = Some(id);
+            self.gg.sel_event = Some(slug);
+            self.gg.sel_deck = Some(id);
             self.tab = Tab::Events;
         }
     }

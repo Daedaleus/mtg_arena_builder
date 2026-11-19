@@ -5,7 +5,8 @@
 //! („Detaillierte Logs“). Ins Spiel greift das Fenster nicht ein.
 //!
 //! Aufbau: `view` (Anzeige berechnen), `hints` (Zug- und Blockvorschlag),
-//! `damage` (Siegchancen), `follow` (Log mitlesen) und `draw` (Fenster zeichnen).
+//! `damage` (Siegchancen) und `follow` (Log mitlesen). Gezeichnet wird in
+//! der Oberfläche (`app::companion`); dieses Modul kennt kein egui.
 
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
@@ -15,20 +16,17 @@ use std::sync::{Arc, Mutex, RwLock};
 use std::thread::sleep;
 use std::time::{Duration, Instant};
 
-use eframe::egui;
-
 use crate::carddb::{Card, CardDb};
+use crate::combat::unblocked_damage;
 use crate::games::arena::Phase;
-use crate::games::{GameRecord, LiveCreature, LiveState, LogParser};
+use crate::games::{GameRecord, LiveState, LogParser};
 
 mod damage;
-mod draw;
 mod follow;
 mod hints;
 mod view;
 
-pub use damage::*;
-pub use draw::*;
+use damage::*;
 pub use follow::*;
 use hints::*;
 pub use view::*;
@@ -62,6 +60,8 @@ pub struct Shared {
     pub meta: RwLock<Vec<ArchShare>>,
     /// Das Begleitfenster wurde über sein „X“ geschlossen.
     pub close_requested: AtomicBool,
+    /// Mitlesen beenden (der Thread endet beim nächsten Durchlauf).
+    pub stop: AtomicBool,
 }
 
 #[cfg(test)]

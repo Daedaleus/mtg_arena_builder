@@ -101,6 +101,24 @@ pub fn suggest(
     out
 }
 
+impl Suggestion {
+    /// Vorschlag für eine bestimmte eigene Karte (z. B. vom Budget-Plan gewählt).
+    pub fn for_card(db: &CardDb, owned: &HashMap<String, u32>, key: &str) -> Option<Suggestion> {
+        let c = db.representative(key)?;
+        Some(Suggestion {
+            key: key.to_string(),
+            name: c.name.clone(),
+            owned: owned.get(key).copied().unwrap_or(0),
+            score: 0.0,
+            info: if c.basic {
+                tr!("state.standardland")
+            } else {
+                c.mana_cost.clone()
+            },
+        })
+    }
+}
+
 #[cfg(test)]
 #[path = "tests/similar.rs"]
 mod tests;

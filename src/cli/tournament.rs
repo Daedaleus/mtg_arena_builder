@@ -83,7 +83,7 @@ pub fn report(format: &str) -> anyhow::Result<()> {
                 "  fehlt {}x {:<32} {:<8} {} Ersatz: {}",
                 l.missing,
                 l.name,
-                carddb::rarity_label(l.rarity),
+                l.rarity.label(),
                 if l.side { "(SB)" } else { "    " },
                 subs.iter()
                     .map(|s| s.name.as_str())
@@ -185,9 +185,7 @@ pub fn build(format: &str) -> anyhow::Result<()> {
                 e.qty,
                 e.name,
                 c.as_ref().map(|c| c.mana_cost.clone()).unwrap_or_default(),
-                c.as_ref()
-                    .map(|c| carddb::rarity_label(c.rarity))
-                    .unwrap_or_default()
+                c.as_ref().map(|c| c.rarity.label()).unwrap_or_default()
             );
         }
     }
@@ -226,7 +224,7 @@ pub fn budget(format: &str, name: &str) -> anyhow::Result<()> {
     for (k, r) in &plan.replacements {
         let n = |k: &str| {
             db.representative(k)
-                .map(|c| format!("{} ({})", c.name, carddb::rarity_label(c.rarity)))
+                .map(|c| format!("{} ({})", c.name, c.rarity.label()))
                 .unwrap_or_default()
         };
         println!("   {} -> {}", n(k), n(r));

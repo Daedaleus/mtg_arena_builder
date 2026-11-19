@@ -22,16 +22,80 @@ use text::*;
 
 pub const TYPE_LAND: u8 = 5;
 
-/// Seltenheit wie in der Arena-Datenbank: 0 = Token, 1 = Standardland,
-/// 2 = Common, 3 = Uncommon, 4 = Rare, 5 = Mythic.
-pub const RARITY_COMMON: u8 = 2;
+/// Kennung eines Kartendrucks in Arena („grpId“). Jeder Druck hat eine
+/// eigene; denselben Namen tragen oft mehrere.
+pub type GrpId = u32;
+
+/// Normalisierter Kartenname (siehe [`name_key`]) – fasst alle Drucke einer
+/// Karte zusammen; Schlüssel für Sammlung, Turnierlisten und Ersatzkarten.
+pub type CardKey = String;
+
+/// Seltenheit einer Karte (Reihenfolge = Wert: Mythic ist die höchste).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum Rarity {
+    #[default]
+    Token,
+    BasicLand,
+    Common,
+    Uncommon,
+    Rare,
+    Mythic,
+}
+
+impl Rarity {
+    /// Die vier Wildcard-Stufen; der Index ist das Wildcard-Fach.
+    pub const WILDCARDS: [Rarity; 4] = [
+        Rarity::Common,
+        Rarity::Uncommon,
+        Rarity::Rare,
+        Rarity::Mythic,
+    ];
+
+    /// Wert aus der Arena-Datenbank: 0 = Token, 1 = Standardland,
+    /// 2 = Common, 3 = Uncommon, 4 = Rare, 5 = Mythic.
+    pub fn from_arena(value: u8) -> Rarity {
+        match value {
+            1 => Rarity::BasicLand,
+            2 => Rarity::Common,
+            3 => Rarity::Uncommon,
+            4 => Rarity::Rare,
+            5 => Rarity::Mythic,
+            _ => Rarity::Token,
+        }
+    }
+
+    /// Kostet die Karte eine Wildcard (keine Tokens und Standardländer)?
+    pub fn needs_wildcard(self) -> bool {
+        self >= Rarity::Common
+    }
+
+    /// Wildcard-Fach: 0 = Common … 3 = Mythic (Tokens und Standardländer wie Common).
+    pub fn wildcard_slot(self) -> usize {
+        match self {
+            Rarity::Uncommon => 1,
+            Rarity::Rare => 2,
+            Rarity::Mythic => 3,
+            _ => 0,
+        }
+    }
+
+    pub fn label(self) -> String {
+        match self {
+            Rarity::Token | Rarity::BasicLand => tr!("carddb.land"),
+            Rarity::Common => tr!("carddb.common"),
+            Rarity::Uncommon => tr!("carddb.uncommon"),
+            Rarity::Rare => tr!("carddb.rare"),
+            Rarity::Mythic => tr!("carddb.mythic"),
+        }
+    }
+}
 
 #[derive(Clone, Debug, Default)]
 pub struct Card {
-    pub grp_id: u32,
+    pub grp_id: GrpId,
     pub name: String,
     pub name_de: Option<String>,
-    pub rarity: u8,
+    pub rarity: Rarity,
     pub set: String,
     pub collector: String,
     pub types: Vec<u8>,
@@ -124,8 +188,8 @@ impl Card {
 }
 
 pub struct CardDb {
-    pub cards: HashMap<u32, Card>,
-    by_name: HashMap<String, Vec<u32>>,
+    pub cards: HashMap<GrpId, Card>,
+    by_name: HashMap<CardKey, Vec<GrpId>>,
     /// Vorderseite von „A // B“-Karten -> vollständiger Schlüssel.
     front_names: HashMap<String, String>,
     pub version: String,
@@ -218,28 +282,17 @@ impl CardDb {
     }
 
     /// Günstigste Seltenheit über alle Drucke – so viel kostet die Wildcard.
-    pub fn craft_rarity(&self, key: &str) -> u8 {
+    pub fn craft_rarity(&self, key: &str) -> Rarity {
         self.printings(key)
             .iter()
             .filter_map(|g| self.cards.get(g))
             .map(|c| c.rarity)
             .min()
-            .unwrap_or(0)
+            .unwrap_or_default()
     }
 
     pub fn names(&self) -> impl Iterator<Item = &String> {
         self.by_name.keys()
-    }
-}
-
-pub fn rarity_label(r: u8) -> String {
-    match r {
-        0 | 1 => tr!("carddb.land"),
-        2 => tr!("carddb.common"),
-        3 => tr!("carddb.uncommon"),
-        4 => tr!("carddb.rare"),
-        5 => tr!("carddb.mythic"),
-        _ => "?".into(),
     }
 }
 
