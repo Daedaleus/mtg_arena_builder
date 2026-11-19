@@ -119,6 +119,9 @@ chrome.erste_schritte:
 chrome.erste_schritte_wieder_anzeigen:
   de: "„Erste Schritte“ wieder anzeigen"
   en: "Show “Getting started” again"
+chrome.format:
+  de: "Format:"
+  en: "Format:"
 chrome.format_turnierdecks_legalitaet_ersatzkarten:
   de: "Format für Turnierdecks, Legalität der Ersatzkarten und Gegner-Erkennung"
   en: "Format for tournament decks, legality of replacement cards and opponent recognition"

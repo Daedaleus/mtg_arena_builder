@@ -172,9 +172,9 @@ fn tabs_roundtrip_through_settings() {
 #[test]
 fn replaced_lists_drop_old_trials() {
     let mut s = super::parts::SimState::default();
-    assert_eq!(s.list_gen(7), 0);
+    assert_eq!(s.list_gen(DeckId::Top8(7)), 0);
     s.decks.insert(
-        7,
+        DeckId::Top8(7),
         sim::Trial {
             fast: Default::default(),
             mine: None,
@@ -184,12 +184,28 @@ fn replaced_lists_drop_old_trials() {
             opponent: None,
         },
     );
-    s.list_replaced(7);
+    s.list_replaced(DeckId::Top8(7));
     assert!(s.decks.is_empty(), "alte Probehände weg");
     assert_eq!(
-        s.list_gen(7),
+        s.list_gen(DeckId::Top8(7)),
         1,
         "laufende Rechnung mit Stand 0 wird verworfen"
     );
-    assert_eq!(s.list_gen(8), 0, "andere Decks unberührt");
+    assert_eq!(s.list_gen(DeckId::Top8(8)), 0, "andere Decks unberührt");
+}
+
+#[test]
+fn deck_ids_roundtrip_through_settings() {
+    for id in [
+        DeckId::Pasted,
+        DeckId::Built(0),
+        DeckId::Built(98),
+        DeckId::Top8(100),
+        DeckId::Top8(812_345),
+        DeckId::Gg(crate::magicgg::deck_id("event", 3)),
+    ] {
+        assert_eq!(DeckId::from_raw(id.to_raw()), id, "{id:?}");
+    }
+    assert!(DeckId::Top8(5).is_tournament() && DeckId::Gg(0x8000_0001).is_tournament());
+    assert!(!DeckId::Pasted.is_tournament() && DeckId::Built(1).is_built());
 }

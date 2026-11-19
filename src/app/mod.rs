@@ -25,7 +25,7 @@ use crate::games::{self, GameRecord};
 use crate::images;
 use crate::live;
 use crate::magicgg::{self, GgDeck, GgEvent};
-use crate::meta::{Archetype, DeckRef, FORMATS, Fetcher};
+use crate::meta::{Archetype, DeckRef, Fetcher, Format};
 use crate::opponents;
 use crate::paths;
 use crate::present::{self, Fit, ago, cost_key, cost_tooltip, event_label, ratio};
@@ -38,36 +38,48 @@ use crate::style;
 const GREEN: Color32 = Color32::from_rgb(110, 200, 120);
 const YELLOW: Color32 = Color32::from_rgb(235, 195, 80);
 const RED: Color32 = Color32::from_rgb(235, 115, 105);
-/// Kennungen der Decks in den Deck-Tabellen (`lists`, `evals`, Ersatzkarten).
-/// Ein gemeinsamer Zahlenraum, damit sie in `settings.json` als Zahl stehen:
-///
-/// | Bereich | Deck |
-/// |---|---|
-/// | 0 | selbst eingefügte Liste |
-/// | 1–99 | aus der Sammlung gebaute Decks |
-/// | 100 bis 2³¹ − 1 | MTGTop8-Decknummern |
-/// | ab 2³¹ | magic.gg-Listen (siehe [`magicgg::deck_id`]) |
-mod deck_ids {
+/// Woher ein Deck in den Deck-Tabellen (`lists`, `evals`, Ersatzkarten) stammt.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub(super) enum DeckId {
     /// Selbst eingefügte Liste.
-    pub const PASTED: u32 = 0;
-    const BUILT_FIRST: u32 = 1;
-    const BUILT_LAST: u32 = 99;
+    Pasted,
+    /// Das `i`-te aus der Sammlung gebaute Deck.
+    Built(u8),
+    /// MTGTop8-Deck (Decknummer).
+    Top8(u32),
+    /// magic.gg-Liste (Kennung aus [`magicgg::deck_id`], immer ab 2³¹).
+    Gg(u32),
+}
 
-    /// Kennung des `i`-ten gebauten Decks.
-    pub fn built(i: usize) -> u32 {
-        (BUILT_FIRST + i as u32).min(BUILT_LAST)
-    }
-
-    pub fn is_built(id: u32) -> bool {
-        (BUILT_FIRST..=BUILT_LAST).contains(&id)
-    }
-
+impl DeckId {
     /// Turnierliste (MTGTop8 oder magic.gg)?
-    pub fn is_tournament(id: u32) -> bool {
-        id > BUILT_LAST
+    pub fn is_tournament(self) -> bool {
+        matches!(self, DeckId::Top8(_) | DeckId::Gg(_))
+    }
+
+    pub fn is_built(self) -> bool {
+        matches!(self, DeckId::Built(_))
+    }
+
+    /// Zahl für `settings.json` (der frühere gemeinsame Zahlenraum: 0 eingefügt,
+    /// 1–99 gebaut, darüber MTGTop8, ab 2³¹ magic.gg).
+    pub fn to_raw(self) -> u32 {
+        match self {
+            DeckId::Pasted => 0,
+            DeckId::Built(i) => 1 + u32::from(i),
+            DeckId::Top8(n) | DeckId::Gg(n) => n,
+        }
+    }
+
+    pub fn from_raw(n: u32) -> DeckId {
+        match n {
+            0 => DeckId::Pasted,
+            1..=99 => DeckId::Built((n - 1) as u8),
+            n if n >= 0x8000_0000 => DeckId::Gg(n),
+            n => DeckId::Top8(n),
+        }
     }
 }
-use deck_ids::PASTED;
 
 fn rarity_color(r: Rarity) -> Color32 {
     match r {
@@ -143,13 +155,13 @@ pub struct App {
     tx_job: Sender<Job>,
     tx_msg: Sender<Msg>,
     rx_msg: Receiver<Msg>,
-    lists: HashMap<u32, Deck>,
-    evals: HashMap<u32, DeckEval>,
+    lists: HashMap<DeckId, Deck>,
+    evals: HashMap<DeckId, DeckEval>,
     tab: Tab,
     paste_text: String,
     /// (Deck, Kartenschlüssel) -> gewählte Ersatzkarte
-    repl: HashMap<(u32, String), String>,
-    subs: HashMap<(u32, String), Vec<Suggestion>>,
+    repl: HashMap<(DeckId, String), String>,
+    subs: HashMap<(DeckId, String), Vec<Suggestion>>,
     status: String,
     syncing: bool,
     sort_by_fit: bool,
@@ -208,7 +220,11 @@ impl App {
             )
         };
 
-        let repl = settings.replacement_map();
+        let repl = settings
+            .replacement_map()
+            .into_iter()
+            .map(|((id, key), rep)| ((DeckId::from_raw(id), key), rep))
+            .collect();
         let mut app = App {
             sort_by_fit: settings.sort_by_fit,
             tab: Tab::from_saved(settings.tab),
@@ -246,14 +262,13 @@ impl App {
 
             tour: TourState::default(),
         };
-        app.settings.format = app.settings.format.min(FORMATS.len() - 1);
         app.load_db();
         app.load_format(false);
         // Auswahl und eingefügte Liste der letzten Sitzung wiederherstellen.
         app.tour.sel_arch = app.settings.sel_arch;
         app.tour.sel_deck = app.settings.sel_deck;
         if !app.paste_text.trim().is_empty() {
-            app.set_list(PASTED, deck::parse(&app.paste_text));
+            app.set_list(DeckId::Pasted, deck::parse(&app.paste_text));
         }
         if let Some(p) = load_problem {
             app.status = p;

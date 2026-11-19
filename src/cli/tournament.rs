@@ -12,11 +12,9 @@ pub fn report(format: &str) -> anyhow::Result<()> {
     let owned = col.owned_by_name(&db);
     let wc = col.wildcards.as_array();
     let mut fetcher = meta::Fetcher::new(paths::data_dir().join("cache"));
-    let scry = meta::FORMATS
-        .iter()
-        .find(|f| f.0 == format)
-        .map(|f| f.2)
-        .unwrap_or("standard");
+    let scry = meta::Format::from_code(format)
+        .unwrap_or_default()
+        .scryfall();
     let legal = fetcher.legal_names(scry).ok();
     println!(
         "Sammlung {} Karten, Wildcards C/U/R/M {:?}",
@@ -138,11 +136,9 @@ pub fn build(format: &str) -> anyhow::Result<()> {
         .ok_or_else(|| anyhow::anyhow!("Keine gespeicherte Sammlung"))?;
     let owned = col.owned_by_name(&db);
     let mut fetcher = meta::Fetcher::new(paths::data_dir().join("cache"));
-    let scry = meta::FORMATS
-        .iter()
-        .find(|f| f.0 == format)
-        .map(|f| f.2)
-        .unwrap_or("standard");
+    let scry = meta::Format::from_code(format)
+        .unwrap_or_default()
+        .scryfall();
     let legal = fetcher.legal_names(scry).ok();
     // Turnier-Präsenz aus allen bereits heruntergeladenen Listen
     let mut meta_use = std::collections::HashMap::new();
@@ -245,13 +241,10 @@ pub fn budget(format: &str, name: &str) -> anyhow::Result<()> {
 
 /// `--gg FORMAT`: Events und Decks von magic.gg.
 pub fn gg(code: &str) -> anyhow::Result<()> {
-    let fmt = meta::FORMATS
-        .iter()
-        .find(|f| f.0 == code)
-        .ok_or_else(|| anyhow!("Unbekanntes Format {code}"))?;
+    let fmt = meta::Format::from_code(code).ok_or_else(|| anyhow!("Unbekanntes Format {code}"))?;
     let db = carddb::CardDb::load(&paths::find_card_db(None)?)?;
     let mut fetcher = meta::Fetcher::new(paths::data_dir().join("cache"));
-    let events = fetcher.gg_events(fmt.2, false)?;
+    let events = fetcher.gg_events(fmt.scryfall(), false)?;
     for e in events.iter().take(3) {
         let decks = fetcher.gg_decks(&e.slug)?;
         println!("##### {} ({}) – {} Decks", e.title, e.date, decks.len());

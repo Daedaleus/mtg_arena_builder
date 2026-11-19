@@ -78,10 +78,10 @@ fn format_is_stored_as_code() {
     let dir = TempDir::new("settings_format");
     // Alte Datei mit Index, neue mit Kürzel, unbekanntes Kürzel.
     for (stored, expected) in [
-        ("3", 3),
-        ("\"PI\"", 1),
-        ("\"XX\"", 0),
-        ("99", crate::meta::FORMATS.len() - 1),
+        ("3", Format::Historic),
+        ("\"PI\"", Format::Pioneer),
+        ("\"XX\"", Format::Standard),
+        ("99", Format::Alchemy),
     ] {
         let body = format!("{{ \"format\": {stored} }}");
         std::fs::write(dir.path("settings.json"), body).unwrap();
@@ -89,7 +89,7 @@ fn format_is_stored_as_code() {
         assert_eq!(s.format, expected, "{stored}");
     }
     let s = Settings {
-        format: 1,
+        format: Format::Pioneer,
         ..Default::default()
     };
     let json = serde_json::to_string(&s).unwrap();

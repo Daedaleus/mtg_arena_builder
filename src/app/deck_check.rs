@@ -74,9 +74,9 @@ impl App {
         self.deck_cache = Some(a);
         if let Some(text) = deck_text {
             self.paste_text = text;
-            self.repl.retain(|k, _| k.0 != PASTED);
-            self.subs.retain(|k, _| k.0 != PASTED);
-            self.set_list(PASTED, deck::parse(&self.paste_text));
+            self.repl.retain(|k, _| k.0 != DeckId::Pasted);
+            self.subs.retain(|k, _| k.0 != DeckId::Pasted);
+            self.set_list(DeckId::Pasted, deck::parse(&self.paste_text));
             self.tab = Tab::Paste;
         }
         // Für den Vergleich alle Turnierlisten des passenden Archetyps nachladen.

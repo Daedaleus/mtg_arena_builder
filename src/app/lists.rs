@@ -32,7 +32,7 @@ impl App {
         let wc = self.wildcards();
         let summaries: HashMap<u32, Summary> = decks
             .iter()
-            .filter_map(|d| Some((d.id, self.summary(d.id)?)))
+            .filter_map(|d| Some((d.id, self.summary(DeckId::Top8(d.id))?)))
             .collect();
         let cheapest = summaries
             .iter()
@@ -48,6 +48,32 @@ impl App {
                 .weak(),
             );
         }
+        if let Some(id) = self.deck_table(ui, &decks, &summaries, cheapest) {
+            self.select_deck(id);
+        }
+        ui.separator();
+        match self.tour.sel_deck {
+            Some(id) if self.evals.contains_key(&DeckId::Top8(id)) => {
+                self.deck_view(ui, DeckId::Top8(id))
+            }
+            Some(_) => {
+                ui.horizontal(|ui| {
+                    ui.spinner();
+                    ui.label(tr!("lists.lade_deckliste"));
+                });
+            }
+            None => {}
+        }
+    }
+
+    /// Tabelle der Turnierlisten eines Archetyps; liefert die angeklickte.
+    fn deck_table(
+        &self,
+        ui: &mut egui::Ui,
+        decks: &[DeckRef],
+        summaries: &HashMap<u32, Summary>,
+        cheapest: Option<u32>,
+    ) -> Option<u32> {
         let mut clicked = None;
         ui.push_id("decks", |ui| {
             TableBuilder::new(ui)
@@ -72,7 +98,7 @@ impl App {
                     }
                 })
                 .body(|mut body| {
-                    for d in &decks {
+                    for d in decks {
                         body.row(20.0, |mut row| {
                             row.col(|ui| {
                                 if ui
@@ -108,36 +134,28 @@ impl App {
                     }
                 });
         });
-        if let Some(id) = clicked {
-            self.tour.sel_deck = Some(id);
-            if !self.lists.contains_key(&id) {
-                self.tour.requested.insert(id);
-                let _ = self.tx_job.send(Job::List {
-                    deck_id: id,
-                    urgent: true,
-                });
-            }
-        }
-        ui.separator();
-        match self.tour.sel_deck {
-            Some(id) if self.evals.contains_key(&id) => self.deck_view(ui, id),
-            Some(_) => {
-                ui.horizontal(|ui| {
-                    ui.spinner();
-                    ui.label(tr!("lists.lade_deckliste"));
-                });
-            }
-            None => {}
+        clicked
+    }
+
+    /// Turnierliste auswählen und bei Bedarf laden.
+    fn select_deck(&mut self, id: u32) {
+        self.tour.sel_deck = Some(id);
+        if !self.lists.contains_key(&DeckId::Top8(id)) {
+            self.tour.requested.insert(id);
+            let _ = self.tx_job.send(Job::List {
+                deck_id: id,
+                urgent: true,
+            });
         }
     }
 
     /// Übernimmt fertige Deckvorschläge und legt sie unter eigenen Schlüsseln ab.
     pub(super) fn apply_built(&mut self, built: Vec<Built>) {
         self.built.running = false;
-        self.repl.retain(|k, _| !deck_ids::is_built(k.0));
-        self.subs.retain(|k, _| !deck_ids::is_built(k.0));
+        self.repl.retain(|k, _| !k.0.is_built());
+        self.subs.retain(|k, _| !k.0.is_built());
         for (i, b) in built.iter().enumerate() {
-            self.set_list(deck_ids::built(i), b.deck.clone());
+            self.set_list(DeckId::Built(i as u8), b.deck.clone());
         }
         self.built.sel = self.built.sel.min(built.len().saturating_sub(1));
         self.built.decks = Some(built);
@@ -165,7 +183,7 @@ impl App {
         }
         ui.label(tr!(
             "lists.decks_sofort_ohne_wildcards",
-            v = FORMATS[self.settings.format].1
+            v = self.settings.format.name()
         ));
         ui.label(RichText::new(tr!("lists.kartenstaerke_geschaetzt_seltenheit_vorkommen")).weak());
         let built = self.built.decks.clone().unwrap_or_default();
@@ -194,7 +212,7 @@ impl App {
         };
         ui.label(tr!("lists.kreaturen_removal_mana_rares", label = b.label, creatures = b.creatures, removal = b.removal, avg_cmc = b.avg_cmc : {:.1}, rares = b.rares, meta_cards = b.meta_cards));
         ui.separator();
-        self.deck_view(ui, deck_ids::built(self.built.sel));
+        self.deck_view(ui, DeckId::Built(self.built.sel as u8));
     }
 
     pub(super) fn paste_tab(&mut self, ui: &mut egui::Ui) {
@@ -211,13 +229,17 @@ impl App {
                 );
             });
         if ui.button(tr!("lists.pruefen")).clicked() {
-            self.repl.retain(|k, _| k.0 != PASTED);
-            self.subs.retain(|k, _| k.0 != PASTED);
-            self.set_list(PASTED, deck::parse(&self.paste_text));
+            self.repl.retain(|k, _| k.0 != DeckId::Pasted);
+            self.subs.retain(|k, _| k.0 != DeckId::Pasted);
+            self.set_list(DeckId::Pasted, deck::parse(&self.paste_text));
         }
         ui.separator();
-        if self.evals.get(&PASTED).is_some_and(|e| !e.lines.is_empty()) {
-            self.deck_view(ui, PASTED);
+        if self
+            .evals
+            .get(&DeckId::Pasted)
+            .is_some_and(|e| !e.lines.is_empty())
+        {
+            self.deck_view(ui, DeckId::Pasted);
         }
     }
 }

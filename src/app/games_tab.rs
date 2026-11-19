@@ -12,67 +12,8 @@ impl App {
         {
             self.scan_games();
         }
-        ui.horizontal(|ui| {
-            if ui
-                .add_enabled(
-                    !self.games.loading,
-                    egui::Button::new(tr!("games_tab.logs_neu_einlesen")),
-                )
-                .clicked()
-            {
-                self.scan_games();
-            }
-            if self.games.loading {
-                ui.spinner();
-            }
-            let mut events: Vec<String> = self.games.list.iter().map(|g| g.event.clone()).collect();
-            events.sort();
-            events.dedup();
-            let shown = self
-                .games
-                .event
-                .as_deref()
-                .map(event_label)
-                .unwrap_or_else(|| tr!("games_tab.alle_modi"));
-            let before = self.games.event.clone();
-            egui::ComboBox::from_id_salt("games_event")
-                .selected_text(shown)
-                .show_ui(ui, |ui| {
-                    ui.selectable_value(&mut self.games.event, None, tr!("games_tab.alle_modi"));
-                    for e in events {
-                        let label = event_label(&e);
-                        ui.selectable_value(&mut self.games.event, Some(e), label);
-                    }
-                });
-            if before != self.games.event {
-                self.games.sel = None;
-                self.games.page.set(0);
-            }
-            ui.label(
-                RichText::new(tr!(
-                    "games_tab.partien_gespeichert",
-                    games_n = self.games.list.len()
-                ))
-                .weak(),
-            );
-        });
-        ui.horizontal(|ui| {
-            ui.selectable_value(
-                &mut self.games.view,
-                0,
-                RichText::new(tr!("games_tab.uebersicht_tipps")).strong(),
-            );
-            ui.selectable_value(
-                &mut self.games.view,
-                1,
-                RichText::new(tr!("games_tab.partienliste")).strong(),
-            );
-            ui.selectable_value(
-                &mut self.games.view,
-                2,
-                RichText::new(tr!("games_tab.verlauf")).strong(),
-            );
-        });
+        ui.horizontal(|ui| self.games_toolbar(ui));
+        ui.horizontal(|ui| self.games_views(ui));
         ui.separator();
         let overview = self.games.view == 0;
         if self.games.logs_disabled {
@@ -131,5 +72,70 @@ impl App {
             self.games.page.set(i / present::PAGE_SIZE);
             self.games.view = 1;
         }
+    }
+
+    /// Einlesen, Filter nach Arena-Event und Anzahl gespeicherter Partien.
+    fn games_toolbar(&mut self, ui: &mut egui::Ui) {
+        if ui
+            .add_enabled(
+                !self.games.loading,
+                egui::Button::new(tr!("games_tab.logs_neu_einlesen")),
+            )
+            .clicked()
+        {
+            self.scan_games();
+        }
+        if self.games.loading {
+            ui.spinner();
+        }
+        let mut events: Vec<String> = self.games.list.iter().map(|g| g.event.clone()).collect();
+        events.sort();
+        events.dedup();
+        let shown = self
+            .games
+            .event
+            .as_deref()
+            .map(event_label)
+            .unwrap_or_else(|| tr!("games_tab.alle_modi"));
+        let before = self.games.event.clone();
+        egui::ComboBox::from_id_salt("games_event")
+            .selected_text(shown)
+            .show_ui(ui, |ui| {
+                ui.selectable_value(&mut self.games.event, None, tr!("games_tab.alle_modi"));
+                for e in events {
+                    let label = event_label(&e);
+                    ui.selectable_value(&mut self.games.event, Some(e), label);
+                }
+            });
+        if before != self.games.event {
+            self.games.sel = None;
+            self.games.page.set(0);
+        }
+        ui.label(
+            RichText::new(tr!(
+                "games_tab.partien_gespeichert",
+                games_n = self.games.list.len()
+            ))
+            .weak(),
+        );
+    }
+
+    /// Unterseiten: Übersicht, Partienliste, Verlauf.
+    fn games_views(&mut self, ui: &mut egui::Ui) {
+        ui.selectable_value(
+            &mut self.games.view,
+            0,
+            RichText::new(tr!("games_tab.uebersicht_tipps")).strong(),
+        );
+        ui.selectable_value(
+            &mut self.games.view,
+            1,
+            RichText::new(tr!("games_tab.partienliste")).strong(),
+        );
+        ui.selectable_value(
+            &mut self.games.view,
+            2,
+            RichText::new(tr!("games_tab.verlauf")).strong(),
+        );
     }
 }

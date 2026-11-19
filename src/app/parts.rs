@@ -27,7 +27,7 @@ pub(super) struct GamesState {
 pub(super) struct GgState {
     pub events: Vec<GgEvent>,
     /// Format, für das `events` geladen sind.
-    pub format: Option<usize>,
+    pub format: Option<Format>,
     /// Decks je Event (Slug) mit ihren Kennungen.
     pub decks: HashMap<String, Vec<(u32, GgDeck)>>,
     pub requested: HashSet<String>,
@@ -60,21 +60,21 @@ impl ImageCache {
 #[derive(Default)]
 pub(super) struct SimState {
     /// Je Deck der Deckansicht.
-    pub decks: HashMap<u32, sim::Trial>,
+    pub decks: HashMap<DeckId, sim::Trial>,
     /// Je Deck aus „Deck verbessern“ (grpIds der Liste).
     pub groups: HashMap<Vec<u32>, sim::Trial>,
     pub running: HashSet<SimTarget>,
     /// Stand je Deck-Kennung; steigt, wenn dort eine neue Liste liegt.
-    pub generations: HashMap<u32, u64>,
+    pub generations: HashMap<DeckId, u64>,
 }
 
 impl SimState {
-    pub fn list_gen(&self, id: u32) -> u64 {
+    pub fn list_gen(&self, id: DeckId) -> u64 {
         self.generations.get(&id).copied().unwrap_or(0)
     }
 
     /// Neue Liste unter `id`: alte Probehände gelten nicht mehr.
-    pub fn list_replaced(&mut self, id: u32) {
+    pub fn list_replaced(&mut self, id: DeckId) {
         self.decks.remove(&id);
         *self.generations.entry(id).or_insert(0) += 1;
     }
@@ -103,9 +103,9 @@ pub(super) struct TourState {
     pub requested: HashSet<u32>,
     pub sel_arch: Option<u32>,
     pub sel_deck: Option<u32>,
-    /// Legale Kartenschlüssel je Format (Index in `FORMATS`).
-    pub legal: HashMap<usize, HashSet<String>>,
-    pub legal_requested: HashSet<usize>,
+    /// Legale Kartenschlüssel je Format.
+    pub legal: HashMap<Format, HashSet<String>>,
+    pub legal_requested: HashSet<Format>,
     /// Offene Abrufe in der Warteschlange.
     pub pending: usize,
     /// „Alle bewerten“ läuft (Status am Ende auf „fertig“ setzen).

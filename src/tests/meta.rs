@@ -117,10 +117,13 @@ fn cache_age_is_respected() {
 
 #[test]
 fn format_table_is_consistent() {
-    for (code, label, scryfall) in FORMATS {
-        assert!(!code.is_empty() && !label.is_empty());
-        assert_eq!(scryfall, scryfall.to_lowercase());
+    for f in Format::ALL {
+        assert!(!f.code().is_empty() && !f.name().is_empty());
+        assert_eq!(f.scryfall(), f.scryfall().to_lowercase());
+        assert_eq!(Format::from_code(f.code()), Some(f));
+        assert_eq!(Format::from_code(&f.code().to_lowercase()), Some(f));
     }
+    assert_eq!(Format::from_code("XX"), None);
 }
 
 #[test]

@@ -84,11 +84,9 @@ pub fn decks_cli(format: &str) -> anyhow::Result<()> {
     let owned = col.owned_by_name(&db);
     let games = games::sync(&paths::data_dir().join("games.json"), &paths::player_logs()).games;
     let mut fetcher = meta::Fetcher::new(paths::data_dir().join("cache"));
-    let scry = meta::FORMATS
-        .iter()
-        .find(|f| f.0 == format)
-        .map(|f| f.2)
-        .unwrap_or("standard");
+    let scry = meta::Format::from_code(format)
+        .unwrap_or_default()
+        .scryfall();
     let legal = fetcher.legal_names(scry).ok();
     let mut lists: Vec<(u32, String, Vec<deck::Deck>)> = Vec::new();
     for arch in fetcher.archetypes(format, false)? {

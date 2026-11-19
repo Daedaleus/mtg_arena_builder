@@ -20,7 +20,7 @@ impl App {
             .default_width(330.0)
             .show(ctx, |ui| {
                 ui.add_space(6.0);
-                ui.strong(tr!("events.events", v = FORMATS[self.settings.format].1));
+                ui.strong(tr!("events.events", v = self.settings.format.name()));
                 ui.horizontal(|ui| {
                     if ui
                         .button(tr!("events.aktualisieren"))
@@ -97,7 +97,7 @@ impl App {
                 } else {
                     d.subtitle.clone()
                 };
-                (*id, who, label, self.summary(*id))
+                (*id, who, label, self.summary(DeckId::Gg(*id)))
             })
             .collect();
         if self.sort_by_fit {
@@ -141,7 +141,7 @@ impl App {
         }
         if let Some(id) = self.gg.sel_deck {
             ui.separator();
-            self.deck_view(ui, id);
+            self.deck_view(ui, DeckId::Gg(id));
         }
     }
 }

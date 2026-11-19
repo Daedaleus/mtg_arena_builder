@@ -4,11 +4,11 @@ use super::*;
 
 pub(super) enum Job {
     Archetypes {
-        format: usize,
+        format: Format,
         force: bool,
     },
     Decks {
-        format: usize,
+        format: Format,
         arch: Archetype,
         urgent: bool,
     },
@@ -18,7 +18,7 @@ pub(super) enum Job {
     },
     /// magic.gg: Events eines Formats.
     GgEvents {
-        format: usize,
+        format: Format,
         force: bool,
     },
     /// magic.gg: Decks eines Events.
@@ -27,22 +27,22 @@ pub(super) enum Job {
     },
     /// Bereits heruntergeladene Decks aus dem Cache wiederherstellen (ohne Netz).
     Restore {
-        format: usize,
+        format: Format,
         archetypes: Vec<Archetype>,
     },
     Clear,
 }
 
 pub(super) enum Msg {
-    Archetypes(usize, Result<Vec<Archetype>, String>),
-    Decks(usize, u32, Result<Vec<DeckRef>, String>),
+    Archetypes(Format, Result<Vec<Archetype>, String>),
+    Decks(Format, u32, Result<Vec<DeckRef>, String>),
     List(u32, Result<String, String>),
-    Legal(usize, Result<HashSet<String>, String>),
-    GgEvents(usize, Result<Vec<GgEvent>, String>),
+    Legal(Format, Result<HashSet<String>, String>),
+    GgEvents(Format, Result<Vec<GgEvent>, String>),
     GgDecks(String, Result<Vec<GgDeck>, String>),
     Collection(Result<collection::Synced, collection::CollectionError>),
     /// Wiederherstellung aus dem Cache ist abgeschlossen.
-    Restored(usize),
+    Restored(Format),
     /// Partien aus den Arena-Logs; `bool` = „Detaillierte Logs“ ist aus.
     Games(games::Synced, bool),
     /// Kartenbild von Scryfall (None = keins gefunden).
@@ -89,11 +89,11 @@ pub(super) fn worker(rx: Receiver<Job>, tx: Sender<Msg>, ctx: egui::Context, mut
             Job::Archetypes { format, force } => {
                 send(Msg::Archetypes(
                     format,
-                    fetcher.archetypes(FORMATS[format].0, force).map_err(err),
+                    fetcher.archetypes(format.code(), force).map_err(err),
                 ));
             }
             Job::Decks { format, arch, .. } => {
-                let decks = fetcher.decks(FORMATS[format].0, &arch).map_err(err);
+                let decks = fetcher.decks(format.code(), &arch).map_err(err);
                 let top = decks.as_ref().ok().and_then(|d| d.first()).map(|d| d.id);
                 send(Msg::Decks(format, arch.id, decks));
                 // Das neueste Deck gleich mitladen, damit der Archetyp bewertet werden kann.
@@ -107,7 +107,7 @@ pub(super) fn worker(rx: Receiver<Job>, tx: Sender<Msg>, ctx: egui::Context, mut
             Job::GgEvents { format, force } => {
                 send(Msg::GgEvents(
                     format,
-                    fetcher.gg_events(FORMATS[format].2, force).map_err(err),
+                    fetcher.gg_events(format.scryfall(), force).map_err(err),
                 ));
             }
             Job::GgDecks { slug } => {
@@ -116,7 +116,7 @@ pub(super) fn worker(rx: Receiver<Job>, tx: Sender<Msg>, ctx: egui::Context, mut
             }
             Job::Restore { format, archetypes } => {
                 for arch in archetypes {
-                    let Some(decks) = fetcher.cached_decks(FORMATS[format].0, &arch) else {
+                    let Some(decks) = fetcher.cached_decks(format.code(), &arch) else {
                         continue;
                     };
                     let lists: Vec<(u32, String)> = decks
@@ -129,7 +129,7 @@ pub(super) fn worker(rx: Receiver<Job>, tx: Sender<Msg>, ctx: egui::Context, mut
                     }
                 }
                 // Schon geöffnete magic.gg-Events ebenfalls wiederherstellen.
-                for (event, decks) in fetcher.cached_gg(FORMATS[format].2) {
+                for (event, decks) in fetcher.cached_gg(format.scryfall()) {
                     send(Msg::GgDecks(event.slug, Ok(decks)));
                 }
                 send(Msg::Restored(format));
@@ -147,149 +147,178 @@ impl App {
             if !matches!(msg, Msg::Image(..) | Msg::Trial(..) | Msg::Pending(..)) {
                 self.data_gen = self.data_gen.wrapping_add(1);
             }
+            let current = self.settings.format;
             match msg {
-                Msg::Archetypes(format, result) if format == self.settings.format => match result {
-                    Ok(list) => {
-                        self.status = tr!("worker.archetypen_geladen", list_n = list.len());
-                        let _ = self.tx_job.send(Job::Restore {
-                            format,
-                            archetypes: list.clone(),
-                        });
-                        self.tour.archetypes = list;
-                    }
-                    Err(e) => self.status = e,
-                },
-                Msg::Decks(format, arch, result) if format == self.settings.format => {
-                    match result {
-                        Ok(list) => {
-                            if self.tour.sel_arch == Some(arch) && self.tour.sel_deck.is_none() {
-                                self.tour.sel_deck = list.first().map(|d| d.id);
-                            }
-                            self.tour.decks.insert(arch, list);
-                            if self.tour.sel_arch == Some(arch) {
-                                self.queue_variants(arch);
-                            }
-                        }
-                        Err(e) => self.status = e,
-                    }
+                Msg::Archetypes(format, result) if format == current => {
+                    self.on_archetypes(format, result)
+                }
+                Msg::Decks(format, arch, result) if format == current => {
+                    self.on_decks(arch, result)
                 }
                 Msg::List(deck_id, result) => match result {
-                    Ok(text) => self.set_list(deck_id, deck::parse(&text)),
+                    Ok(text) => self.set_list(DeckId::Top8(deck_id), deck::parse(&text)),
                     Err(e) => self.status = e,
                 },
-                Msg::Legal(format, result) => match result {
-                    Ok(names) => {
-                        self.tour.legal.insert(format, names);
-                        self.subs.clear();
-                        self.built.decks = None;
-                    }
-                    Err(e) => {
-                        // Beim nächsten Laden des Formats erneut versuchen.
-                        self.tour.legal_requested.remove(&format);
-                        self.status = tr!("worker.format_legalitaet_nicht_verfuegbar", e = e);
-                    }
-                },
-                Msg::Collection(result) => {
-                    self.syncing = false;
-                    match result {
-                        Ok(synced) => {
-                            let c = synced.collection;
-                            self.status = match synced.save_error {
-                                Some(e) => e.user_text(),
-                                None => tr!("worker.sammlung_gelesen_karten", v = c.total_cards()),
-                            };
-                            self.collection = Some(c);
-                            self.refresh_owned();
-                        }
-                        Err(e) => {
-                            self.status =
-                                tr!("worker.sammlung_konnte_nicht_gelesen", e = e.user_text())
-                        }
-                    }
-                }
-                Msg::Restored(format) if format == self.settings.format => {
-                    // Gemerkte Auswahl, deren Decks nicht (mehr) im Cache liegen, nachladen.
-                    if let Some(id) = self
-                        .tour
-                        .sel_arch
-                        .filter(|id| !self.tour.decks.contains_key(id))
-                    {
-                        match self.tour.archetypes.iter().find(|a| a.id == id).cloned() {
-                            Some(arch) => {
-                                let _ = self.tx_job.send(Job::Decks {
-                                    format,
-                                    arch,
-                                    urgent: true,
-                                });
-                            }
-                            None => {
-                                self.tour.sel_arch = None;
-                                self.tour.sel_deck = None;
-                            }
-                        }
-                    }
-                }
-                Msg::Image(name, img) => match img {
-                    images::Fetched::Found(img) => {
-                        let img = egui::ColorImage::from_rgba_unmultiplied(img.size, &img.rgba);
-                        let tex =
-                            self.ctx
-                                .load_texture(format!("card:{name}"), img, Default::default());
-                        self.images.textures.insert(name, tex);
-                    }
-                    images::Fetched::NotFound => {
-                        self.images.missing.insert(name);
-                    }
-                    // Beim nächsten Überfahren erneut anfragen.
-                    images::Fetched::Failed => {
-                        self.images.requested.borrow_mut().remove(&name);
-                    }
-                },
-                Msg::Games(synced, disabled) => {
-                    self.games.loading = false;
-                    self.games.logs_disabled = disabled;
-                    if let Some(e) = synced.problem {
-                        self.status = e;
-                    }
-                    let games = synced.games;
-                    if games.len() != self.games.list.len() {
-                        self.games.sel = None;
-                    }
-                    self.games.list = games;
-                }
+                Msg::Legal(format, result) => self.on_legal(format, result),
+                Msg::Collection(result) => self.on_collection(result),
+                Msg::Restored(format) if format == current => self.on_restored(format),
+                Msg::Image(name, img) => self.on_image(name, img),
+                Msg::Games(synced, disabled) => self.on_games(synced, disabled),
                 Msg::Trial(target, trial) => self.finish_trial(target, *trial),
                 Msg::Built(built) => self.apply_built(built),
-                Msg::Pending(n) => {
-                    self.tour.pending = n;
-                    if n == 0 && self.tour.rating_all {
-                        self.tour.rating_all = false;
-                        self.status = tr!("worker.alle_archetypen_bewertet");
-                    }
-                }
-                Msg::GgEvents(format, result) if format == self.settings.format => match result {
+                Msg::Pending(n) => self.on_pending(n),
+                Msg::GgEvents(format, result) if format == current => match result {
                     Ok(list) => {
                         self.status = tr!("worker.events_magic_gg_geladen", list_n = list.len());
                         self.gg.events = list;
                     }
                     Err(e) => self.status = e,
                 },
-                Msg::GgDecks(slug, result) => match result {
-                    Ok(decks) => {
-                        self.status = tr!("worker.decks_magic_gg_geladen", decks_n = decks.len());
-                        let mut list = Vec::new();
-                        for (i, d) in decks.into_iter().enumerate() {
-                            let id = magicgg::deck_id(&slug, i);
-                            self.set_list(id, d.deck.clone());
-                            list.push((id, d));
-                        }
-                        self.gg.decks.insert(slug, list);
-                    }
-                    Err(e) => {
-                        self.gg.requested.remove(&slug);
-                        self.status = e;
-                    }
-                },
+                Msg::GgDecks(slug, result) => self.on_gg_decks(slug, result),
+                // Nachrichten zu einem inzwischen gewechselten Format.
                 _ => {}
+            }
+        }
+    }
+
+    fn on_archetypes(&mut self, format: Format, result: Result<Vec<Archetype>, String>) {
+        match result {
+            Ok(list) => {
+                self.status = tr!("worker.archetypen_geladen", list_n = list.len());
+                let _ = self.tx_job.send(Job::Restore {
+                    format,
+                    archetypes: list.clone(),
+                });
+                self.tour.archetypes = list;
+            }
+            Err(e) => self.status = e,
+        }
+    }
+
+    fn on_decks(&mut self, arch: u32, result: Result<Vec<DeckRef>, String>) {
+        match result {
+            Ok(list) => {
+                if self.tour.sel_arch == Some(arch) && self.tour.sel_deck.is_none() {
+                    self.tour.sel_deck = list.first().map(|d| d.id);
+                }
+                self.tour.decks.insert(arch, list);
+                if self.tour.sel_arch == Some(arch) {
+                    self.queue_variants(arch);
+                }
+            }
+            Err(e) => self.status = e,
+        }
+    }
+
+    fn on_legal(&mut self, format: Format, result: Result<HashSet<String>, String>) {
+        match result {
+            Ok(names) => {
+                self.tour.legal.insert(format, names);
+                self.subs.clear();
+                self.built.decks = None;
+            }
+            Err(e) => {
+                // Beim nächsten Laden des Formats erneut versuchen.
+                self.tour.legal_requested.remove(&format);
+                self.status = tr!("worker.format_legalitaet_nicht_verfuegbar", e = e);
+            }
+        }
+    }
+
+    fn on_collection(&mut self, result: Result<collection::Synced, collection::CollectionError>) {
+        self.syncing = false;
+        match result {
+            Ok(synced) => {
+                let c = synced.collection;
+                self.status = match synced.save_error {
+                    Some(e) => e.user_text(),
+                    None => tr!("worker.sammlung_gelesen_karten", v = c.total_cards()),
+                };
+                self.collection = Some(c);
+                self.refresh_owned();
+            }
+            Err(e) => self.status = tr!("worker.sammlung_konnte_nicht_gelesen", e = e.user_text()),
+        }
+    }
+
+    /// Gemerkte Auswahl, deren Decks nicht (mehr) im Cache liegen, nachladen.
+    fn on_restored(&mut self, format: Format) {
+        let Some(id) = self
+            .tour
+            .sel_arch
+            .filter(|id| !self.tour.decks.contains_key(id))
+        else {
+            return;
+        };
+        match self.tour.archetypes.iter().find(|a| a.id == id).cloned() {
+            Some(arch) => {
+                let _ = self.tx_job.send(Job::Decks {
+                    format,
+                    arch,
+                    urgent: true,
+                });
+            }
+            None => {
+                self.tour.sel_arch = None;
+                self.tour.sel_deck = None;
+            }
+        }
+    }
+
+    fn on_image(&mut self, name: String, img: images::Fetched) {
+        match img {
+            images::Fetched::Found(img) => {
+                let img = egui::ColorImage::from_rgba_unmultiplied(img.size, &img.rgba);
+                let tex = self
+                    .ctx
+                    .load_texture(format!("card:{name}"), img, Default::default());
+                self.images.textures.insert(name, tex);
+            }
+            images::Fetched::NotFound => {
+                self.images.missing.insert(name);
+            }
+            // Beim nächsten Überfahren erneut anfragen.
+            images::Fetched::Failed => {
+                self.images.requested.borrow_mut().remove(&name);
+            }
+        }
+    }
+
+    fn on_games(&mut self, synced: games::Synced, disabled: bool) {
+        self.games.loading = false;
+        self.games.logs_disabled = disabled;
+        if let Some(e) = synced.problem {
+            self.status = e;
+        }
+        if synced.games.len() != self.games.list.len() {
+            self.games.sel = None;
+        }
+        self.games.list = synced.games;
+    }
+
+    fn on_pending(&mut self, n: usize) {
+        self.tour.pending = n;
+        if n == 0 && self.tour.rating_all {
+            self.tour.rating_all = false;
+            self.status = tr!("worker.alle_archetypen_bewertet");
+        }
+    }
+
+    fn on_gg_decks(&mut self, slug: String, result: Result<Vec<GgDeck>, String>) {
+        match result {
+            Ok(decks) => {
+                self.status = tr!("worker.decks_magic_gg_geladen", decks_n = decks.len());
+                let mut list = Vec::new();
+                for (i, d) in decks.into_iter().enumerate() {
+                    let id = magicgg::deck_id(&slug, i);
+                    self.set_list(DeckId::Gg(id), d.deck.clone());
+                    list.push((id, d));
+                }
+                self.gg.decks.insert(slug, list);
+            }
+            Err(e) => {
+                self.gg.requested.remove(&slug);
+                self.status = e;
             }
         }
     }

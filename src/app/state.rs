@@ -45,7 +45,12 @@ impl App {
         self.settings.paste_text = self.paste_text.clone();
         self.settings.sel_arch = self.tour.sel_arch;
         self.settings.sel_deck = self.tour.sel_deck;
-        self.settings.set_replacements(&self.repl);
+        let raw: HashMap<(u32, String), String> = self
+            .repl
+            .iter()
+            .map(|((id, key), rep)| ((id.to_raw(), key.clone()), rep.clone()))
+            .collect();
+        self.settings.set_replacements(&raw);
         if let Err(e) = self.settings_file.save(&self.settings) {
             self.status = tr!("state.einstellungen_nicht_gespeichert", e = e);
         }
@@ -62,6 +67,10 @@ impl App {
                     version = db.version
                 );
                 self.db = Some(std::sync::Arc::new(db));
+                // Das Begleitfenster liest mit der neuen Datenbank weiter.
+                if let Some(live) = self.live.take() {
+                    live.stop.store(true, std::sync::atomic::Ordering::Relaxed);
+                }
             }
             Err(e) => {
                 self.db_status = format!("{e:#}");
@@ -104,7 +113,7 @@ impl App {
         self.gg.format = None;
         self.gg.sel_event = None;
         self.gg.sel_deck = None;
-        self.status = tr!("state.lade_metagame_mtgtop8", v = FORMATS[format].1);
+        self.status = tr!("state.lade_metagame_mtgtop8", v = format.name());
         if self.tour.legal_requested.insert(format) {
             let (tx, cache, net) = (
                 self.tx_msg.clone(),
@@ -113,7 +122,7 @@ impl App {
             );
             std::thread::spawn(move || {
                 let r = Fetcher::with_http(cache, net)
-                    .legal_names(FORMATS[format].2)
+                    .legal_names(format.scryfall())
                     .map_err(|e| format!("{e:#}"));
                 let _ = tx.send(Msg::Legal(format, r));
             });
@@ -145,7 +154,9 @@ impl App {
             .map(|d| d.id)
             .collect();
         for deck_id in ids {
-            if !self.lists.contains_key(&deck_id) && self.tour.requested.insert(deck_id) {
+            if !self.lists.contains_key(&DeckId::Top8(deck_id))
+                && self.tour.requested.insert(deck_id)
+            {
                 let _ = self.tx_job.send(Job::List {
                     deck_id,
                     urgent: false,
@@ -154,7 +165,7 @@ impl App {
         }
     }
 
-    pub(super) fn set_list(&mut self, deck_id: u32, list: Deck) {
+    pub(super) fn set_list(&mut self, deck_id: DeckId, list: Deck) {
         if self.lists.get(&deck_id) != Some(&list) {
             self.sims.list_replaced(deck_id);
         }
@@ -165,7 +176,7 @@ impl App {
         self.lists.insert(deck_id, list);
     }
 
-    pub(super) fn replaced_qty(&self, deck_id: u32, line: &LineEval) -> u32 {
+    pub(super) fn replaced_qty(&self, deck_id: DeckId, line: &LineEval) -> u32 {
         let Some(key) = &line.key else { return 0 };
         let Some(rep) = self.repl.get(&(deck_id, key.clone())) else {
             return 0;
@@ -177,7 +188,7 @@ impl App {
     }
 
     /// Ersetzt fehlende Karten automatisch so, dass die Wildcards reichen.
-    pub(super) fn apply_budget(&mut self, deck_id: u32, eval: &DeckEval) {
+    pub(super) fn apply_budget(&mut self, deck_id: DeckId, eval: &DeckEval) {
         let Some(db) = &self.db else { return };
         let legal = self.tour.legal.get(&self.settings.format);
         let plan = budget::plan(
@@ -207,7 +218,7 @@ impl App {
         self.status = text;
     }
 
-    pub(super) fn summary(&self, deck_id: u32) -> Option<Summary> {
+    pub(super) fn summary(&self, deck_id: DeckId) -> Option<Summary> {
         let eval = self.evals.get(&deck_id)?;
         Some(eval.summary(self.settings.include_side, |l| {
             self.replaced_qty(deck_id, l)
@@ -239,7 +250,7 @@ impl App {
             .decks
             .get(&arch)?
             .iter()
-            .filter_map(|d| self.summary(d.id))
+            .filter_map(|d| self.summary(DeckId::Top8(d.id)))
             .min_by_key(|s| cost_key(s, self.wildcards()))
     }
 
@@ -257,7 +268,7 @@ impl App {
                     .get(&a.id)
                     .into_iter()
                     .flatten()
-                    .filter_map(|d| self.lists.get(&d.id))
+                    .filter_map(|d| self.lists.get(&DeckId::Top8(d.id)))
                     .collect(),
             })
             .collect()
@@ -269,7 +280,10 @@ impl App {
         let mut out = Vec::new();
         for a in &self.tour.archetypes {
             for d in self.tour.decks.get(&a.id).into_iter().flatten() {
-                if let (Some(list), Some(summary)) = (self.lists.get(&d.id), self.summary(d.id)) {
+                if let (Some(list), Some(summary)) = (
+                    self.lists.get(&DeckId::Top8(d.id)),
+                    self.summary(DeckId::Top8(d.id)),
+                ) {
                     out.push(style::Candidate {
                         deck_id: d.id,
                         label: a.name.clone(),
@@ -283,7 +297,7 @@ impl App {
         let shares = opponents::arch_shares(&self.meta_archetypes(), db);
         for decks in self.gg.decks.values() {
             for (id, d) in decks {
-                let Some(summary) = self.summary(*id) else {
+                let Some(summary) = self.summary(DeckId::Gg(*id)) else {
                     continue;
                 };
                 let label = if d.subtitle.is_empty() {

@@ -16,14 +16,66 @@ use crate::carddb::name_key;
 pub use crate::http::Http;
 use crate::magicgg::{self, GgDeck, GgEvent};
 
-/// (MTGTop8-Kürzel, Anzeigename, Scryfall-Formatname)
-pub const FORMATS: [(&str, &str, &str); 5] = [
-    ("ST", "Standard", "standard"),
-    ("PI", "Pioneer", "pioneer"),
-    ("EXP", "Explorer", "explorer"),
-    ("HI", "Historic", "historic"),
-    ("ALCH", "Alchemy", "alchemy"),
-];
+/// Spielformat in Arena (Turnierdecks, Legalität, Gegner-Erkennung).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum Format {
+    #[default]
+    Standard,
+    Pioneer,
+    Explorer,
+    Historic,
+    Alchemy,
+}
+
+impl Format {
+    pub const ALL: [Format; 5] = [
+        Format::Standard,
+        Format::Pioneer,
+        Format::Explorer,
+        Format::Historic,
+        Format::Alchemy,
+    ];
+
+    /// Kürzel bei MTGTop8 (auch in `settings.json`).
+    pub fn code(self) -> &'static str {
+        match self {
+            Format::Standard => "ST",
+            Format::Pioneer => "PI",
+            Format::Explorer => "EXP",
+            Format::Historic => "HI",
+            Format::Alchemy => "ALCH",
+        }
+    }
+
+    /// Anzeigename (in Arena in allen Sprachen gleich).
+    pub fn name(self) -> &'static str {
+        match self {
+            Format::Standard => "Standard",
+            Format::Pioneer => "Pioneer",
+            Format::Explorer => "Explorer",
+            Format::Historic => "Historic",
+            Format::Alchemy => "Alchemy",
+        }
+    }
+
+    /// Name bei Scryfall und magic.gg.
+    pub fn scryfall(self) -> &'static str {
+        match self {
+            Format::Standard => "standard",
+            Format::Pioneer => "pioneer",
+            Format::Explorer => "explorer",
+            Format::Historic => "historic",
+            Format::Alchemy => "alchemy",
+        }
+    }
+
+    /// Format zu einem MTGTop8-Kürzel (Groß-/Kleinschreibung egal).
+    pub fn from_code(code: &str) -> Option<Format> {
+        Format::ALL
+            .into_iter()
+            .find(|f| f.code().eq_ignore_ascii_case(code))
+    }
+}
 
 const TOP8: &str = "https://www.mtgtop8.com";
 const GG: &str = "https://magic.gg";

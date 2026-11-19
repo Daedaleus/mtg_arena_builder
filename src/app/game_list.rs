@@ -12,34 +12,7 @@ impl App {
         opp_names: &[String],
     ) -> Option<usize> {
         let mut clicked = None;
-        let (start, end, pages, page) =
-            present::page_range(games.len(), self.games.page.get(), present::PAGE_SIZE);
-        self.games.page.set(page);
-        // --- Blättern ---
-        if pages > 1 {
-            ui.horizontal(|ui| {
-                if ui
-                    .add_enabled(page > 0, egui::Button::new(tr!("game_list.zurueck")))
-                    .clicked()
-                {
-                    self.games.page.set(page - 1);
-                }
-                ui.label(tr!(
-                    "game_list.seite_partien",
-                    v = page + 1,
-                    pages = pages,
-                    v2 = start + 1,
-                    end = end,
-                    games_n = games.len()
-                ));
-                if ui
-                    .add_enabled(page + 1 < pages, egui::Button::new(tr!("game_list.weiter")))
-                    .clicked()
-                {
-                    self.games.page.set(page + 1);
-                }
-            });
-        }
+        let (start, end) = self.pager(ui, games.len());
         // --- Partienliste ---
         ui.push_id("games_table", |ui| {
             TableBuilder::new(ui)
@@ -76,67 +49,109 @@ impl App {
                 .body(|mut body| {
                     for (i, g) in games.iter().enumerate().take(end).skip(start) {
                         body.row(20.0, |mut row| {
-                            row.col(|ui| {
-                                if ui
-                                    .selectable_label(
-                                        self.games.sel == Some(i),
-                                        format!("#{}", i + 1),
-                                    )
-                                    .clicked()
-                                {
-                                    clicked = Some(i);
-                                }
-                            });
-                            row.col(|ui| {
-                                ui.label(ago(g.started_ms));
-                            });
-                            row.col(|ui| {
-                                ui.label(event_label(&g.event));
-                            });
-                            row.col(|ui| {
-                                let (text, color) = match g.won {
-                                    Some(true) => (tr!("game_list.sieg"), GREEN),
-                                    Some(false) if g.conceded() => {
-                                        (tr!("game_list.aufgegeben"), RED)
-                                    }
-                                    Some(false) => (tr!("game_list.niederlage"), RED),
-                                    None => ("?".to_string(), Color32::GRAY),
-                                };
-                                ui.label(RichText::new(text).color(color));
-                            });
-                            row.col(|ui| {
-                                ui.label(match g.on_play {
-                                    Some(true) => tr!("game_list.erster"),
-                                    Some(false) => tr!("game_list.zweiter"),
-                                    None => "?".to_string(),
-                                });
-                            });
-                            row.col(|ui| {
-                                ui.label(g.mulligans.to_string());
-                            });
-                            row.col(|ui| {
-                                ui.label(if g.turns.is_empty() {
-                                    "–".into()
-                                } else {
-                                    g.last_turn().to_string()
-                                });
-                            });
-                            row.col(|ui| {
-                                let (me, opp) = g.final_life();
-                                ui.label(tr!("game_list.text", me = me, opp = opp));
-                            });
-                            row.col(|ui| {
-                                ui.label(games::deck_colors(&g.deck, db));
-                            });
-                            row.col(|ui| {
-                                ui.label(&opp_names[i]);
-                            });
+                            let selected = self.games.sel == Some(i);
+                            if game_row(&mut row, i, g, db, &opp_names[i], selected) {
+                                clicked = Some(i);
+                            }
                         });
                     }
                 });
         });
         clicked
     }
+
+    /// Blättern (10 Partien je Seite); liefert den angezeigten Bereich.
+    fn pager(&self, ui: &mut egui::Ui, total: usize) -> (usize, usize) {
+        let (start, end, pages, page) =
+            present::page_range(total, self.games.page.get(), present::PAGE_SIZE);
+        self.games.page.set(page);
+        // --- Blättern ---
+        if pages > 1 {
+            ui.horizontal(|ui| {
+                if ui
+                    .add_enabled(page > 0, egui::Button::new(tr!("game_list.zurueck")))
+                    .clicked()
+                {
+                    self.games.page.set(page - 1);
+                }
+                ui.label(tr!(
+                    "game_list.seite_partien",
+                    v = page + 1,
+                    pages = pages,
+                    v2 = start + 1,
+                    end = end,
+                    games_n = total
+                ));
+                if ui
+                    .add_enabled(page + 1 < pages, egui::Button::new(tr!("game_list.weiter")))
+                    .clicked()
+                {
+                    self.games.page.set(page + 1);
+                }
+            });
+        }
+        (start, end)
+    }
+}
+
+/// Eine Zeile der Partienliste; liefert, ob die Nummer angeklickt wurde.
+fn game_row(
+    row: &mut egui_extras::TableRow,
+    i: usize,
+    g: &GameRecord,
+    db: &CardDb,
+    opp_name: &str,
+    selected: bool,
+) -> bool {
+    let mut clicked = false;
+    row.col(|ui| {
+        clicked = ui
+            .selectable_label(selected, format!("#{}", i + 1))
+            .clicked();
+    });
+    row.col(|ui| {
+        ui.label(ago(g.started_ms));
+    });
+    row.col(|ui| {
+        ui.label(event_label(&g.event));
+    });
+    row.col(|ui| {
+        let (text, color) = match g.won {
+            Some(true) => (tr!("game_list.sieg"), GREEN),
+            Some(false) if g.conceded() => (tr!("game_list.aufgegeben"), RED),
+            Some(false) => (tr!("game_list.niederlage"), RED),
+            None => ("?".to_string(), Color32::GRAY),
+        };
+        ui.label(RichText::new(text).color(color));
+    });
+    row.col(|ui| {
+        ui.label(match g.on_play {
+            Some(true) => tr!("game_list.erster"),
+            Some(false) => tr!("game_list.zweiter"),
+            None => "?".to_string(),
+        });
+    });
+    row.col(|ui| {
+        ui.label(g.mulligans.to_string());
+    });
+    row.col(|ui| {
+        ui.label(if g.turns.is_empty() {
+            "–".into()
+        } else {
+            g.last_turn().to_string()
+        });
+    });
+    row.col(|ui| {
+        let (me, opp) = g.final_life();
+        ui.label(tr!("game_list.text", me = me, opp = opp));
+    });
+    row.col(|ui| {
+        ui.label(games::deck_colors(&g.deck, db));
+    });
+    row.col(|ui| {
+        ui.label(opp_name);
+    });
+    clicked
 }
 
 /// Details einer Partie: Starthand, Tipps und Zugtabelle.

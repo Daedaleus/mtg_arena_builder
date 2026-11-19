@@ -12,7 +12,7 @@ struct DeckActions {
 
 impl App {
     /// Berechnet (einmalig) Ersatzvorschläge für alle fehlenden Karten eines Decks.
-    pub(super) fn ensure_suggestions(&mut self, deck_id: u32, eval: &DeckEval) {
+    pub(super) fn ensure_suggestions(&mut self, deck_id: DeckId, eval: &DeckEval) {
         let Some(db) = &self.db else { return };
         if self.owned.is_empty() {
             return;
@@ -34,7 +34,7 @@ impl App {
         }
     }
 
-    pub(super) fn deck_view(&mut self, ui: &mut egui::Ui, deck_id: u32) {
+    pub(super) fn deck_view(&mut self, ui: &mut egui::Ui, deck_id: DeckId) {
         let Some(eval) = self.evals.get(&deck_id).cloned() else {
             return;
         };
@@ -140,7 +140,7 @@ impl App {
     fn deck_actions(
         &mut self,
         ui: &mut egui::Ui,
-        deck_id: u32,
+        deck_id: DeckId,
         eval: &DeckEval,
         summary: &Summary,
     ) -> DeckActions {
@@ -203,7 +203,7 @@ impl App {
     }
 
     /// Probehände mit dem Deck, wie es mit den gewählten Ersatzkarten aussieht.
-    fn simulate_deck(&mut self, deck_id: u32, eval: &DeckEval) {
+    fn simulate_deck(&mut self, deck_id: DeckId, eval: &DeckEval) {
         let Some(db) = &self.db else { return };
         let entries: Vec<(String, u32)> = eval
             .lines
@@ -225,7 +225,7 @@ impl App {
     }
 
     /// Kartenliste mit Besitz, Fehlendem und Ersatzauswahl.
-    fn card_table(&mut self, ui: &mut egui::Ui, deck_id: u32, eval: &DeckEval) {
+    fn card_table(&mut self, ui: &mut egui::Ui, deck_id: DeckId, eval: &DeckEval) {
         let lines: Vec<&LineEval> = eval
             .lines
             .iter()
@@ -287,7 +287,7 @@ impl App {
     pub(super) fn card_row(
         &self,
         row: &mut egui_extras::TableRow<'_, '_>,
-        deck_id: u32,
+        deck_id: DeckId,
         line: &LineEval,
         new_choice: &mut Option<(String, Option<String>)>,
     ) {

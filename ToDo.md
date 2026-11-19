@@ -67,10 +67,8 @@ Stand: 16.11.2026. Erledigtes steht in der Git-Historie.
       `settings.json` als Kürzel, Kartenbilder über `http::Http` (Netzfehler
       gelten nicht mehr als „Bild fehlt“), Aufgabegrund als `EndReason`,
       Turnierdeck-Felder als `TourState`.
-- [ ] Rest aus dem Review: `GrpId`/`CardKey` als echte Newtypes statt Aliasen,
-      `DeckSource`-Enum statt gemeinsamem `u32`-Raum (braucht Umstellung von
-      `settings.json`), lange Oberflächen-Funktionen (`handle_messages`,
-      `top_bar`, `game_list`) weiter teilen.
+- [ ] Rest aus dem Review: `GrpId`/`CardKey` als echte Newtypes statt Aliasen;
+      ein gemeinsamer Hintergrund-Thread statt eines Threads je Aktion.
 - [x] Zweites Review (Note 2), Schritte 1–2: beschädigte `games.json`/
       `settings.json` werden gesichert statt überschrieben (`LoadError`,
       thiserror), nicht lesbare nicht überschrieben; Probehände verfallen bei
@@ -86,6 +84,7 @@ Stand: 16.11.2026. Erledigtes steht in der Git-Historie.
       Netz) mit thiserror.
 - [ ] Netz: bei HTTP 429 (Scryfall drosselt) mit `Retry-After` warten statt
       gleich aufzugeben.
-- [ ] Zweites Review, Schritt 5: `enum Format`, `DeckSource`, lange
-      Oberflächen-Funktionen teilen; Kleinigkeiten (`"Format:"` übersetzen,
-      Live-Thread mit neuer Kartendatenbank).
+- [x] Zweites Review, Schritt 5: `meta::Format` statt Index, `app::DeckId` statt
+      Zahlenraum, lange Funktionen geteilt (keine über 100 Zeilen mehr),
+      „Format:“ übersetzt, Begleitfenster liest nach dem Neuladen der
+      Kartendaten mit der neuen Datenbank.

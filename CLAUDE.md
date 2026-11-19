@@ -38,7 +38,8 @@ Fehler: `anyhow` für einmalige Fehler und die Kommandozeile; eigene Enums mit
 `http::FetchError`, `paths::LoadError`). Deren `#[error]`-Text bleibt technisch
 und englisch, übersetzt wird erst beim Anzeigen (`user_text()`), damit ein
 Sprachwechsel auch Fehlermeldungen erfasst;
-Deck-Kennungen nur über `app::deck_ids`.
+Deck-Kennungen als `app::DeckId` (eingefügt, gebaut, MTGTop8, magic.gg; in
+`settings.json` als Zahl über `to_raw`/`from_raw`), Formate als `meta::Format`.
 
 Große Module sind Ordner mit Teilmodulen nach Aufgabe; `mod.rs` beschreibt
 oben den Aufbau und exportiert die öffentlichen Teile, Pfade wie

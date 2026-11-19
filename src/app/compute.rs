@@ -15,7 +15,7 @@ use crate::i18n::{self, Locale};
 pub(super) enum SimTarget {
     /// Deck in der Deckansicht (Turnierdeck, eigene Liste, gebautes Deck)
     /// mit dem Stand der Liste beim Start (siehe `SimState::list_gen`).
-    Deck(u32, u64),
+    Deck(DeckId, u64),
     /// Deck aus „Deck verbessern“ (grpIds der Liste).
     Group(Vec<u32>),
 }
@@ -155,7 +155,7 @@ impl App {
         let meta_use = deck::usage_counts(
             self.evals
                 .iter()
-                .filter(|(id, _)| deck_ids::is_tournament(**id))
+                .filter(|(id, _)| id.is_tournament())
                 .map(|(_, e)| e),
         );
         let owned = self.owned.clone();
