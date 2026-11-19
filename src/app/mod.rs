@@ -11,6 +11,7 @@ use parts::{BuiltState, GamesState, GgState, ImageCache, SimState, TourState};
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::PathBuf;
 use std::sync::mpsc::{Receiver, Sender, channel};
+use tasks::Tasks;
 
 use eframe::egui::{self, Color32, RichText};
 use egui_extras::{Column, TableBuilder};
@@ -105,6 +106,7 @@ mod parts;
 mod progress_view;
 mod settings_view;
 mod state;
+mod tasks;
 mod widgets;
 mod worker;
 
@@ -145,6 +147,8 @@ impl Tab {
 
 pub struct App {
     data_dir: PathBuf,
+    /// Hintergrundaufgaben (ein Thread, siehe `tasks`).
+    tasks: Tasks,
     /// Gemeinsamer Netzabruf (siehe `http::shared`).
     net: std::sync::Arc<dyn crate::http::Http>,
     settings: Settings,
@@ -153,7 +157,6 @@ pub struct App {
     collection: Option<Collection>,
     owned: HashMap<String, u32>,
     tx_job: Sender<Job>,
-    tx_msg: Sender<Msg>,
     rx_msg: Receiver<Msg>,
     lists: HashMap<DeckId, Deck>,
     evals: HashMap<DeckId, DeckEval>,
@@ -233,12 +236,12 @@ impl App {
             collection: Collection::load(&data_dir.join("collection.json")),
             data_dir,
             net,
+            tasks: Tasks::spawn(tx_msg.clone(), cc.egui_ctx.clone()),
             settings,
             db: None,
             db_status: String::new(),
             owned: HashMap::new(),
             tx_job,
-            tx_msg,
             rx_msg,
             lists: HashMap::new(),
             evals: HashMap::new(),
@@ -300,7 +303,7 @@ impl eframe::App for App {
                 ui.label(tr!("app.arena_ordner_kannst_unter"));
                 ui.separator();
             }
-            self.onboarding(ui, ctx);
+            self.onboarding(ui);
             match self.tab {
                 Tab::Meta => self.meta_tab(ui),
                 Tab::Paste => self.paste_tab(ui),

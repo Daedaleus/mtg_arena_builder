@@ -13,7 +13,7 @@ impl App {
                 ui.separator();
                 collection_summary(ui, self.collection.as_ref());
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    self.header_controls(ui, ctx);
+                    self.header_controls(ui);
                 });
             });
             ui.add_space(4.0);
@@ -24,7 +24,7 @@ impl App {
     }
 
     /// Rechts oben: Einstellungen, Begleitfenster, Sammlung lesen, Format.
-    fn header_controls(&mut self, ui: &mut egui::Ui, ctx: &egui::Context) {
+    fn header_controls(&mut self, ui: &mut egui::Ui) {
         if ui.button(tr!("chrome.einstellungen")).clicked() {
             self.show_settings = !self.show_settings;
         }
@@ -46,7 +46,7 @@ impl App {
             .on_hover_text(hint)
             .clicked()
         {
-            self.sync_collection(ctx);
+            self.sync_collection();
         }
         let before = self.settings.format;
         egui::ComboBox::from_id_salt("format")
@@ -259,7 +259,7 @@ impl App {
     }
 
     /// Checkliste für den Einstieg, solange noch etwas fehlt.
-    pub(super) fn onboarding(&mut self, ui: &mut egui::Ui, ctx: &egui::Context) {
+    pub(super) fn onboarding(&mut self, ui: &mut egui::Ui) {
         if self.settings.onboarding_hidden {
             return;
         }
@@ -315,7 +315,7 @@ impl App {
         });
         ui.add_space(6.0);
         if sync {
-            self.sync_collection(ctx);
+            self.sync_collection();
         }
     }
 }

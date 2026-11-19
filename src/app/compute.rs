@@ -1,6 +1,6 @@
 //! Rechenarbeit abseits des Zeichnens: Auswertungen werden zwischengespeichert
 //! und nur neu berechnet, wenn sich ihre Grundlage ändert; Probehände und der
-//! Deckbau laufen in eigenen Threads und melden sich per [`Msg`] zurück.
+//! Deckbau laufen im Aufgaben-Thread (`tasks`) und melden sich per [`Msg`] zurück.
 //!
 //! Grundlage einer Auswertung ist `App::data_gen`: Der Zähler steigt mit
 //! jeder eingetroffenen Nachricht außer Kartenbildern, Probehänden und
@@ -112,15 +112,10 @@ impl App {
         if !self.sims.running.insert(target.clone()) {
             return;
         }
-        let (tx, ctx, history) = (
-            self.tx_msg.clone(),
-            self.ctx.clone(),
-            self.games.list.clone(),
-        );
-        std::thread::spawn(move || {
+        let history = self.games.list.clone();
+        self.tasks.run(move || {
             let trial = sim::trial(&deck, &db, &history, sim::DEFAULT_GAMES, 1);
-            let _ = tx.send(Msg::Trial(target, Box::new(trial)));
-            ctx.request_repaint();
+            Msg::Trial(target, Box::new(trial))
         });
     }
 
@@ -160,12 +155,8 @@ impl App {
         );
         let owned = self.owned.clone();
         let legal = self.tour.legal.get(&self.settings.format).cloned();
-        let (tx, ctx) = (self.tx_msg.clone(), self.ctx.clone());
         self.built.lists = self.lists.len();
-        std::thread::spawn(move || {
-            let built = builder::build_all(&db, &owned, legal.as_ref(), &meta_use);
-            let _ = tx.send(Msg::Built(built));
-            ctx.request_repaint();
-        });
+        self.tasks
+            .run(move || Msg::Built(builder::build_all(&db, &owned, legal.as_ref(), &meta_use)));
     }
 }

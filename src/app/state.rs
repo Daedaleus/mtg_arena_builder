@@ -20,20 +20,15 @@ impl App {
         }
         self.games.loading = true;
         self.games.scanned = Some(std::time::Instant::now());
-        let (tx, ctx, store) = (
-            self.tx_msg.clone(),
-            self.ctx.clone(),
-            self.data_dir.join("games.json"),
-        );
-        std::thread::spawn(move || {
+        let store = self.data_dir.join("games.json");
+        self.tasks.run(move || {
             let logs = paths::player_logs();
             let games = games::sync(&store, &logs);
             let disabled = logs
                 .iter()
                 .find(|p| p.file_name().is_some_and(|n| n == "Player.log"))
                 .is_some_and(|p| games::detailed_logs_disabled(p));
-            let _ = tx.send(Msg::Games(games, disabled));
-            ctx.request_repaint();
+            Msg::Games(games, disabled)
         });
     }
 
@@ -115,32 +110,22 @@ impl App {
         self.gg.sel_deck = None;
         self.status = tr!("state.lade_metagame_mtgtop8", v = format.name());
         if self.tour.legal_requested.insert(format) {
-            let (tx, cache, net) = (
-                self.tx_msg.clone(),
-                self.data_dir.join("cache"),
-                self.net.clone(),
-            );
-            std::thread::spawn(move || {
+            let (cache, net) = (self.data_dir.join("cache"), self.net.clone());
+            self.tasks.run(move || {
                 let r = Fetcher::with_http(cache, net)
                     .legal_names(format.scryfall())
                     .map_err(|e| format!("{e:#}"));
-                let _ = tx.send(Msg::Legal(format, r));
+                Msg::Legal(format, r)
             });
         }
     }
 
-    pub(super) fn sync_collection(&mut self, ctx: &egui::Context) {
+    pub(super) fn sync_collection(&mut self) {
         self.syncing = true;
         self.status = tr!("state.lese_sammlung_aus_mtg");
-        let (tx, ctx, path) = (
-            self.tx_msg.clone(),
-            ctx.clone(),
-            self.data_dir.join("collection.json"),
-        );
-        std::thread::spawn(move || {
-            let _ = tx.send(Msg::Collection(collection::sync(&path)));
-            ctx.request_repaint();
-        });
+        let path = self.data_dir.join("collection.json");
+        self.tasks
+            .run(move || Msg::Collection(collection::sync(&path)));
     }
     /// Reiht alle noch nicht geladenen Listen eines Archetyps ein, damit die
     /// günstigste Variante gefunden wird (eine Anfrage alle 5 s, dauerhaft gecacht).
