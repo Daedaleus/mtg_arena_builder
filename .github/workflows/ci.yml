@@ -62,7 +62,9 @@ jobs:
             optional: true
     runs-on: ${{ matrix.os }}
     continue-on-error: ${{ matrix.optional }}
-    timeout-minutes: 30
+    # Ohne Cache (z. B. nach Änderungen an Cargo.toml) braucht Windows über
+    # 30 Minuten für Clippy, Tests und Release-Build.
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
