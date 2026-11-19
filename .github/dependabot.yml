@@ -9,13 +9,17 @@ updates:
     groups:
       cargo:
         patterns: ['*']
-    # Ein Sprung bei egui/eframe (0.29 auf 0.30 usw.) ändert die API und ist
-    # ein eigener Umbau – nur Fehlerbehebungen automatisch.
+    # Große Versionssprünge ändern die API und sind ein eigener Umbau; bei
+    # egui/eframe gilt das schon für 0.29 auf 0.30. Automatisch also nur
+    # kompatible Updates – Sicherheitsupdates meldet Dependabot unabhängig
+    # davon.
     ignore:
+      - dependency-name: '*'
+        update-types: ['version-update:semver-major']
       - dependency-name: 'egui*'
-        update-types: ['version-update:semver-minor', 'version-update:semver-major']
+        update-types: ['version-update:semver-minor']
       - dependency-name: eframe
-        update-types: ['version-update:semver-minor', 'version-update:semver-major']
+        update-types: ['version-update:semver-minor']
   - package-ecosystem: github-actions
     directory: /
     schedule:
