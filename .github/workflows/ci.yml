@@ -62,7 +62,9 @@ jobs:
             optional: true
     runs-on: ${{ matrix.os }}
     continue-on-error: ${{ matrix.optional }}
-    timeout-minutes: 30
+    # Ohne Cache (z. B. nach Änderungen an Cargo.toml) braucht Windows über
+    # 30 Minuten für Clippy, Tests und Release-Build.
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
@@ -165,6 +167,9 @@ jobs:
       attestations: write
     steps:
       - uses: actions/checkout@v5
+        with:
+          # ganze Historie mit Tags – für den Changelog seit dem letzten Release
+          fetch-depth: 0
       - name: Tag passt zur Version in Cargo.toml
         run: |
           version=$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -n 1)
@@ -189,6 +194,20 @@ jobs:
       - uses: actions/attest-build-provenance@v4
         with:
           subject-checksums: dist/SHA256SUMS.txt
+      # Änderungen seit dem letzten Release aus den Commit-Nachrichten
+      # (cliff.toml), danach Download und Prüfanleitung.
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: git-cliff
+      - name: Release-Notizen
+        run: |
+          {
+            echo "## What's changed"
+            git cliff --current --strip all
+            echo
+            cat .github/release-notes.md
+          } > "$RUNNER_TEMP/notes.md"
+          cat "$RUNNER_TEMP/notes.md"
       - name: Release anlegen
         env:
           GH_TOKEN: ${{ github.token }}
@@ -196,5 +215,4 @@ jobs:
           gh release create "$GITHUB_REF_NAME" dist/*
           --verify-tag
           --title "MTG Arena Builder $GITHUB_REF_NAME"
-          --notes-file .github/release-notes.md
-          --generate-notes
+          --notes-file "$RUNNER_TEMP/notes.md"

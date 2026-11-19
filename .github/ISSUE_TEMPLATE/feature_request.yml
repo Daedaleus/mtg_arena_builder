@@ -1,0 +1,27 @@
+name: Idea
+description: Suggest a new feature or an improvement.
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Ideas are welcome! Please check the
+        [open issues](https://github.com/Daedaleus/mtg_arena_builder/issues?q=is%3Aissue+is%3Aopen+label%3Aenhancement)
+        first – maybe it is already planned.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What would help you?
+      description: Describe the situation in Arena or in the app where something is missing.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: Your idea
+      description: How could the app help here? Mock-ups or examples are welcome.
+  - type: textarea
+    id: other
+    attributes:
+      label: Anything else
+      description: Other tools that do this, links, deck lists …

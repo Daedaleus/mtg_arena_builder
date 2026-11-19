@@ -5,9 +5,13 @@ and releases: [CONTRIBUTING.md](CONTRIBUTING.md). Open items: [TODO.md](TODO.md)
 
 ## Language and style
 
-- Documentation (README, TODO, CONTRIBUTING, SECURITY, this file) and commit
+- Documentation (README, CONTRIBUTING, SECURITY, this file), issues and commit
   messages in **English**. Code comments and doc comments stay **German**
   (the existing code base is German throughout).
+- Commit messages and pull request titles: Conventional Commits with the
+  matching gitmoji icon after the colon, e.g. `feat(sim): ✨ add prowess` or
+  `fix: 🐛 keep settings` (types and icons in CONTRIBUTING.md, checked by
+  `.githooks/commit-msg` and `pr-title.yml`).
 - The interface is bilingual (German, English): display texts live **only** in
   `locales/app.yml` and reach the code via `tr!("module.key", name = value)` –
   no display texts as string literals in code. New texts always in both
@@ -99,10 +103,15 @@ display texts – there are enums like `Mistake` or `LandVerdict` for that.
   `http::Polite` blocks the site for the given time. Do not run the Scryfall
   contract test several times in a row.
 - Commits and pushes only when the user asks. Remote `origin` is
-  `Daedaleus/mtg_arena_builder` on GitHub, branch `main`. GitHub CLI:
+  `Daedaleus/mtg_arena_builder` on GitHub. GitHub CLI:
   `C:\Program Files\GitHub CLI\gh.exe` (logged in).
-- Releases: bump `version` in `Cargo.toml`, then push a tag `vX.Y.Z` (see
-  CONTRIBUTING.md). Release notes template: `.github/release-notes.md`.
+- `main` is protected: never push to it directly. Work on a branch, push the
+  branch, open a pull request with `gh pr create`; it is squash-merged once
+  the required checks are green, so its title becomes the commit message.
+- Releases: bump `version` in `Cargo.toml` via a pull request, then tag the
+  merged commit on `main` with `vX.Y.Z` and push the tag (see
+  CONTRIBUTING.md). Release notes: changelog from the commit messages via
+  git-cliff (`cliff.toml`), then `.github/release-notes.md`.
 
 ## Pitfalls
 

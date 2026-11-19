@@ -1,0 +1,58 @@
+#!/bin/sh
+# Prüft die erste Zeile der Commit-Nachricht: Conventional Commits mit dem
+# passenden Icon nach dem Doppelpunkt, z. B.
+#
+#   feat(sim): ✨ add prowess to the race
+#   fix: 🐛 keep settings when the file is damaged
+#
+# Einschalten (einmal je Klon):  git config core.hooksPath .githooks
+# Typen und Icons: CONTRIBUTING.md, Abschnitt „Commit messages“.
+
+# Byteweise vergleichen: Unter UTF-8 erkennt das sed von Git for Windows
+# Emojis außerhalb der Grundebene (👷, 🐛 …) nicht als Zeichen.
+LC_ALL=C
+export LC_ALL
+
+first=$(sed -n '1p' "$1" | tr -d '\r')
+
+# Von Git selbst erzeugte Nachrichten durchlassen.
+case "$first" in
+    "Merge "* | "Revert \""* | "fixup! "* | "squash! "* | "amend! "*) exit 0 ;;
+esac
+
+fail() {
+    echo "commit-msg: $1" >&2
+    echo "  got:      $first" >&2
+    echo "  expected: <type>(<optional scope>): <icon> <description>" >&2
+    echo "  e.g.      feat(sim): ✨ add prowess to the race" >&2
+    echo "  types:    feat ✨  fix 🐛  docs 📝  style 🎨  refactor ♻️  perf ⚡️" >&2
+    echo "            test ✅  build 📦️  ci 👷  chore 🔧  revert ⏪️" >&2
+    exit 1
+}
+
+type=$(printf '%s\n' "$first" | sed -n 's/^\([a-z]*\)\(([a-z0-9/_.-]*)\)\{0,1\}!\{0,1\}: .*$/\1/p')
+[ -n "$type" ] || fail "first line is not a conventional commit"
+rest=${first#*: }
+
+# Icons mit und ohne Variantenzeichen (U+FE0F), je nach Tastatur/Editor.
+case "$type" in
+    feat) icons="✨" ;;
+    fix) icons="🐛" ;;
+    docs) icons="📝" ;;
+    style) icons="🎨" ;;
+    refactor) icons="♻️ ♻" ;;
+    perf) icons="⚡️ ⚡" ;;
+    test) icons="✅" ;;
+    build) icons="📦️ 📦" ;;
+    ci) icons="👷" ;;
+    chore) icons="🔧" ;;
+    revert) icons="⏪️ ⏪" ;;
+    *) fail "unknown type '$type'" ;;
+esac
+
+for icon in $icons; do
+    case "$rest" in
+        "$icon "?*) exit 0 ;;
+    esac
+done
+fail "type '$type' needs the icon ${icons%% *} after the colon"
