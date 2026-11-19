@@ -110,7 +110,8 @@ display texts – there are enums like `Mistake` or `LandVerdict` for that.
   the required checks are green, so its title becomes the commit message.
 - Releases: bump `version` in `Cargo.toml` via a pull request, then tag the
   merged commit on `main` with `vX.Y.Z` and push the tag (see
-  CONTRIBUTING.md). Release notes template: `.github/release-notes.md`.
+  CONTRIBUTING.md). Release notes: changelog from the commit messages via
+  git-cliff (`cliff.toml`), then `.github/release-notes.md`.
 
 ## Pitfalls
 
