@@ -11,6 +11,9 @@ budget.budget_version_karten_durch:
 budget.ohne_passenden_ersatz:
   de: " Ohne passenden Ersatz: %{v}."
   en: " No suitable replacement: %{v}."
+card_info.bild_gerade_nicht_erreichbar:
+  de: "Bild gerade nicht erreichbar – wird später erneut versucht."
+  en: "Image not reachable right now – will try again later."
 carddb.common:
   de: "Common"
   en: "Common"
@@ -893,6 +896,18 @@ games_tab.uebersicht_tipps:
 games_tab.verlauf:
   de: "Verlauf"
   en: "Progress"
+http.gedrosselt:
+  de: "zu viele Anfragen – die Seite bremst, nächster Versuch frühestens in %{secs} s"
+  en: "too many requests – the site is throttling, next attempt in %{secs} s at the earliest"
+http.netzfehler:
+  de: "Netzfehler: %{e}"
+  en: "network error: %{e}"
+http.nicht_gefunden:
+  de: "nicht gefunden"
+  en: "not found"
+http.status:
+  de: "Server antwortet mit Fehler %{code}"
+  en: "server answered with error %{code}"
 lists.4_watery_grave_4:
   de: "4 Watery Grave\n4 Island\n…\n\nSideboard\n2 Duress"
   en: "4 Watery Grave\n4 Island\n…\n\nSideboard\n2 Duress"

@@ -42,6 +42,18 @@ pub enum FetchError {
     Network(String),
 }
 
+impl FetchError {
+    /// Meldung für die Oberfläche, in der eingestellten Sprache.
+    pub fn user_text(&self) -> String {
+        match self {
+            FetchError::NotFound => tr!("http.nicht_gefunden"),
+            FetchError::Status(code) => tr!("http.status", code = code),
+            FetchError::RateLimited(secs) => tr!("http.gedrosselt", secs = secs),
+            FetchError::Network(e) => tr!("http.netzfehler", e = e),
+        }
+    }
+}
+
 pub type Fetched = Result<Vec<u8>, FetchError>;
 
 /// Holt Adressen aus dem Netz.

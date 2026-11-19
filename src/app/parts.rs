@@ -43,7 +43,13 @@ pub(super) struct ImageCache {
     pub requested: std::cell::RefCell<HashSet<String>>,
     /// Scryfall kennt kein Bild.
     pub missing: HashSet<String>,
+    /// Abruf gescheitert (Netz, Drosselung): wann – erst nach
+    /// [`IMAGE_RETRY`] erneut anfragen.
+    pub failed: std::cell::RefCell<HashMap<String, std::time::Instant>>,
 }
+
+/// Wartezeit, bevor ein gescheitertes Kartenbild erneut angefragt wird.
+pub(super) const IMAGE_RETRY: std::time::Duration = std::time::Duration::from_secs(30);
 
 impl ImageCache {
     pub fn new(tx: Sender<String>) -> ImageCache {
@@ -52,6 +58,7 @@ impl ImageCache {
             textures: HashMap::new(),
             requested: std::cell::RefCell::new(HashSet::new()),
             missing: HashSet::new(),
+            failed: std::cell::RefCell::new(HashMap::new()),
         }
     }
 }

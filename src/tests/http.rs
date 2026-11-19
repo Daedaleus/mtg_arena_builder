@@ -107,22 +107,48 @@ fn real_clock_moves() {
 
 /// Vertragstest gegen die echte Scryfall-API: nur von Hand mit
 /// `cargo test -- --ignored`, damit die normale Testsuite ohne Netz läuft.
-/// Meldet, wenn sich die Antworten so ändern, dass die App sie nicht mehr versteht.
+/// Schonend: eine Suchseite und zwei Bilder (rund 5 Anfragen, je 0,5 s
+/// Abstand) statt der ganzen Format-Legalität. Meldet, wenn sich die
+/// Antworten so ändern, dass die App sie nicht mehr versteht.
 #[test]
 #[ignore = "braucht Netz (Scryfall)"]
 fn contract_with_real_scryfall() {
-    let dir = crate::testutil::TempDir::new("contract");
     let net = shared();
-    let fetcher = crate::meta::Fetcher::with_http(dir.0.clone(), net.clone());
-    let legal = fetcher.legal_names("standard").expect("Legalität");
-    assert!(legal.len() > 500, "{} Karten", legal.len());
+    let url = "https://api.scryfall.com/cards/search?q=%21%22Shock%22+game%3Aarena&unique=cards";
+    let bytes = net
+        .get(url, "application/json")
+        .unwrap_or_else(|e| panic!("Suche: {e}"));
+    let page: serde_json::Value = serde_json::from_slice(&bytes).expect("JSON");
+    let (names, next) = crate::meta::parse_scryfall_page(&page);
+    assert!(names.iter().any(|n| n == "shock"), "{names:?}");
+    assert_eq!(next, None, "eine Seite");
     for key in ["Shock", "Shock@de"] {
         let bytes = crate::images::download(net.as_ref(), key)
-            .expect("Abruf")
+            .unwrap_or_else(|e| panic!("{key}: {e}"))
             .expect("Bild vorhanden");
         assert!(
             crate::images::decode(&bytes).is_some(),
             "{key}: kein gültiges Bild"
         );
     }
+}
+
+#[test]
+fn fetch_errors_read_well() {
+    let texts = [
+        FetchError::NotFound.user_text(),
+        FetchError::Status(503).user_text(),
+        FetchError::RateLimited(42).user_text(),
+        FetchError::Network("x".into()).user_text(),
+    ];
+    assert!(
+        texts[1].contains("503") && texts[2].contains("42"),
+        "{texts:?}"
+    );
+    assert!(texts.iter().all(|t| !t.contains('%')), "{texts:?}");
+    // Technischer Text bleibt englisch.
+    assert_eq!(
+        FetchError::RateLimited(42).to_string(),
+        "rate limited, retry after 42 s"
+    );
 }

@@ -22,16 +22,31 @@ impl App {
         if resp.hovered()
             && !self.images.textures.contains_key(&key)
             && !self.images.missing.contains(&key)
-            && self.images.requested.borrow_mut().insert(key.clone())
         {
-            let _ = self.images.tx.send(key.clone());
+            // Nach einem gescheiterten Abruf erst nach einer Pause erneut fragen.
+            let retry = {
+                let mut failed = self.images.failed.borrow_mut();
+                let due = failed
+                    .get(&key)
+                    .is_some_and(|t| t.elapsed() >= super::parts::IMAGE_RETRY);
+                if due {
+                    failed.remove(&key);
+                }
+                due
+            };
+            if self.images.requested.borrow_mut().insert(key.clone()) || retry {
+                let _ = self.images.tx.send(key.clone());
+            }
         }
+        let unavailable = self.images.failed.borrow().contains_key(&key);
         resp.on_hover_ui(|ui| {
             if let Some(tex) = self.images.textures.get(&key) {
                 ui.add(
                     egui::Image::new((tex.id(), tex.size_vec2()))
                         .fit_to_exact_size(egui::vec2(244.0, 340.0)),
                 );
+            } else if unavailable {
+                ui.label(RichText::new(tr!("card_info.bild_gerade_nicht_erreichbar")).weak());
             } else if self.images.missing.contains(&key) {
                 ui.label(RichText::new(tr!("deck_view.kein_bild_verfuegbar")).weak());
             } else {

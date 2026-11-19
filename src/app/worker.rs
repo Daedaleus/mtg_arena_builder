@@ -278,8 +278,12 @@ impl App {
                 self.images.missing.insert(name);
             }
             // Beim nächsten Überfahren erneut anfragen.
+            // Später erneut anfragen (siehe `card_hover`), nicht sofort.
             images::Fetched::Failed => {
-                self.images.requested.borrow_mut().remove(&name);
+                self.images
+                    .failed
+                    .borrow_mut()
+                    .insert(name, std::time::Instant::now());
             }
         }
     }
