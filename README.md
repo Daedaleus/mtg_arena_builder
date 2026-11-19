@@ -92,6 +92,22 @@ macOS: Formatierung, Clippy, Tests, Release-Build und Testabdeckung. Die
 gebauten Programme liegen als Artefakte am jeweiligen Lauf. Findet GitHub keinen freien macOS-Rechner,
 bleibt der Lauf trotzdem grün; Windows und Linux müssen immer bestehen.
 
+### Release veröffentlichen
+
+1. `version` in `Cargo.toml` erhöhen (z. B. `0.2.0`), `.\build.ps1`, committen
+   und pushen.
+2. Tag setzen und pushen:
+
+   ```powershell
+   git tag v0.2.0
+   git push origin v0.2.0
+   ```
+
+Der Tag löst den vollen CI-Lauf aus. Sind alle Prüfungen grün und passt der
+Tag zur Version in `Cargo.toml`, legt der Job „GitHub-Release“ ein Release mit
+den Programmen (Windows, Linux, macOS falls gebaut) und ihren
+`.sha256`-Dateien an; die Notizen erzeugt GitHub aus den Commits.
+
 ## Kommandozeile (Diagnose)
 
 | Aufruf | Zweck |

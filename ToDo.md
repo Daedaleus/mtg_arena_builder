@@ -1,17 +1,6 @@
 # ToDo
 
-Stand: 16.11.2026. Erledigtes steht in der Git-Historie.
-
-## Prüfen in echten Partien
-
-- [ ] Blockvorschlag und Trick-Warnung im Begleitfenster während echter
-      Partien beobachten (bisher nur mit Tests und alten Logs geprüft).
-- [ ] Trick-Warnung mit geladenen Turnierlisten („Anteil in Turnierlisten“).
-- [ ] Rangverlauf: steigt der Rang, ob die Klasse (Silber, Gold …) im Log
-      wirklich als `constructedClass` steht – bisher nur Bronze gesehen, wo
-      Arena das Feld weglässt.
-- [ ] „Besserer Zug möglich“: Fehlalarme sammeln (z. B. Länder, die in dem Zug
-      getappt ins Spiel kamen, oder Mana aus Kreaturen).
+Stand: 19.11.2026. Erledigtes steht in der Git-Historie.
 
 ## Ideen
 
@@ -42,9 +31,10 @@ Stand: 16.11.2026. Erledigtes steht in der Git-Historie.
 - [x] Sicherung: privates Repository `Daedaleus/mtg_checker` auf GitHub.
 - [x] CI mit GitHub Actions: fmt, Clippy, Tests und Release-Build auf
       Windows, Linux und macOS, Testabdeckung ≥ 90 %.
-- [ ] Linux- und macOS-Version tatsächlich starten und ausprobieren (bauen und
-      Tests laufen in der CI; Speicherlesen braucht dort root).
-- [ ] Releases: bei einem Versions-Tag die CI-Artefakte als GitHub-Release
+- [ ] Linux-Version irgendwann starten und ausprobieren (bauen und Tests
+      laufen in der CI; Speicherlesen braucht dort root). macOS nur bei
+      Gelegenheit.
+- [x] Releases: bei einem Versions-Tag die CI-Artefakte als GitHub-Release
       veröffentlichen.
 - [x] Oberfläche in Module je Bereich aufgeteilt (`src/app/`).
 - [x] Große Dateien in Teilmodule aufgeteilt (`games/`, `live/`, `carddb/`,
