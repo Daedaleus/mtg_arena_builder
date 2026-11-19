@@ -5,7 +5,7 @@ and releases: [CONTRIBUTING.md](CONTRIBUTING.md). Open items: [TODO.md](TODO.md)
 
 ## Language and style
 
-- Documentation (README, TODO, CONTRIBUTING, SECURITY, this file) and commit
+- Documentation (README, CONTRIBUTING, SECURITY, this file), issues and commit
   messages in **English**. Code comments and doc comments stay **German**
   (the existing code base is German throughout).
 - Commit messages and pull request titles: Conventional Commits with the

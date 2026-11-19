@@ -5,8 +5,9 @@ body:
   - type: markdown
     attributes:
       value: |
-        Ideas are welcome! Planned items are listed in
-        [TODO.md](https://github.com/Daedaleus/mtg_arena_builder/blob/main/TODO.md).
+        Ideas are welcome! Please check the
+        [open issues](https://github.com/Daedaleus/mtg_arena_builder/issues?q=is%3Aissue+is%3Aopen+label%3Aenhancement)
+        first – maybe it is already planned.
   - type: textarea
     id: problem
     attributes:
