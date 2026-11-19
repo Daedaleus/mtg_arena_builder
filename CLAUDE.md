@@ -99,9 +99,13 @@ display texts – there are enums like `Mistake` or `LandVerdict` for that.
   `http::Polite` blocks the site for the given time. Do not run the Scryfall
   contract test several times in a row.
 - Commits and pushes only when the user asks. Remote `origin` is
-  `Daedaleus/mtg_arena_builder` on GitHub, branch `main`. GitHub CLI:
+  `Daedaleus/mtg_arena_builder` on GitHub. GitHub CLI:
   `C:\Program Files\GitHub CLI\gh.exe` (logged in).
-- Releases: bump `version` in `Cargo.toml`, then push a tag `vX.Y.Z` (see
+- `main` is protected: never push to it directly. Work on a branch, push the
+  branch, open a pull request with `gh pr create`; it is merged once the
+  required checks are green.
+- Releases: bump `version` in `Cargo.toml` via a pull request, then tag the
+  merged commit on `main` with `vX.Y.Z` and push the tag (see
   CONTRIBUTING.md). Release notes template: `.github/release-notes.md`.
 
 ## Pitfalls

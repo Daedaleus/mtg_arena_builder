@@ -50,6 +50,12 @@ hand, and not several times in a row: `cargo test -- --ignored`.
 Before every commit: `cargo fmt`, `cargo clippy --all-targets -- -D warnings`,
 `cargo test` (or simply `.\build.ps1`).
 
+## Pull requests
+
+`main` is protected: every change goes through a pull request, also for the
+maintainer. Create a branch, push it and open a pull request; it can be
+merged once the CI checks are green. Keep pull requests focused on one topic.
+
 ## Command line (diagnostics)
 
 The release build has no console window; use `cargo run -- <args>`.
@@ -104,11 +110,13 @@ updates.
 
 ## Releasing
 
-1. Bump `version` in `Cargo.toml` (e.g. `0.2.0`), run `.\build.ps1`, commit
-   and push.
-2. Tag and push:
+1. Bump `version` in `Cargo.toml` (e.g. `0.2.0`) in a pull request and merge
+   it.
+2. Tag the merged commit on `main` and push the tag:
 
    ```powershell
+   git switch main
+   git pull
    git tag -a v0.2.0 -m "Version 0.2.0"
    git push origin v0.2.0
    ```
