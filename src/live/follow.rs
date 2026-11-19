@@ -109,7 +109,7 @@ pub fn spawn(db: Arc<CardDb>, shared: Arc<Shared>, ctx: egui::Context, viewport:
                     follower.poll(&path, &db, &meta)
                 }
                 None => CompanionView {
-                    status: "Arena-Log nicht gefunden".into(),
+                    status: tr!("live_follow.arena_log_nicht_gefunden"),
                     ..Default::default()
                 },
             };

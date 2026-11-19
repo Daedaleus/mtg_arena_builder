@@ -3,7 +3,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use anyhow::{Result, anyhow};
+use anyhow::Result;
 use directories::{BaseDirs, ProjectDirs};
 
 /// Verzeichnis für Einstellungen, Sammlung und Web-Cache dieser App.
@@ -145,11 +145,7 @@ pub fn find_card_db(user_override: Option<&str>) -> Result<PathBuf> {
     mtga_data_candidates(user_override)
         .iter()
         .find_map(|c| card_db_in(c))
-        .ok_or_else(|| {
-            anyhow!(
-                "Arena-Kartendatenbank nicht gefunden. Bitte den MTGA-Installationsordner in den Einstellungen angeben."
-            )
-        })
+        .ok_or_else(|| anyhow::anyhow!(tr!("paths.arena_kartendatenbank_nicht_gefunden")))
 }
 
 #[cfg(test)]

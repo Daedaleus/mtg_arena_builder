@@ -36,7 +36,7 @@ impl App {
             return;
         }
         let mut builder = egui::ViewportBuilder::default()
-            .with_title("MTG Begleiter")
+            .with_title(tr!("companion.mtg_begleiter"))
             .with_inner_size([360.0, 330.0])
             .with_min_inner_size([260.0, 180.0])
             .with_always_on_top();

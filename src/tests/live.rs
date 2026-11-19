@@ -60,7 +60,7 @@ fn base() -> LiveState {
     LiveState {
         turn: 3,
         my_turn: true,
-        phase: "Phase_Main1".into(),
+        phase: Phase::Main1,
         life_me: 20,
         life_opp: 20,
         ..Default::default()
@@ -145,15 +145,15 @@ fn turn_suggestion_and_board() {
         hints(&v)
     );
     // In der 2. Hauptphase ist ein ungelegtes Land eine Warnung.
-    ls.phase = "Phase_Main2".into();
+    ls.phase = Phase::Main2;
     let v = build_view(Some(&ls), None, &db, &[]);
     assert_eq!(level_of(&v, "Vorschlag"), Level::Warn);
     // Im Kampf kein Zugvorschlag.
-    ls.phase = "Phase_Combat".into();
+    ls.phase = Phase::Combat;
     let v = build_view(Some(&ls), None, &db, &[]);
     assert!(!hints(&v).contains("Vorschlag"));
     assert_eq!(v.status, "Zug 3 · dein Zug · Kampf");
-    ls.phase = String::new();
+    ls.phase = Phase::Unknown;
     let v = build_view(Some(&ls), None, &db, &[]);
     assert_eq!(v.status, "Zug 3 · dein Zug");
 }
@@ -225,7 +225,7 @@ fn opponent_turn_blocks_and_tricks() {
     let db = std_db();
     let mut ls = base();
     ls.my_turn = false;
-    ls.phase = "Phase_Combat".into();
+    ls.phase = Phase::Combat;
     ls.life_me = 4;
     ls.opp_attackers = 2;
     ls.opp_attacking = vec![creature_at(OGRE, 3, 3), creature_at(BEAR, 2, 2)];
@@ -333,9 +333,12 @@ fn name_lists_are_shortened() {
         "Grizzly Bears, Hill Ogre (+1)"
     );
     assert_eq!(names(&db, &[999], 2), "");
-    assert_eq!(phase_label("Phase_Beginning"), "Zugbeginn");
-    assert_eq!(phase_label("Phase_Ending"), "Zugende");
-    assert_eq!(phase_label("x"), "");
+    assert_eq!(
+        phase_label(Phase::from_arena("Phase_Beginning")),
+        "Zugbeginn"
+    );
+    assert_eq!(phase_label(Phase::from_arena("Phase_Ending")), "Zugende");
+    assert_eq!(phase_label(Phase::from_arena("x")), "");
 }
 
 #[test]

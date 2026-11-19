@@ -259,3 +259,20 @@ fn color_names() {
     assert_eq!(label("WUBG"), "Weiß-Blau-Schwarz-Grün");
     assert_eq!(label("X"), "Mono-?");
 }
+
+#[test]
+fn display_names_follow_language() {
+    let mut cards = crate::testutil::std_cards();
+    cards[0].name_de = Some("Ebene".into());
+    let db = CardDb::from_cards(cards, "t");
+    let plains = db.representative("plains").unwrap();
+    // Tests laufen auf Deutsch.
+    assert_eq!(plains.display_name(), "Ebene");
+    assert_eq!(db.display_name("Plains"), "Ebene");
+    assert_eq!(
+        db.display_name("Island"),
+        "Island",
+        "ohne deutschen Namen englisch"
+    );
+    assert_eq!(db.display_name("Unbekannte Karte"), "Unbekannte Karte");
+}

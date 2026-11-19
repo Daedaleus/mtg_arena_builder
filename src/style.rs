@@ -22,25 +22,25 @@ pub enum Style {
 pub const STYLES: [Style; 3] = [Style::Aggro, Style::Midrange, Style::Control];
 
 impl Style {
-    pub fn name(self) -> &'static str {
+    pub fn name(self) -> String {
         match self {
-            Style::Aggro => "Aggro",
-            Style::Midrange => "Midrange",
-            Style::Control => "Control",
+            Style::Aggro => tr!("style.aggro"),
+            Style::Midrange => tr!("style.midrange"),
+            Style::Control => tr!("style.control"),
         }
     }
 
     /// Kurze Beschreibung für Einsteiger.
-    pub fn description(self) -> &'static str {
+    pub fn description(self) -> String {
         match self {
             Style::Aggro => {
-                "viele günstige Kreaturen, früh angreifen und den Gegner schnell besiegen"
+                tr!("style.viele_guenstige_kreaturen_frueh")
             }
             Style::Midrange => {
-                "solide Kreaturen und etwas Entfernung, flexibel in beide Richtungen"
+                tr!("style.solide_kreaturen_etwas_entfernung")
             }
             Style::Control => {
-                "Entfernung, Konter und Kartenziehen – das Spiel lang machen und spät gewinnen"
+                tr!("style.entfernung_konter_kartenziehen_spiel")
             }
         }
     }
@@ -230,31 +230,23 @@ fn attack_rate(games: &[GameRecord]) -> Option<f32> {
 fn traits(attack_rate: Option<f32>, avg_turns: f32, habits: &Habits) -> Vec<String> {
     let mut traits = Vec::new();
     if let Some(rate) = attack_rate {
-        traits.push(format!(
-            "Du greifst in {:.0} % deiner Züge (ab Zug 3) an.",
-            rate * 100.0
-        ));
+        traits.push(tr!("style.greifst_deiner_zuege_ab", v = rate * 100.0 : {:.0}));
     }
     if avg_turns > 0.0 {
         let length = if avg_turns >= 14.0 {
-            " – eher lange Partien"
+            tr!("style.eher_lange_partien")
         } else if avg_turns <= 9.0 {
-            " – eher kurze Partien"
+            tr!("style.eher_kurze_partien")
         } else {
-            ""
+            String::new()
         };
-        traits.push(format!(
-            "Deine Partien dauern im Schnitt {avg_turns:.0} Züge{length}."
-        ));
+        traits.push(tr!("style.partien_dauern_schnitt_zuege", avg_turns = avg_turns : {:.0}, length = length));
     }
     if habits.passive >= HABIT_SHARE {
-        traits.push(
-            "Du lässt oft Mana ungenutzt oder hältst Karten lange zurück – einfache, direkte Decks fallen dir vermutlich leichter."
-                .into(),
-        );
+        traits.push(tr!("style.laesst_oft_mana_ungenutzt"));
     }
     if habits.skipped_attacks >= HABIT_SHARE {
-        traits.push("Du lässt gefahrlose Angriffe öfter aus – du spielst eher vorsichtig.".into());
+        traits.push(tr!("style.laesst_gefahrlose_angriffe_oefter"));
     }
     traits
 }
@@ -276,31 +268,20 @@ fn recommend_style(records: &[StyleRecord], habits: &Habits) -> (Style, String) 
     match best {
         Some(b) if b.rate() >= others_best(b.style) + 0.1 => (
             b.style,
-            format!(
-                "Mit {}-Decks gewinnst du am häufigsten ({} von {} Partien).",
-                b.style.name(),
-                b.wins,
-                b.games
+            tr!(
+                "style.decks_gewinnst_haeufigsten_partien",
+                style = b.style.name(),
+                wins = b.wins,
+                games = b.games
             ),
         ),
-        _ if habits.noticeable() => (
-            Style::Aggro,
-            "Aggro-Decks sind am einfachsten zu spielen: Kreaturen ausspielen und angreifen. \
-             Das passt zu den Stellen, an denen du bisher Mana oder Angriffe liegen lässt."
-                .into(),
-        ),
+        _ if habits.noticeable() => (Style::Aggro, tr!("style.aggro_decks_einfachsten_spielen")),
         _ => match records.first() {
             Some(r) => (
                 r.style,
-                format!(
-                    "Du spielst am liebsten {} – noch zu wenige Partien, um andere Typen zu vergleichen.",
-                    r.style.name()
-                ),
+                tr!("style.spielst_liebsten_noch_wenige", style = r.style.name()),
             ),
-            None => (
-                Style::Aggro,
-                "Noch keine Partien mit bekanntem Deck. Für den Einstieg sind Aggro-Decks am einfachsten.".into(),
-            ),
+            None => (Style::Aggro, tr!("style.noch_keine_partien_bekanntem")),
         },
     }
 }
@@ -312,7 +293,7 @@ pub struct Candidate {
     /// Archetyp bzw. Bezeichnung.
     pub label: String,
     /// Woher die Liste stammt, z. B. „Turnierdecks“.
-    pub source: &'static str,
+    pub source: String,
     pub style: Style,
     pub summary: crate::deck::Summary,
 }

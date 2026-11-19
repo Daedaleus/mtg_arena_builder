@@ -27,8 +27,11 @@ pub fn label(letters: &str) -> String {
             .map_or("?", |i| NAMES[i])
     };
     match letters.len() {
-        0 => "Unbekannt".into(),
-        1 => format!("Mono-{}", name(letters.chars().next().unwrap_or('?'))),
+        0 => tr!("carddb_color.unbekannt"),
+        1 => tr!(
+            "carddb_color.mono",
+            v = name(letters.chars().next().unwrap_or('?'))
+        ),
         _ => letters.chars().map(name).collect::<Vec<_>>().join("-"),
     }
 }

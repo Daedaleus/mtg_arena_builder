@@ -3,6 +3,10 @@
 //! Ein Hintergrund-Thread holt Bilder nacheinander – Scryfall bittet um
 //! höchstens 10 Anfragen pro Sekunde – und legt sie im Cache ab, sodass jede
 //! Karte nur einmal heruntergeladen wird.
+//!
+//! Bilder gibt es je Sprache: Der Schlüssel ist der englische Kartenname,
+//! für andere Sprachen mit angehängtem Kürzel (siehe [`key`]). Gibt es keinen
+//! Druck in der Sprache, kommt das englische Bild.
 
 use std::fs;
 use std::io::Read;
@@ -12,6 +16,9 @@ use std::thread::sleep;
 use std::time::Duration;
 
 use eframe::egui::ColorImage;
+use serde_json::Value;
+
+use crate::i18n::Locale;
 
 const USER_AGENT: &str = "mtg_arena_builder/0.1 (privates Deckbau-Werkzeug)";
 
@@ -33,37 +40,105 @@ fn decode(bytes: &[u8]) -> Option<ColorImage> {
     Some(ColorImage::from_rgba_unmultiplied(size, img.as_raw()))
 }
 
-/// Scryfall-Adresse für das Kartenbild (`mode` = `exact` oder `fuzzy`).
-fn image_url(mode: &str, name: &str) -> String {
-    let encoded: String = name
-        .bytes()
+/// Trenner zwischen Kartenname und Sprachkürzel im Schlüssel.
+const LANG_SEP: char = '@';
+
+/// Schlüssel für Bild und Cache: der englische Kartenname, für andere
+/// Sprachen mit Kürzel, z. B. „Shock@de“.
+pub fn key(name: &str, locale: Locale) -> String {
+    match locale {
+        Locale::English => name.to_string(),
+        other => format!("{name}{LANG_SEP}{}", other.code()),
+    }
+}
+
+/// Kartenname und Sprachkürzel (`None` = Englisch) aus einem Schlüssel.
+fn split_key(key: &str) -> (&str, Option<&str>) {
+    match key.rsplit_once(LANG_SEP) {
+        Some((name, lang)) => (name, Some(lang)),
+        None => (key, None),
+    }
+}
+
+fn encode(text: &str) -> String {
+    text.bytes()
         .map(|b| match b {
             b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' => (b as char).to_string(),
             _ => format!("%{b:02X}"),
         })
-        .collect();
-    format!("https://api.scryfall.com/cards/named?{mode}={encoded}&format=image&version=normal")
+        .collect()
 }
 
-fn download(agent: &ureq::Agent, name: &str) -> Option<Vec<u8>> {
+/// Scryfall-Adresse für das Kartenbild (`mode` = `exact` oder `fuzzy`).
+fn image_url(mode: &str, name: &str) -> String {
+    format!(
+        "https://api.scryfall.com/cards/named?{mode}={}&format=image&version=normal",
+        encode(name)
+    )
+}
+
+/// Scryfall-Suche nach Drucken einer Karte in einer Sprache.
+fn search_url(name: &str, lang: &str) -> String {
+    let query = format!("!\"{name}\" lang:{lang}");
+    format!(
+        "https://api.scryfall.com/cards/search?q={}&unique=prints",
+        encode(&query)
+    )
+}
+
+/// Bildadresse des ersten Treffers einer Scryfall-Suche (bei doppelseitigen
+/// Karten die Vorderseite).
+fn image_from_search(json: &str) -> Option<String> {
+    let v: Value = serde_json::from_str(json).ok()?;
+    let card = &v["data"][0];
+    card["image_uris"]["normal"]
+        .as_str()
+        .or_else(|| card["card_faces"][0]["image_uris"]["normal"].as_str())
+        .map(str::to_string)
+}
+
+/// Lädt eine Adresse; `Ok(None)` heißt „gibt es nicht“ (404).
+fn fetch(agent: &ureq::Agent, url: &str, accept: &str) -> Result<Option<Vec<u8>>, ()> {
+    sleep(Duration::from_millis(120));
+    match agent.get(url).set("Accept", accept).call() {
+        Ok(resp) => {
+            let mut bytes = Vec::new();
+            resp.into_reader()
+                .take(5_000_000)
+                .read_to_end(&mut bytes)
+                .map_err(|_| ())?;
+            Ok(Some(bytes))
+        }
+        Err(ureq::Error::Status(404, _)) => Ok(None),
+        Err(_) => Err(()),
+    }
+}
+
+fn download_english(agent: &ureq::Agent, name: &str) -> Option<Vec<u8>> {
     // Erst exakter Name, sonst unscharfe Suche (z. B. bei doppelseitigen Karten).
     for mode in ["exact", "fuzzy"] {
-        let url = image_url(mode, name);
-        sleep(Duration::from_millis(120));
-        match agent.get(&url).set("Accept", "image/*,*/*;q=0.8").call() {
-            Ok(resp) => {
-                let mut bytes = Vec::new();
-                resp.into_reader()
-                    .take(5_000_000)
-                    .read_to_end(&mut bytes)
-                    .ok()?;
-                return Some(bytes);
-            }
-            Err(ureq::Error::Status(404, _)) => continue,
-            Err(_) => return None,
+        match fetch(agent, &image_url(mode, name), "image/*,*/*;q=0.8") {
+            Ok(Some(bytes)) => return Some(bytes),
+            Ok(None) => continue,
+            Err(()) => return None,
         }
     }
     None
+}
+
+fn download_localized(agent: &ureq::Agent, name: &str, lang: &str) -> Option<Vec<u8>> {
+    let json = fetch(agent, &search_url(name, lang), "application/json").ok()??;
+    let url = image_from_search(&String::from_utf8_lossy(&json))?;
+    fetch(agent, &url, "image/*,*/*;q=0.8").ok()?
+}
+
+fn download(agent: &ureq::Agent, key: &str) -> Option<Vec<u8>> {
+    match split_key(key) {
+        (name, Some(lang)) => {
+            download_localized(agent, name, lang).or_else(|| download_english(agent, name))
+        }
+        (name, None) => download_english(agent, name),
+    }
 }
 
 /// Was der Bild-Cache zu einer Karte weiß.

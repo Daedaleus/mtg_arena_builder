@@ -124,7 +124,7 @@ pub fn deck_label(deck: &crate::deck::Deck, db: &CardDb, shares: &[ArchShare]) -
     let ids: Vec<u32> = cards.iter().map(|c| c.grp_id).collect();
     let colors = color::label(&games::deck_colors(&ids, db));
     match cards.iter().max_by_key(|c| (c.rarity, c.cmc)) {
-        Some(c) => format!("{colors} – {}", c.name),
+        Some(c) => tr!("opponents.text", colors = colors, name = c.name),
         None => colors,
     }
 }
@@ -133,7 +133,7 @@ pub fn deck_label(deck: &crate::deck::Deck, db: &CardDb, shares: &[ArchShare]) -
 pub fn classify(g: &GameRecord, db: &CardDb, shares: &[ArchShare]) -> String {
     let seen = seen_keys(g.opp_cards.keys(), db);
     match match_archetype(&seen, shares) {
-        Some(arch) => format!("{} (erkannt)", arch.name),
+        Some(arch) => tr!("opponents.erkannt", name = arch.name),
         None => color::label(&games::opp_colors(g, db)),
     }
 }

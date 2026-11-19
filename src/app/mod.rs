@@ -158,6 +158,7 @@ impl App {
     pub fn new(cc: &eframe::CreationContext<'_>) -> App {
         let data_dir = paths::data_dir();
         let (settings_file, settings) = SettingsFile::load(&data_dir);
+        crate::i18n::set(settings.language.resolve());
 
         // Etwas großzügigere Abstände und die gewählte Textgröße.
         cc.egui_ctx.style_mut(|style| {
@@ -279,7 +280,7 @@ impl eframe::App for App {
         egui::CentralPanel::default().show(ctx, |ui| {
             if self.db.is_none() {
                 ui.label(RichText::new(&self.db_status).color(RED));
-                ui.label("Den Arena-Ordner kannst du unter „⚙ Einstellungen“ angeben.");
+                ui.label(tr!("app.arena_ordner_kannst_unter"));
                 ui.separator();
             }
             self.onboarding(ui, ctx);

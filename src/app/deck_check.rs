@@ -22,10 +22,7 @@ impl App {
         let groups = deckcheck::group_decks(&self.games, db);
         if groups.is_empty() {
             ui.add_space(10.0);
-            ui.label(
-                "Noch keine Partien mit bekannter Deckliste. Spiel mit eingeschalteten „Detaillierten Logs“ – \
-                 die App erkennt das Deck dann automatisch.",
-            );
+            ui.label(tr!("deck_check.noch_keine_partien_bekannter"));
             return;
         }
         let mut sel = self.sel_deck_group.min(groups.len() - 1);
@@ -41,8 +38,8 @@ impl App {
                     }
                 });
             clicks.adopt = ui
-                .button("In „Eigene Liste prüfen“ übernehmen")
-                .on_hover_text("Dort kannst du Karten gegen Ersatz aus deiner Sammlung tauschen und das Deck für Arena kopieren.")
+                .button(tr!("deck_check.eigene_liste_pruefen_uebernehmen"))
+                .on_hover_text(tr!("deck_check.dort_kannst_karten_gegen"))
                 .clicked();
         });
         let group = &groups[sel];
@@ -59,7 +56,7 @@ impl App {
                 clicks.simulate = lands_section(ui, &r.mana, sim_report);
                 if !group.fixed {
                     self.swaps_section(ui, &r.swaps);
-                    meta_section(ui, r.meta.as_ref());
+                    meta_section(ui, r.meta.as_ref(), db);
                 }
                 self.cards_section(ui, &r, sel);
             });
@@ -86,16 +83,14 @@ impl App {
 
     /// Tausch-Vorschläge: raus mit Grund, rein mit Ersatz aus der Sammlung.
     fn swaps_section(&self, ui: &mut egui::Ui, swaps: &[deckcheck::Swap]) {
-        section(ui, "Tausch-Vorschläge");
+        section(ui, &tr!("deck_check.tausch_vorschlaege"));
         if swaps.is_empty() {
-            ui.label(
-                "Noch keine klaren Kandidaten. Je mehr Partien du mit dem Deck spielst, desto genauer werden die Vorschläge.",
-            );
+            ui.label(tr!("deck_check.noch_keine_klaren_kandidaten"));
         }
         for sw in swaps {
             ui.horizontal_wrapped(|ui| {
                 let resp = ui.label(
-                    RichText::new(format!("Raus: {}", sw.out))
+                    RichText::new(tr!("deck_check.raus", out = self.shown(&sw.out)))
                         .strong()
                         .color(YELLOW),
                 );
@@ -105,9 +100,11 @@ impl App {
             if let Some((name, why)) = &sw.replacement {
                 ui.horizontal_wrapped(|ui| {
                     ui.add_space(16.0);
-                    let resp = ui.label(RichText::new(format!("Rein: {name}")).color(GREEN));
+                    let resp = ui.label(
+                        RichText::new(tr!("deck_check.rein", name = self.shown(name))).color(GREEN),
+                    );
                     self.card_hover(resp, name, None);
-                    ui.label(RichText::new(format!("({why})")).weak());
+                    ui.label(RichText::new(tr!("deck_check.text", why = why)).weak());
                 });
             }
         }
@@ -115,14 +112,8 @@ impl App {
 
     /// Tabelle aller Karten im Deck mit Nutzung, Schaden und Turnier-Anteil.
     fn cards_section(&self, ui: &mut egui::Ui, r: &deckcheck::DeckCheck, sel: usize) {
-        section(ui, "Karten im Deck");
-        ui.label(
-            RichText::new(
-                "Gezogen/Gespielt = in wie vielen Partien. „Lange auf der Hand“ = mindestens drei eigene Züge \
-                 bezahlbar, aber nicht gespielt. „Turnier“ = Anteil der Turnierlisten mit dieser Karte.",
-            )
-            .weak(),
-        );
+        section(ui, &tr!("deck_check.karten_deck"));
+        ui.label(RichText::new(tr!("deck_check.gezogen_gespielt_wie_vielen")).weak());
         let winrates = r.show_winrates();
         ui.push_id(("deck_cards", sel), |ui| {
             let mut table = TableBuilder::new(ui)
@@ -141,16 +132,16 @@ impl App {
             table
                 .header(20.0, |mut h| {
                     let mut titles = vec![
-                        "Anz.",
-                        "Karte",
-                        "Gezogen",
-                        "Gespielt",
-                        "Lange auf Hand",
-                        "Schaden",
-                        "Turnier",
+                        tr!("deck_check.anz"),
+                        tr!("deck_check.karte"),
+                        tr!("deck_check.gezogen"),
+                        tr!("deck_check.gespielt"),
+                        tr!("deck_check.lange_hand"),
+                        tr!("deck_check.schaden"),
+                        tr!("deck_check.turnier"),
                     ];
                     if winrates {
-                        titles.push("Siegquote");
+                        titles.push(tr!("deck_check.siegquote"));
                     }
                     for t in titles {
                         h.col(|ui| {
@@ -183,7 +174,7 @@ impl App {
             ui.label(c.copies.to_string());
         });
         row.col(|ui| {
-            let text = RichText::new(&c.name);
+            let text = RichText::new(self.shown(&c.name));
             let resp = ui.label(if c.land {
                 text.weak()
             } else {
@@ -231,33 +222,30 @@ fn section(ui: &mut egui::Ui, title: &str) {
 /// Bilanz des Decks und Hinweis, ab wann Gewinnraten je Karte erscheinen.
 fn summary(ui: &mut egui::Ui, group: &deckcheck::DeckGroup, r: &deckcheck::DeckCheck) {
     if group.fixed {
-        ui.label(
-            RichText::new(
-                "Dieses Deck gibt das Event vor – in Arena kannst du es nicht ändern. \
-                 Die Auswertung zeigt trotzdem, wie du die Karten nutzt.",
-            )
-            .color(YELLOW),
-        );
+        ui.label(RichText::new(tr!("deck_check.dieses_deck_gibt_event")).color(YELLOW));
     }
     let color = if r.wins * 2 >= r.games { GREEN } else { RED };
     ui.horizontal_wrapped(|ui| {
         ui.label(
-            RichText::new(format!("{} Siege aus {} Partien", r.wins, r.games))
-                .color(color)
-                .strong(),
+            RichText::new(tr!(
+                "deck_check.siege_aus_partien",
+                wins = r.wins,
+                games = r.games
+            ))
+            .color(color)
+            .strong(),
         );
-        ui.label(format!(
-            "· {} davon mit Daten zu gezogenen und gespielten Karten",
-            r.tracked
+        ui.label(tr!(
+            "deck_check.davon_daten_gezogenen_gespielten",
+            tracked = r.tracked
         ));
     });
     if !r.show_winrates() {
         ui.label(
-            RichText::new(format!(
-                "Gewinnraten einzelner Karten zeigt die App ab {} Partien mit Kartendaten – bisher {}. \
-                 Bis dahin zählt, wie du die Karten tatsächlich nutzt.",
-                deckcheck::MIN_GAMES_FOR_WINRATE,
-                r.tracked
+            RichText::new(tr!(
+                "deck_check.gewinnraten_einzelner_karten_zeigt",
+                min_games_for_winrate = deckcheck::MIN_GAMES_FOR_WINRATE,
+                tracked = r.tracked
             ))
             .weak(),
         );
@@ -270,10 +258,14 @@ fn lands_section(
     m: &deckcheck::ManaCheck,
     sim_report: Option<&sim::Trial>,
 ) -> bool {
-    section(ui, "Länder");
-    ui.label(format!(
-        "{} Länder bei {} Karten · zu wenig Länder in {} von {} Partien · zu viele in {}",
-        m.lands, m.size, m.screw, m.games, m.flood
+    section(ui, &tr!("deck_check.laender"));
+    ui.label(tr!(
+        "deck_check.laender_bei_karten_wenig",
+        lands = m.lands,
+        size = m.size,
+        screw = m.screw,
+        games = m.games,
+        flood = m.flood
     ));
     let color = if m.verdict.needs_change() {
         YELLOW
@@ -282,12 +274,8 @@ fn lands_section(
     };
     ui.label(RichText::new(m.verdict.advice()).color(color));
     let clicked = ui
-        .button("Probehände testen")
-        .on_hover_text(
-            "Spielt dieses Deck 1000-mal durch – gegen einen schnellen Gegner bis Zug 6 und, mit genug \
-             eigenen Partien, gegen deine echten Gegner bis Zug 10 – und zeigt, wie oft Länder oder \
-             Farben fehlen.",
-        )
+        .button(tr!("deck_check.probehaende_testen"))
+        .on_hover_text(tr!("deck_check.spielt_dieses_deck_1000"))
         .clicked();
     if let Some(report) = sim_report {
         super::widgets::sim_view(ui, report);
@@ -296,39 +284,27 @@ fn lands_section(
 }
 
 /// Vergleich mit dem ähnlichsten Turnier-Archetyp.
-fn meta_section(ui: &mut egui::Ui, meta: Option<&deckcheck::MetaMatch>) {
-    section(ui, "Vergleich mit Turnierdecks");
+fn meta_section(ui: &mut egui::Ui, meta: Option<&deckcheck::MetaMatch>, db: &CardDb) {
+    section(ui, &tr!("deck_check.vergleich_turnierdecks"));
     let Some(m) = meta else {
-        ui.label(
-            RichText::new(
-                "Kein passender Turnier-Archetyp geladen. Unter „Turnierdecks“ den Archetyp anklicken \
-                 oder „Alle bewerten“ – dann vergleicht die App hier.",
-            )
-            .weak(),
-        );
+        ui.label(RichText::new(tr!("deck_check.kein_passender_turnier_archetyp")).weak());
         return;
     };
-    ui.label(format!(
-        "Am ähnlichsten: {} ({} geladene Turnierlisten, {:.0} % Übereinstimmung der Nichtland-Karten)",
-        m.archetype,
-        m.lists,
-        m.overlap * 100.0
-    ));
+    ui.label(tr!("deck_check.aehnlichsten_geladene_turnierlisten_uebereinstimmung", archetype = m.archetype, lists = m.lists, v = m.overlap * 100.0 : {:.0}));
     if m.missing.is_empty() {
-        ui.label(
-            RichText::new("Du spielst alle Karten, die die meisten dieser Turnierlisten spielen.")
-                .color(GREEN),
-        );
+        ui.label(RichText::new(tr!("deck_check.spielst_alle_karten_meisten")).color(GREEN));
         return;
     }
-    ui.label("Diese Karten spielt mindestens die Hälfte der Turnierlisten, du aber nicht:");
+    ui.label(tr!("deck_check.diese_karten_spielt_mindestens"));
     for (name, share, own) in &m.missing {
         ui.horizontal(|ui| {
-            ui.label(format!("• {name} – in {:.0} % der Listen", share * 100.0));
+            ui.label(
+                tr!("deck_check.listen", name = db.display_name(name), v = share * 100.0 : {:.0}),
+            );
             if *own > 0 {
-                ui.label(RichText::new(format!("du hast {own}")).color(GREEN));
+                ui.label(RichText::new(tr!("deck_check.hast", own = own)).color(GREEN));
             } else {
-                ui.label(RichText::new("nicht in deiner Sammlung").weak());
+                ui.label(RichText::new(tr!("deck_check.nicht_deiner_sammlung")).weak());
             }
         });
     }

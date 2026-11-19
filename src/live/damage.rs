@@ -55,7 +55,13 @@ pub(super) fn best_burn(hand: &[&Card], mana: u32) -> (u32, Vec<String>) {
         let cost: u32 = chosen.iter().map(|c| c.cmc).sum();
         let dmg: u32 = chosen.iter().map(|c| c.burn).sum();
         if cost <= mana && dmg > best.0 {
-            best = (dmg, chosen.iter().map(|c| c.name.clone()).collect());
+            best = (
+                dmg,
+                chosen
+                    .iter()
+                    .map(|c| c.display_name().to_string())
+                    .collect(),
+            );
         }
     }
     best

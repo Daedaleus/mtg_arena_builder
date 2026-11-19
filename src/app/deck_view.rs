@@ -57,14 +57,14 @@ impl App {
         {
             let plan =
                 budget::wildcard_plan(&eval, db, self.wildcards(), self.settings.include_side);
-            wildcard_plan_view(ui, &plan);
+            wildcard_plan_view(ui, &plan, db);
         }
         if clicked.reset || clicked.budget {
             self.sims.remove(&deck_id);
         }
         if clicked.reset {
             self.repl.retain(|k, _| k.0 != deck_id);
-            self.status = "Ersetzungen zurückgesetzt.".into();
+            self.status = tr!("deck_view.ersetzungen_zurueckgesetzt");
         }
         if clicked.budget {
             // Neu planen: bisherige Ersetzungen zählen dabei nicht.
@@ -81,40 +81,37 @@ impl App {
         ui.horizontal_wrapped(|ui| {
             if self.collection.is_none() {
                 ui.label(
-                    RichText::new("Ohne gelesene Sammlung gilt alles als fehlend.").color(YELLOW),
+                    RichText::new(tr!("deck_view.ohne_gelesene_sammlung_gilt")).color(YELLOW),
                 );
             } else if summary.complete() {
                 ui.label(
-                    RichText::new("Du kannst dieses Deck komplett bauen.")
+                    RichText::new(tr!("deck_view.kannst_dieses_deck_komplett"))
                         .color(GREEN)
                         .strong(),
                 );
             } else if summary.craftable(wc) {
                 ui.label(
-                    RichText::new("Mit deinen Wildcards baubar.")
+                    RichText::new(tr!("deck_view.deinen_wildcards_baubar"))
                         .color(YELLOW)
                         .strong(),
                 );
             } else {
-                ui.label(RichText::new("Noch nicht baubar.").color(RED).strong());
+                ui.label(RichText::new(tr!("deck_view.noch_nicht_baubar")).color(RED).strong());
             }
-            ui.label(format!(
-                "{} von {} Karten vorhanden ({:.0} %)",
-                summary.total - summary.missing,
-                summary.total,
-                summary.percent().floor()
-            ));
+            ui.label(tr!("deck_view.karten_vorhanden", missing = summary.total - summary.missing, total = summary.total, v = summary.percent().floor() : {:.0}));
         });
         if summary.missing > 0 {
             ui.horizontal_wrapped(|ui| {
-                ui.label("Benötigte Wildcards:");
+                ui.label(tr!("deck_view.benoetigte_wildcards"));
                 for i in 0..4 {
                     if summary.need[i] > 0 {
                         let enough = summary.need[i] <= wc[i];
                         ui.label(
-                            RichText::new(format!(
-                                "{} {} (du hast {})",
-                                summary.need[i], RARITY_NAMES[i], wc[i]
+                            RichText::new(tr!(
+                                "deck_view.hast",
+                                need = summary.need[i],
+                                rarity_names = RARITY_NAMES[i],
+                                wc = wc[i]
                             ))
                             .color(if enough { GREEN } else { RED }),
                         );
@@ -122,9 +119,9 @@ impl App {
                 }
                 if summary.unavailable > 0 {
                     ui.label(
-                        RichText::new(format!(
-                            "{} Karten gibt es in Arena nicht",
-                            summary.unavailable
+                        RichText::new(tr!(
+                            "deck_view.karten_gibt_arena_nicht",
+                            unavailable = summary.unavailable
                         ))
                         .color(RED),
                     );
@@ -146,42 +143,51 @@ impl App {
         ui.horizontal(|ui| {
             if summary.missing > 0 || has_repl {
                 clicked.budget = ui
-                    .button("Budget-Version bauen")
-                    .on_hover_text(
-                        "Stellt die wichtigsten fehlenden Karten mit deinen Wildcards her und ersetzt den Rest durch ähnliche Karten aus deiner Sammlung. Ergebnis siehst du in der Spalte „Ersatz“.",
-                    )
+                    .button(tr!("deck_view.budget_version_bauen"))
+                    .on_hover_text(tr!("deck_view.stellt_wichtigsten_fehlenden_karten"))
                     .clicked();
             }
             if has_repl {
-                clicked.reset = ui.button("Ersetzungen zurücksetzen").clicked();
+                clicked.reset = ui
+                    .button(tr!("deck_view.ersetzungen_zuruecksetzen"))
+                    .clicked();
             }
             clicked.simulate = ui
-                .button("Probehände testen")
-                .on_hover_text(
-                    "Spielt das Deck 1000-mal durch (mit deinen Ersatzkarten) und zeigt, wie oft Länder \
-                     oder Farben fehlen, wie gut das Mana genutzt wird und wie es gegen Gegner besteht.",
-                )
+                .button(tr!("deck_view.probehaende_testen"))
+                .on_hover_text(tr!("deck_view.spielt_deck_1000_mal"))
                 .clicked();
-            if ui.button("Für Arena kopieren").on_hover_text("In Arena: Decks > Importieren").clicked()
-                && let Some(db) = &self.db {
-                    let text = deck::export_arena(
-                        eval,
-                        db,
-                        self.collection.as_ref().map(|c| &c.cards),
-                        self.settings.with_sets,
-                        self.settings.include_side,
-                        |line| {
-                            let rep = self.repl.get(&(deck_id, line.key.clone()?))?;
-                            Some((rep.clone(), self.replaced_qty(deck_id, line)))
-                        },
-                    );
-                    ui.ctx().copy_text(text);
-                    self.status = "Deck in die Zwischenablage kopiert – in Arena unter Decks > Importieren einfügen.".into();
-                }
-            let mut changed = ui.checkbox(&mut self.settings.include_side, "Sideboard einbeziehen").changed();
+            if ui
+                .button(tr!("deck_view.arena_kopieren"))
+                .on_hover_text(tr!("deck_view.arena_decks_importieren"))
+                .clicked()
+                && let Some(db) = &self.db
+            {
+                let text = deck::export_arena(
+                    eval,
+                    db,
+                    self.collection.as_ref().map(|c| &c.cards),
+                    self.settings.with_sets,
+                    self.settings.include_side,
+                    |line| {
+                        let rep = self.repl.get(&(deck_id, line.key.clone()?))?;
+                        Some((rep.clone(), self.replaced_qty(deck_id, line)))
+                    },
+                );
+                ui.ctx().copy_text(text);
+                self.status = tr!("deck_view.deck_zwischenablage_kopiert_arena");
+            }
+            let mut changed = ui
+                .checkbox(
+                    &mut self.settings.include_side,
+                    tr!("deck_view.sideboard_einbeziehen"),
+                )
+                .changed();
             changed |= ui
-                .checkbox(&mut self.settings.with_sets, "Mit Set-Kürzeln exportieren")
-                .on_hover_text("Empfohlen, wenn Arena nicht auf Englisch läuft.")
+                .checkbox(
+                    &mut self.settings.with_sets,
+                    tr!("deck_view.set_kuerzeln_exportieren"),
+                )
+                .on_hover_text(tr!("deck_view.empfohlen_wenn_arena_nicht"))
                 .changed();
             if changed {
                 self.save_settings();
@@ -234,12 +240,12 @@ impl App {
                 .column(Column::remainder().at_least(220.0))
                 .header(20.0, |mut h| {
                     for title in [
-                        "Anz.",
-                        "Karte",
-                        "Seltenheit",
-                        "Besitz",
-                        "Fehlt",
-                        "Ersatz aus deiner Sammlung",
+                        tr!("deck_check.anz"),
+                        tr!("deck_view.karte"),
+                        tr!("deck_view.seltenheit"),
+                        tr!("deck_view.besitz"),
+                        tr!("deck_view.fehlt"),
+                        tr!("deck_view.ersatz_aus_deiner_sammlung"),
                     ] {
                         h.col(|ui| {
                             ui.strong(title);
@@ -254,7 +260,7 @@ impl App {
                             body.row(24.0, |mut row| {
                                 row.col(|_| {});
                                 row.col(|ui| {
-                                    ui.strong("Sideboard");
+                                    ui.strong(tr!("deck_view.sideboard"));
                                 });
                                 for _ in 0..4 {
                                     row.col(|_| {});
@@ -288,12 +294,17 @@ impl App {
             ui.label(line.qty.to_string());
         });
         row.col(|ui| {
-            let label = ui.label(&line.name);
+            let shown = card.map_or_else(|| line.name.clone(), |c| c.display_name().to_string());
+            let label = ui.label(&shown);
             if let Some(c) = card {
-                let de = c.name_de.as_deref().filter(|d| *d != c.name);
+                // Den Namen in der anderen Sprache zusätzlich zeigen.
+                let other = [Some(c.name.as_str()), c.name_de.as_deref()]
+                    .into_iter()
+                    .flatten()
+                    .find(|n| *n != shown);
                 let info = format!(
                     "{}{}  ·  {} {}",
-                    de.map(|d| format!("{d}\n")).unwrap_or_default(),
+                    other.map(|d| format!("{d}\n")).unwrap_or_default(),
                     c.mana_cost,
                     c.set,
                     c.collector
@@ -323,32 +334,32 @@ impl App {
                 return;
             }
             let Some(key) = &line.key else {
-                ui.label(RichText::new("nicht in Arena verfügbar").color(RED));
+                ui.label(RichText::new(tr!("deck_view.nicht_arena_verfuegbar")).color(RED));
                 return;
             };
             let slot = (deck_id, key.clone());
             let options = self.subs.get(&slot).map(Vec::as_slice).unwrap_or(&[]);
             if options.is_empty() {
-                ui.label(RichText::new("kein Vorschlag").weak());
+                ui.label(RichText::new(tr!("deck_view.kein_vorschlag")).weak());
                 return;
             }
             let current = self.repl.get(&slot);
             let shown = current
                 .and_then(|k| options.iter().find(|o| &o.key == k))
                 .map(|o| o.name.clone())
-                .unwrap_or_else(|| format!("– ({} Vorschläge)", options.len()));
+                .unwrap_or_else(|| tr!("deck_view.vorschlaege", options_n = options.len()));
             egui::ComboBox::from_id_salt(("rep", deck_id, key, line.side))
                 .selected_text(shown)
                 .width(210.0)
                 .show_ui(ui, |ui| {
                     if ui
-                        .selectable_label(current.is_none(), "– (Wildcard nutzen)")
+                        .selectable_label(current.is_none(), tr!("deck_view.wildcard_nutzen"))
                         .clicked()
                     {
                         *new_choice = Some((key.clone(), None));
                     }
                     for o in options {
-                        let text = format!("{}  {}  ({}×)", o.name, o.info, o.owned);
+                        let text = format!("{}  {}  ({}×)", self.shown(&o.name), o.info, o.owned);
                         if ui.selectable_label(current == Some(&o.key), text).clicked() {
                             *new_choice = Some((key.clone(), Some(o.key.clone())));
                         }
@@ -358,31 +369,39 @@ impl App {
     }
 
     /// Zeigt beim Überfahren eines Kartennamens das Kartenbild (lädt es bei Bedarf).
+    /// Kartenname in der eingestellten Sprache.
+    pub(super) fn shown(&self, name: &str) -> String {
+        self.db
+            .as_ref()
+            .map_or_else(|| name.to_string(), |db| db.display_name(name))
+    }
+
     pub(super) fn card_hover(
         &self,
         resp: egui::Response,
         name: &str,
         extra: Option<String>,
     ) -> egui::Response {
+        let key = images::key(name, crate::i18n::current());
         if resp.hovered()
-            && !self.textures.contains_key(name)
-            && !self.img_missing.contains(name)
-            && self.img_requested.borrow_mut().insert(name.to_string())
+            && !self.textures.contains_key(&key)
+            && !self.img_missing.contains(&key)
+            && self.img_requested.borrow_mut().insert(key.clone())
         {
-            let _ = self.img_tx.send(name.to_string());
+            let _ = self.img_tx.send(key.clone());
         }
         resp.on_hover_ui(|ui| {
-            if let Some(tex) = self.textures.get(name) {
+            if let Some(tex) = self.textures.get(&key) {
                 ui.add(
                     egui::Image::new((tex.id(), tex.size_vec2()))
                         .fit_to_exact_size(egui::vec2(244.0, 340.0)),
                 );
-            } else if self.img_missing.contains(name) {
-                ui.label(RichText::new("Kein Bild verfügbar").weak());
+            } else if self.img_missing.contains(&key) {
+                ui.label(RichText::new(tr!("deck_view.kein_bild_verfuegbar")).weak());
             } else {
                 ui.horizontal(|ui| {
                     ui.spinner();
-                    ui.label("Bild wird geladen …");
+                    ui.label(tr!("deck_view.bild_geladen"));
                 });
             }
             if let Some(text) = &extra {

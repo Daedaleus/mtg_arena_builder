@@ -187,7 +187,7 @@ pub fn build(format: &str) -> anyhow::Result<()> {
                 c.as_ref().map(|c| c.mana_cost.clone()).unwrap_or_default(),
                 c.as_ref()
                     .map(|c| carddb::rarity_label(c.rarity))
-                    .unwrap_or("")
+                    .unwrap_or_default()
             );
         }
     }

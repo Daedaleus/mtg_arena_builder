@@ -80,12 +80,13 @@ pub fn key_moment(t: &TurnStat, db: &CardDb) -> Option<String> {
         .spells
         .iter()
         .filter_map(|g| card(db, *g))
-        .map(|c| c.name.clone())
+        .map(|c| c.display_name().to_string())
         .collect();
-    Some(format!(
-        "{used} von {} Mana genutzt – möglich: {} ({} Mana)",
-        plan.mana_total,
-        names.join(", dann "),
-        plan.mana_used
+    Some(tr!(
+        "games_moments.mana_genutzt_moeglich_mana",
+        used = used,
+        mana_total = plan.mana_total,
+        v = names.join(&tr!("common.dann")),
+        mana_used = plan.mana_used
     ))
 }

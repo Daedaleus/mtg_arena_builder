@@ -9,44 +9,54 @@ impl App {
         egui::TopBottomPanel::top("top").show(ctx, |ui| {
             ui.add_space(6.0);
             ui.horizontal(|ui| {
-                ui.heading(RichText::new("MTG Arena Builder").strong());
+                ui.heading(RichText::new(tr!("chrome.mtg_arena_builder")).strong());
                 ui.separator();
                 match &self.collection {
                     Some(c) => {
-                        ui.label(format!("{} Karten", c.total_cards()))
-                            .on_hover_text(format!("Sammlung gelesen {}", c.age_text()));
-                        ui.label(RichText::new("Wildcards").weak());
+                        ui.label(tr!("chrome.karten", v = c.total_cards()))
+                            .on_hover_text(tr!("chrome.sammlung_gelesen", v = c.age_text()));
+                        ui.label(RichText::new(tr!("chrome.wildcards_2")).weak());
                         for (i, n) in c.wildcards.as_array().iter().enumerate() {
                             ui.label(
                                 RichText::new(format!("{} {n}", ["C", "U", "R", "M"][i]))
                                     .color(rarity_color(i as u8 + RARITY_COMMON))
                                     .strong(),
                             )
-                            .on_hover_text(format!("{n} {}-Wildcards", RARITY_NAMES[i]));
+                            .on_hover_text(tr!(
+                                "chrome.wildcards",
+                                n = n,
+                                rarity_names = RARITY_NAMES[i]
+                            ));
                         }
                     }
                     None => {
-                        ui.label(RichText::new("Sammlung noch nicht gelesen").color(YELLOW));
+                        ui.label(
+                            RichText::new(tr!("chrome.sammlung_noch_nicht_gelesen")).color(YELLOW),
+                        );
                     }
                 }
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    if ui.button("⚙ Einstellungen").clicked() {
+                    if ui.button(tr!("chrome.einstellungen")).clicked() {
                         self.show_settings = !self.show_settings;
                     }
                     if ui
-                        .toggle_value(&mut self.settings.companion, "Begleitfenster")
-                        .on_hover_text(
-                            "Kleines Fenster, das während einer Partie live Hinweise gibt (Land legen, gefahrlos angreifen, \
-                             tödlicher Angriff …). Es liest nur das Arena-Log. Arena dafür im Fenstermodus oder randlosen Vollbild spielen.",
-                        )
+                        .toggle_value(&mut self.settings.companion, tr!("chrome.begleitfenster"))
+                        .on_hover_text(tr!("chrome.kleines_fenster_waehrend_einer"))
                         .changed()
                     {
                         self.save_settings();
                     }
-                    let button = egui::Button::new(if self.syncing { "Lese …" } else { "Sammlung aktualisieren" });
-                    let hint = "Liest Karten und Wildcards aus dem laufenden MTG Arena (Hauptmenü). Falls Windows nach \
-                                Administratorrechten fragt: Die werden nur gebraucht, um den Speicher des Spiels zu lesen.";
-                    if ui.add_enabled(!self.syncing, button).on_hover_text(hint).clicked() {
+                    let button = egui::Button::new(if self.syncing {
+                        tr!("chrome.lese")
+                    } else {
+                        tr!("chrome.sammlung_aktualisieren")
+                    });
+                    let hint = tr!("chrome.liest_karten_wildcards_aus");
+                    if ui
+                        .add_enabled(!self.syncing, button)
+                        .on_hover_text(hint)
+                        .clicked()
+                    {
                         self.sync_collection(ctx);
                     }
                     let before = self.settings.format;
@@ -58,7 +68,7 @@ impl App {
                             }
                         })
                         .response
-                        .on_hover_text("Format für Turnierdecks, Legalität der Ersatzkarten und Gegner-Erkennung");
+                        .on_hover_text(tr!("chrome.format_turnierdecks_legalitaet_ersatzkarten"));
                     if before != self.settings.format {
                         self.save_settings();
                         self.load_format(false);
@@ -69,12 +79,36 @@ impl App {
             ui.add_space(4.0);
             ui.horizontal(|ui| {
                 let tabs = [
-                    (Tab::Meta, "Turnierdecks", "Aktuelle Turnierdecks: Was kannst du nachbauen, was kostet es?"),
-                    (Tab::Events, "Offizielle Events", "Decklisten von magic.gg: Championships, Arena-Events und Ranglisten-Decks"),
-                    (Tab::Built, "Aus meiner Sammlung", "Decks nur aus Karten, die du schon besitzt"),
-                    (Tab::Paste, "Eigene Liste", "Eine Deckliste einfügen und gegen deine Sammlung prüfen"),
-                    (Tab::Games, "Meine Partien", "Bilanz und Tipps aus deinen gespielten Partien"),
-                    (Tab::DeckCheck, "Deck verbessern", "Welche Karten deines Decks du tauschen solltest"),
+                    (
+                        Tab::Meta,
+                        tr!("chrome.turnierdecks"),
+                        tr!("chrome.aktuelle_turnierdecks_was_kannst"),
+                    ),
+                    (
+                        Tab::Events,
+                        tr!("chrome.offizielle_events"),
+                        tr!("chrome.decklisten_magic_gg_championships"),
+                    ),
+                    (
+                        Tab::Built,
+                        tr!("chrome.aus_meiner_sammlung"),
+                        tr!("chrome.decks_nur_aus_karten"),
+                    ),
+                    (
+                        Tab::Paste,
+                        tr!("chrome.eigene_liste"),
+                        tr!("chrome.deckliste_einfuegen_gegen_sammlung"),
+                    ),
+                    (
+                        Tab::Games,
+                        tr!("chrome.meine_partien"),
+                        tr!("chrome.bilanz_tipps_aus_deinen"),
+                    ),
+                    (
+                        Tab::DeckCheck,
+                        tr!("chrome.deck_verbessern"),
+                        tr!("chrome.welche_karten_deines_decks"),
+                    ),
                 ];
                 for (tab, label, hint) in tabs {
                     let text = RichText::new(label).size(15.0);
@@ -95,7 +129,7 @@ impl App {
                     ui.spinner();
                 }
                 if self.pending > 0 {
-                    ui.label(format!("{} Abrufe in der Warteschlange ·", self.pending));
+                    ui.label(tr!("chrome.abrufe_warteschlange", pending = self.pending));
                 }
                 ui.label(&self.status);
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
@@ -106,68 +140,151 @@ impl App {
     }
 
     pub(super) fn side_panel(&mut self, ctx: &egui::Context) {
-        egui::SidePanel::left("archetypes").default_width(310.0).show(ctx, |ui| {
-            ui.add_space(6.0);
-            ui.strong(format!("Archetypen · {}", FORMATS[self.settings.format].1));
-            ui.horizontal(|ui| {
-                let todo: Vec<Archetype> =
-                    self.archetypes.iter().filter(|a| !self.decks.contains_key(&a.id)).cloned().collect();
-                let hint = "Lädt zu jedem Archetyp das neueste Turnierdeck und prüft es gegen deine Sammlung. Dauert ca. 10 s pro Archetyp (MTGTop8 erlaubt nur eine Anfrage alle 5 s); Ergebnisse werden zwischengespeichert.";
-                if ui.add_enabled(!todo.is_empty(), egui::Button::new("Alle bewerten")).on_hover_text(hint).clicked() {
-                    self.status = format!("Bewerte {} Archetypen …", todo.len());
-                    for arch in todo {
-                        let _ = self.tx_job.send(Job::Decks { format: self.settings.format, arch, urgent: false });
-                    }
-                }
-                if ui.button("Aktualisieren").on_hover_text("Metagame neu von MTGTop8 laden").clicked() {
-                    self.load_format(true);
-                }
-            });
-            ui.checkbox(&mut self.sort_by_fit, "Günstigste zuerst")
-                .on_hover_text("Sortiert nach benötigten Wildcards (Rares und Mythics zuerst).");
-            ui.separator();
-
-            let mut rows: Vec<(Archetype, Option<Summary>)> =
-                self.archetypes.iter().map(|a| (a.clone(), self.best_of_arch(a.id))).collect();
-            if self.sort_by_fit {
-                let wc = self.wildcards();
-                rows.sort_by_key(|(a, s)| (s.is_none(), s.map(|s| cost_key(&s, wc)), std::cmp::Reverse(a.share)));
-            }
-            let mut clicked = None;
-            egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
-                if rows.is_empty() {
-                    ui.label(RichText::new("Noch keine Archetypen geladen.").weak());
-                }
-                for (arch, best) in &rows {
-                    ui.horizontal(|ui| {
-                        let text = format!("{:>2} %  {}", arch.share, arch.name);
-                        if ui.selectable_label(self.sel_arch == Some(arch.id), text).clicked() {
-                            clicked = Some(arch.clone());
+        egui::SidePanel::left("archetypes")
+            .default_width(310.0)
+            .show(ctx, |ui| {
+                ui.add_space(6.0);
+                ui.strong(tr!(
+                    "chrome.archetypen",
+                    v = FORMATS[self.settings.format].1
+                ));
+                ui.horizontal(|ui| {
+                    let todo: Vec<Archetype> = self
+                        .archetypes
+                        .iter()
+                        .filter(|a| !self.decks.contains_key(&a.id))
+                        .cloned()
+                        .collect();
+                    let hint = tr!("chrome.laedt_jedem_archetyp_neueste");
+                    if ui
+                        .add_enabled(
+                            !todo.is_empty(),
+                            egui::Button::new(tr!("chrome.alle_bewerten")),
+                        )
+                        .on_hover_text(hint)
+                        .clicked()
+                    {
+                        self.status = tr!("chrome.bewerte_archetypen", todo_n = todo.len());
+                        for arch in todo {
+                            let _ = self.tx_job.send(Job::Decks {
+                                format: self.settings.format,
+                                arch,
+                                urgent: false,
+                            });
                         }
-                        if let Some(s) = best {
-                            let (color, text) = self.fit_text(s);
-                            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                                ui.label(RichText::new(text).color(color)).on_hover_text(format!(
-                                    "Günstigste bisher geladene Liste\n{}",
-                                    cost_tooltip(s)
-                                ));
+                    }
+                    if ui
+                        .button(tr!("chrome.aktualisieren"))
+                        .on_hover_text(tr!("chrome.metagame_neu_mtgtop8_laden"))
+                        .clicked()
+                    {
+                        self.load_format(true);
+                    }
+                });
+                ui.checkbox(&mut self.sort_by_fit, tr!("chrome.guenstigste_zuerst"))
+                    .on_hover_text(tr!("chrome.sortiert_nach_benoetigten_wildcards"));
+                ui.separator();
+
+                let mut rows: Vec<(Archetype, Option<Summary>)> = self
+                    .archetypes
+                    .iter()
+                    .map(|a| (a.clone(), self.best_of_arch(a.id)))
+                    .collect();
+                if self.sort_by_fit {
+                    let wc = self.wildcards();
+                    rows.sort_by_key(|(a, s)| {
+                        (
+                            s.is_none(),
+                            s.map(|s| cost_key(&s, wc)),
+                            std::cmp::Reverse(a.share),
+                        )
+                    });
+                }
+                let mut clicked = None;
+                egui::ScrollArea::vertical()
+                    .auto_shrink([false, false])
+                    .show(ui, |ui| {
+                        if rows.is_empty() {
+                            ui.label(
+                                RichText::new(tr!("chrome.noch_keine_archetypen_geladen")).weak(),
+                            );
+                        }
+                        for (arch, best) in &rows {
+                            ui.horizontal(|ui| {
+                                let text = format!("{:>2} %  {}", arch.share, arch.name);
+                                if ui
+                                    .selectable_label(self.sel_arch == Some(arch.id), text)
+                                    .clicked()
+                                {
+                                    clicked = Some(arch.clone());
+                                }
+                                if let Some(s) = best {
+                                    let (color, text) = self.fit_text(s);
+                                    ui.with_layout(
+                                        egui::Layout::right_to_left(egui::Align::Center),
+                                        |ui| {
+                                            ui.label(RichText::new(text).color(color))
+                                                .on_hover_text(tr!(
+                                                    "chrome.guenstigste_bisher_geladene_liste",
+                                                    v = cost_tooltip(s)
+                                                ));
+                                        },
+                                    );
+                                }
                             });
                         }
                     });
+                if let Some(arch) = clicked {
+                    self.tab = Tab::Meta;
+                    self.sel_arch = Some(arch.id);
+                    self.sel_deck = self
+                        .decks
+                        .get(&arch.id)
+                        .and_then(|d| d.first())
+                        .map(|d| d.id);
+                    if self.decks.contains_key(&arch.id) {
+                        self.queue_variants(arch.id);
+                    } else {
+                        self.status = tr!("chrome.lade_decks", name = arch.name);
+                        let _ = self.tx_job.send(Job::Decks {
+                            format: self.settings.format,
+                            arch,
+                            urgent: true,
+                        });
+                    }
                 }
             });
-            if let Some(arch) = clicked {
-                self.tab = Tab::Meta;
-                self.sel_arch = Some(arch.id);
-                self.sel_deck = self.decks.get(&arch.id).and_then(|d| d.first()).map(|d| d.id);
-                if self.decks.contains_key(&arch.id) {
-                    self.queue_variants(arch.id);
-                } else {
-                    self.status = format!("Lade Decks für {} …", arch.name);
-                    let _ = self.tx_job.send(Job::Decks { format: self.settings.format, arch, urgent: true });
-                }
-            }
+    }
+
+    /// Sprache: wie das Betriebssystem oder fest gewählt. Gilt sofort;
+    /// berechnete Auswertungen werden neu erstellt.
+    fn language_choice(&mut self, ui: &mut egui::Ui) {
+        use crate::i18n::{Language, Locale};
+        let label = |l: Language| match l {
+            Language::System => tr!(
+                "chrome.sprache_system",
+                lang = Locale::system().native_name()
+            ),
+            Language::Fixed(locale) => locale.native_name().to_string(),
+        };
+        let before = self.settings.language;
+        ui.horizontal(|ui| {
+            ui.label(tr!("chrome.sprache"));
+            egui::ComboBox::from_id_salt("language")
+                .selected_text(label(self.settings.language))
+                .show_ui(ui, |ui| {
+                    let options =
+                        std::iter::once(Language::System).chain(Locale::ALL.map(Language::Fixed));
+                    for l in options {
+                        ui.selectable_value(&mut self.settings.language, l, label(l));
+                    }
+                });
         });
+        if self.settings.language != before {
+            crate::i18n::set(self.settings.language.resolve());
+            self.on_language_changed();
+            self.save_settings();
+        }
     }
 
     pub(super) fn settings_window(&mut self, ctx: &egui::Context) {
@@ -176,51 +293,67 @@ impl App {
         }
         let mut open = true;
         let mut reload_db = false;
-        egui::Window::new("Einstellungen")
+        egui::Window::new(tr!("chrome.einstellungen_2"))
             .open(&mut open)
             .collapsible(false)
             .resizable(false)
             .default_width(440.0)
             .show(ctx, |ui| {
-                ui.strong("Darstellung");
+                ui.strong(tr!("chrome.darstellung"));
+                self.language_choice(ui);
                 let mut zoom = self.settings.zoom;
                 if ui
-                    .add(egui::Slider::new(&mut zoom, 0.8..=1.6).step_by(0.05).text("Textgröße"))
+                    .add(
+                        egui::Slider::new(&mut zoom, 0.8..=1.6)
+                            .step_by(0.05)
+                            .text(tr!("chrome.textgroesse")),
+                    )
                     .changed()
                 {
                     self.settings.zoom = zoom;
                     ctx.set_zoom_factor(zoom);
                 }
                 ui.separator();
-                ui.strong("Decks exportieren");
-                ui.checkbox(&mut self.settings.include_side, "Sideboard einbeziehen")
-                    .on_hover_text("Für Best-of-One ausschalten – dann zählt das Sideboard auch nicht bei den Wildcards.");
-                ui.checkbox(&mut self.settings.with_sets, "Mit Set-Kürzeln exportieren")
-                    .on_hover_text("Empfohlen, wenn Arena nicht auf Englisch läuft.");
+                ui.strong(tr!("chrome.decks_exportieren"));
+                ui.checkbox(
+                    &mut self.settings.include_side,
+                    tr!("chrome.sideboard_einbeziehen"),
+                )
+                .on_hover_text(tr!("chrome.best_of_one_ausschalten"));
+                ui.checkbox(
+                    &mut self.settings.with_sets,
+                    tr!("chrome.set_kuerzeln_exportieren"),
+                )
+                .on_hover_text(tr!("chrome.empfohlen_wenn_arena_nicht"));
                 ui.separator();
-                ui.strong("Während der Partie");
+                ui.strong(tr!("chrome.waehrend_partie"));
                 if ui
-                    .checkbox(&mut self.settings.companion, "Begleitfenster anzeigen")
+                    .checkbox(
+                        &mut self.settings.companion,
+                        tr!("chrome.begleitfenster_anzeigen"),
+                    )
                     .changed()
                 {
                     self.save_settings();
                 }
                 if self.logs_disabled {
                     ui.label(
-                        RichText::new("„Detaillierte Logs“ sind in Arena aus – ohne sie bleiben Begleitfenster und Partien leer.")
-                            .color(YELLOW),
+                        RichText::new(tr!("chrome.detaillierte_logs_arena_aus")).color(YELLOW),
                     );
                 }
                 ui.separator();
-                ui.strong("MTG Arena");
-                ui.label("Installationsordner (leer = automatisch erkennen):");
+                ui.strong(tr!("chrome.mtg_arena"));
+                ui.label(tr!("chrome.installationsordner_leer_automatisch_erkennen"));
                 ui.text_edit_singleline(&mut self.settings.mtga_dir);
                 ui.horizontal(|ui| {
-                    reload_db = ui.button("Kartendaten neu laden").clicked();
+                    reload_db = ui.button(tr!("chrome.kartendaten_neu_laden")).clicked();
                     ui.label(RichText::new(&self.db_status).weak());
                 });
                 ui.separator();
-                if ui.button("„Erste Schritte“ wieder anzeigen").clicked() {
+                if ui
+                    .button(tr!("chrome.erste_schritte_wieder_anzeigen"))
+                    .clicked()
+                {
                     self.settings.onboarding_hidden = false;
                 }
             });
@@ -243,23 +376,23 @@ impl App {
         let steps = [
             (
                 self.db.is_some(),
-                "Kartendaten von MTG Arena gefunden",
-                "Installationsordner in den Einstellungen angeben.",
+                tr!("chrome.kartendaten_mtg_arena_gefunden"),
+                tr!("chrome.installationsordner_einstellungen_angeben"),
             ),
             (
                 self.collection.is_some(),
-                "Sammlung gelesen",
-                "Arena starten, ins Hauptmenü gehen und „Sammlung aktualisieren“ klicken.",
+                tr!("chrome.sammlung_gelesen_2"),
+                tr!("chrome.arena_starten_ins_hauptmenue"),
             ),
             (
                 logs_known && !self.logs_disabled,
-                "„Detaillierte Logs“ in Arena aktiv",
-                "In Arena: Zahnrad > Konto > „Detaillierte Logs (Plugin-Unterstützung)“, dann Arena neu starten.",
+                tr!("chrome.detaillierte_logs_arena_aktiv"),
+                tr!("chrome.arena_zahnrad_konto_detaillierte"),
             ),
             (
                 !self.archetypes.is_empty(),
-                "Turnierdecks geladen",
-                "Internetverbindung prüfen, dann „Aktualisieren“ unter Turnierdecks.",
+                tr!("chrome.turnierdecks_geladen"),
+                tr!("chrome.internetverbindung_pruefen_dann_aktualisieren"),
             ),
         ];
         if steps.iter().all(|(done, _, _)| *done) {
@@ -268,9 +401,9 @@ impl App {
         let mut sync = false;
         egui::Frame::group(ui.style()).show(ui, |ui| {
             ui.horizontal(|ui| {
-                ui.strong("Erste Schritte");
+                ui.strong(tr!("chrome.erste_schritte"));
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    if ui.small_button("Ausblenden").clicked() {
+                    if ui.small_button(tr!("chrome.ausblenden")).clicked() {
                         self.settings.onboarding_hidden = true;
                     }
                 });
@@ -278,12 +411,12 @@ impl App {
             for (i, (done, title, how)) in steps.iter().enumerate() {
                 ui.horizontal_wrapped(|ui| {
                     if *done {
-                        ui.label(RichText::new(format!("✔ {title}")).color(GREEN));
+                        ui.label(RichText::new(tr!("chrome.text", title = title)).color(GREEN));
                     } else {
-                        ui.label(RichText::new(format!("○ {title}")).strong());
-                        ui.label(RichText::new(*how).weak());
+                        ui.label(RichText::new(tr!("chrome.text_2", title = title)).strong());
+                        ui.label(RichText::new(how.as_str()).weak());
                         if i == 1 && !self.syncing {
-                            sync = ui.small_button("Jetzt lesen").clicked();
+                            sync = ui.small_button(tr!("chrome.jetzt_lesen")).clicked();
                         }
                     }
                 });

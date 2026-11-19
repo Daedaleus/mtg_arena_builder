@@ -8,7 +8,7 @@ impl App {
         let format = self.settings.format;
         if force || self.gg_format != Some(format) {
             self.gg_format = Some(format);
-            self.status = "Lade Decklisten von magic.gg …".into();
+            self.status = tr!("events.lade_decklisten_magic_gg");
             let _ = self.tx_job.send(Job::GgEvents { format, force });
         }
     }
@@ -20,16 +20,16 @@ impl App {
             .default_width(330.0)
             .show(ctx, |ui| {
                 ui.add_space(6.0);
-                ui.strong(format!("Events · {}", FORMATS[self.settings.format].1));
+                ui.strong(tr!("events.events", v = FORMATS[self.settings.format].1));
                 ui.horizontal(|ui| {
                     if ui
-                        .button("Aktualisieren")
-                        .on_hover_text("Liste neu von magic.gg laden")
+                        .button(tr!("events.aktualisieren"))
+                        .on_hover_text(tr!("events.liste_neu_magic_gg"))
                         .clicked()
                     {
                         self.ensure_gg_events(true);
                     }
-                    ui.label(RichText::new("Quelle: magic.gg").weak());
+                    ui.label(RichText::new(tr!("events.quelle_magic_gg")).weak());
                 });
                 ui.separator();
                 let mut clicked: Option<String> = None;
@@ -37,7 +37,7 @@ impl App {
                     .auto_shrink([false, false])
                     .show(ui, |ui| {
                         if self.gg_events.is_empty() {
-                            ui.label(RichText::new("Noch keine Events geladen.").weak());
+                            ui.label(RichText::new(tr!("events.noch_keine_events_geladen")).weak());
                         }
                         for e in &self.gg_events {
                             let selected = self.sel_gg_event.as_deref() == Some(e.slug.as_str());
@@ -54,7 +54,7 @@ impl App {
                     self.sel_gg_deck = None;
                     if !self.gg_decks.contains_key(&slug) && self.gg_requested.insert(slug.clone())
                     {
-                        self.status = "Lade Decks von magic.gg …".into();
+                        self.status = tr!("events.lade_decks_magic_gg");
                         let _ = self.tx_job.send(Job::GgDecks { slug: slug.clone() });
                     }
                     self.sel_gg_event = Some(slug);
@@ -66,15 +66,12 @@ impl App {
     pub(super) fn events_tab(&mut self, ui: &mut egui::Ui) {
         let Some(slug) = self.sel_gg_event.clone() else {
             ui.add_space(20.0);
-            ui.label(
-                "Links ein Event wählen. magic.gg veröffentlicht die Decks von Championships, \
-                 Arena-Events und jede Woche Decks aus der Ranglisten-Spitze (Traditional, Bo3).",
-            );
+            ui.label(tr!("events.links_event_waehlen_magic"));
             return;
         };
         let Some(decks) = self.gg_decks.get(&slug).cloned() else {
             ui.add_space(20.0);
-            ui.label("Decks werden geladen …");
+            ui.label(tr!("events.decks_werden_geladen"));
             return;
         };
         let Some(db) = self.db.clone() else { return };
@@ -85,7 +82,7 @@ impl App {
             .map(|e| e.title.clone())
             .unwrap_or(slug.clone());
         ui.heading(title);
-        ui.checkbox(&mut self.sort_by_fit, "Günstigste zuerst");
+        ui.checkbox(&mut self.sort_by_fit, tr!("events.guenstigste_zuerst"));
 
         let shares = opponents::arch_shares(&self.meta_archetypes(), &db);
         let mut rows: Vec<(u32, String, String, Option<Summary>)> = decks

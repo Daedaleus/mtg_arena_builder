@@ -53,3 +53,5 @@ Stand: 16.11.2026. Erledigtes steht in der Git-Historie.
       `Mistake`, `LandVerdict`), lange Funktionen in Schritte geteilt
       (Auswertung, Simulation, Deckbau, Deckprüfung, Begleiter, Parser,
       Spielstil, Oberfläche); Spielobjekte in fester Reihenfolge.
+- [x] Zweisprachig (Deutsch/Englisch): Texte in `locales/app.yml`, Sprache aus
+      dem Betriebssystem oder den Einstellungen, Kartennamen und -bilder je Sprache.

@@ -183,7 +183,10 @@ fn swaps(
             .map(|sug| {
                 (
                     sug.name,
-                    format!("ähnliche Karte aus deiner Sammlung ({}×)", sug.owned),
+                    tr!(
+                        "deckcheck_analysis.aehnliche_karte_aus_deiner",
+                        owned = sug.owned
+                    ),
                 )
             });
         swaps.push((
@@ -204,18 +207,21 @@ fn swap_reasons(s: &CardStat) -> (u32, Vec<String>) {
     let mut reasons: Vec<String> = Vec::new();
     let mut weight = 0;
     if s.seen >= 2 && s.cast == 0 {
-        reasons.push(format!("in {} Partien gezogen, aber nie gespielt", s.seen));
+        reasons.push(tr!(
+            "deckcheck_analysis.partien_gezogen_aber_nie",
+            seen = s.seen
+        ));
         weight += 3;
     }
     if s.held >= 2 {
-        reasons.push(format!(
-            "in {} Partien lange ungespielt auf der Hand",
-            s.held
+        reasons.push(tr!(
+            "deckcheck_analysis.partien_lange_ungespielt_hand",
+            held = s.held
         ));
         weight += 2;
     }
     if s.meta_share.is_some_and(|m| m < 0.1) {
-        reasons.push("spielt im Turnier-Archetyp kaum jemand".into());
+        reasons.push(tr!("deckcheck_analysis.spielt_turnier_archetyp_kaum"));
         weight += 1;
     }
     (weight, reasons)

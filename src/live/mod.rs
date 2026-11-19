@@ -18,6 +18,7 @@ use std::time::{Duration, Instant};
 use eframe::egui;
 
 use crate::carddb::{Card, CardDb};
+use crate::games::arena::Phase;
 use crate::games::{GameRecord, LiveCreature, LiveState, LogParser};
 
 mod damage;

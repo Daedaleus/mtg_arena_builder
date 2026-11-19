@@ -2,6 +2,13 @@
 //! Partie-Auswertung und Begleitfenster. Die ausführbare Datei (`main.rs`)
 //! enthält nur Kommandozeile und Programmstart.
 
+// Anzeigetexte aus `locales/app.yml` (siehe `i18n`); fehlt ein englischer
+// Text, gilt der deutsche.
+rust_i18n::i18n!("locales", fallback = "de");
+
+#[macro_use]
+pub mod i18n;
+
 pub mod app;
 pub mod budget;
 pub mod builder;

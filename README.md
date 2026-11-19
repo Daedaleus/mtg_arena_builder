@@ -12,6 +12,10 @@ echten Einsatz ausprobiert (siehe [ToDo.md](ToDo.md)).
 
 ## Funktionen
 
+Die Oberfläche gibt es auf Deutsch und Englisch – standardmäßig in der Sprache
+des Betriebssystems, unter „Einstellungen“ änderbar. Kartennamen und
+Kartenbilder erscheinen in derselben Sprache.
+
 | Reiter | Was er tut |
 |---|---|
 | **Turnierdecks** | Archetypen und Decklisten von MTGTop8 je Format. Zeigt, was mit der eigenen Sammlung fehlt und ob die Wildcards reichen; Ersatzkarten aus der Sammlung, „Budget-Version bauen“, **Wildcard-Plan** (was jetzt herstellbar ist und in welcher Reihenfolge der Rest folgt), **Probehände** und Export für den Arena-Import. |

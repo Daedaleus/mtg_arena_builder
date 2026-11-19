@@ -9,8 +9,12 @@ pub fn draw(ui: &mut egui::Ui, view: &CompanionView) {
     ui.heading(&view.status);
     if let Some((me, opp)) = view.life {
         ui.horizontal(|ui| {
-            ui.label(egui::RichText::new(format!("Du: {me}")).strong().size(18.0));
-            ui.label(egui::RichText::new(format!("Gegner: {opp}")).size(18.0));
+            ui.label(
+                egui::RichText::new(tr!("live_draw.du", me = me))
+                    .strong()
+                    .size(18.0),
+            );
+            ui.label(egui::RichText::new(tr!("live_draw.gegner", opp = opp)).size(18.0));
         });
     }
     if !view.board.is_empty() {
@@ -27,7 +31,7 @@ pub fn draw(ui: &mut egui::Ui, view: &CompanionView) {
     }
     if !view.opponent.is_empty() {
         ui.separator();
-        ui.label(egui::RichText::new(format!("Gegner: {}", view.opponent)).strong());
+        ui.label(egui::RichText::new(tr!("live_draw.gegner_2", opponent = view.opponent)).strong());
         if !view.opp_cards.is_empty() {
             ui.label(egui::RichText::new(view.opp_cards.join(", ")).weak());
         }

@@ -12,13 +12,13 @@ pub const CLASSES: [&str; 6] = ["Bronze", "Silver", "Gold", "Platinum", "Diamond
 const STEPS_PER_LEVEL: f64 = 6.0;
 
 /// Deutscher Name einer Klasse.
-pub fn class_name(class: &str) -> &str {
+pub fn class_name(class: &str) -> String {
     match class {
-        "Silver" => "Silber",
-        "Platinum" => "Platin",
-        "Diamond" => "Diamant",
-        "Mythic" => "Mythisch",
-        c => c,
+        "Silver" => tr!("progress.silber"),
+        "Platinum" => tr!("progress.platin"),
+        "Diamond" => tr!("progress.diamant"),
+        "Mythic" => tr!("progress.mythisch"),
+        c => c.to_string(),
     }
 }
 
@@ -47,7 +47,12 @@ pub fn queue_label(r: &Rank, q: Queue) -> String {
     if class == "Mythic" {
         return class_name(class).to_string();
     }
-    format!("{} {level}, Schritt {step}", class_name(class))
+    tr!(
+        "progress.schritt",
+        v = class_name(class),
+        level = level,
+        step = step
+    )
 }
 
 /// Constructed-Rang als Zahl (siehe [`queue_points`]).
@@ -70,10 +75,14 @@ pub fn points_label(points: f64) -> String {
     let p = points.max(0.0);
     let class = ((p / 4.0) as usize).min(CLASSES.len() - 1);
     if CLASSES[class] == "Mythic" {
-        return "Mythisch".into();
+        return tr!("progress.mythisch");
     }
     let level = 4 - ((p - class as f64 * 4.0) as u32).min(3);
-    format!("{} {level}", class_name(CLASSES[class]))
+    tr!(
+        "progress.text",
+        v = class_name(CLASSES[class]),
+        level = level
+    )
 }
 
 /// Indizes der Partien in zeitlicher Reihenfolge (älteste zuerst).

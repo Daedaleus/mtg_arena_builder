@@ -150,7 +150,7 @@ fn recommends_cheapest_decks_of_style() {
     let cand = |id, label: &str, style, rare| Candidate {
         deck_id: id,
         label: label.into(),
-        source: "Turnierdecks",
+        source: "Turnierdecks".to_string(),
         style,
         summary: Summary {
             total: 60,

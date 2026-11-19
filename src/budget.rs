@@ -200,14 +200,18 @@ pub fn replaced_qty(db: &CardDb, owned: &HashMap<String, u32>, rep: &str, missin
 /// Zusammenfassung einer Budget-Version für die Statuszeile.
 pub fn plan_text(plan: &BudgetPlan) -> String {
     let c = plan.crafted;
-    let mut text = format!(
-        "Budget-Version: {} Karten durch eigene ersetzt, mit Wildcards herzustellen: {} Common, {} Uncommon, {} Rare, {} Mythic.",
-        plan.replaced, c[0], c[1], c[2], c[3]
+    let mut text = tr!(
+        "budget.budget_version_karten_durch",
+        replaced = plan.replaced,
+        v = c[0],
+        v2 = c[1],
+        v3 = c[2],
+        v4 = c[3]
     );
     if !plan.unresolved.is_empty() {
-        text.push_str(&format!(
-            " Ohne passenden Ersatz: {}.",
-            plan.unresolved.join(", ")
+        text.push_str(&tr!(
+            "budget.ohne_passenden_ersatz",
+            v = plan.unresolved.join(", ")
         ));
     }
     text

@@ -10,7 +10,7 @@ use std::path::PathBuf;
 use std::thread::sleep;
 use std::time::{Duration, Instant, SystemTime};
 
-use anyhow::{Context, Result, anyhow, bail};
+use anyhow::{Context, Result};
 use regex::Regex;
 
 use crate::carddb::name_key;
@@ -114,7 +114,7 @@ impl Fetcher {
             .agent
             .get(url)
             .call()
-            .with_context(|| format!("Abruf von {url} fehlgeschlagen"))?;
+            .with_context(|| tr!("meta.abruf_fehlgeschlagen", url = url))?;
         let mut bytes = Vec::new();
         resp.into_reader().take(5_000_000).read_to_end(&mut bytes)?;
         let text: String = if latin1 {
@@ -150,7 +150,7 @@ impl Fetcher {
         let html = self.gg("decklists", "gg_index.html", max_age)?;
         let list = magicgg::parse_index(&html, format);
         if list.is_empty() {
-            bail!("Auf magic.gg wurden für dieses Format keine Decklisten gefunden.");
+            anyhow::bail!(tr!("meta.magic_gg_wurden_dieses"));
         }
         Ok(list)
     }
@@ -179,7 +179,7 @@ impl Fetcher {
         let decks = magicgg::parse_event(&html);
         if decks.is_empty() {
             let _ = fs::remove_file(self.cache.join(&file));
-            bail!("magic.gg hat für dieses Event keine Decklisten geliefert.");
+            anyhow::bail!(tr!("meta.magic_gg_hat_dieses"));
         }
         Ok(decks)
     }
@@ -203,7 +203,7 @@ impl Fetcher {
         )?;
         let list = parse_archetypes(&html);
         if list.is_empty() {
-            bail!("Auf MTGTop8 wurden für dieses Format keine Archetypen gefunden.");
+            anyhow::bail!(tr!("meta.mtgtop8_wurden_dieses_format"));
         }
         Ok(list)
     }
@@ -241,7 +241,7 @@ impl Fetcher {
         )?;
         if text.contains("<html") || text.trim().is_empty() {
             let _ = fs::remove_file(self.cache.join(format!("deck_{deck_id}.txt")));
-            bail!("MTGTop8 hat keine Deckliste geliefert.");
+            anyhow::bail!(tr!("meta.mtgtop8_hat_keine_deckliste"));
         }
         Ok(text)
     }
@@ -264,7 +264,7 @@ impl Fetcher {
                 .get(&url)
                 .set("Accept", "application/json")
                 .call()
-                .map_err(|e| anyhow!("Scryfall: {e}"))?;
+                .map_err(|e| anyhow::anyhow!(tr!("meta.scryfall", e = e)))?;
             let page: serde_json::Value = serde_json::from_reader(resp.into_reader())?;
             let (found, next) = parse_scryfall_page(&page);
             names.extend(found);
@@ -275,7 +275,7 @@ impl Fetcher {
             sleep(Duration::from_millis(120)); // Scryfall bittet um 50–100 ms Abstand
         }
         if names.is_empty() {
-            bail!("Scryfall kennt für dieses Format keine Arena-Karten.");
+            anyhow::bail!(tr!("meta.scryfall_kennt_dieses_format"));
         }
         let _ = fs::write(self.cache.join(&file), serde_json::to_string(&names)?);
         Ok(names.into_iter().collect())

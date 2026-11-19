@@ -260,7 +260,7 @@ pub fn likely_tricks(
     let mut names: HashSet<String> = HashSet::new();
     for c in seen.iter().filter_map(|g| db.cards.get(g)) {
         if is_trick(c) && c.cmc <= open_mana && names.insert(c.name.clone()) {
-            out.push((c.name.clone(), None));
+            out.push((c.display_name().to_string(), None));
         }
     }
     if let Some(arch) = arch {
@@ -274,7 +274,7 @@ pub fn likely_tricks(
         common.sort_by(|a, b| b.1.total_cmp(&a.1).then(a.0.name.cmp(&b.0.name)));
         for (c, s) in common {
             if names.insert(c.name.clone()) {
-                out.push((c.name.clone(), Some(s)));
+                out.push((c.display_name().to_string(), Some(s)));
             }
         }
     }

@@ -16,8 +16,10 @@ image = { version = "0.25", default-features = false, features = ["jpeg", "png"]
 mtga-reader = { git = "https://github.com/mtgatool/mtga-reader", rev = "51dd0f2570dbd45053b4ec01ce504dc8adcac2a3", version = "0.0.0" }
 regex = "1.13.1"
 rusqlite = { version = "0.43.0", features = ["bundled"] }
+rust-i18n = "4.2.4"
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.154"
+sys-locale = "0.3.2"
 ureq = "2"
 
 # Bettet Logo und Versionsinfos in die Windows-Exe ein (siehe build.rs).

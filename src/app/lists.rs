@@ -6,7 +6,7 @@ impl App {
     pub(super) fn meta_tab(&mut self, ui: &mut egui::Ui) {
         let Some(arch_id) = self.sel_arch else {
             ui.add_space(20.0);
-            ui.label("Links einen Archetyp auswählen – oder „Alle bewerten“, um zu sehen, welche Turnierdecks du schon (fast) bauen kannst.");
+            ui.label(tr!("lists.links_einen_archetyp_auswaehlen"));
             return;
         };
         let name = self
@@ -19,12 +19,12 @@ impl App {
         let Some(decks) = self.decks.get(&arch_id).cloned() else {
             ui.horizontal(|ui| {
                 ui.spinner();
-                ui.label("Lade Turnierdecks …");
+                ui.label(tr!("lists.lade_turnierdecks"));
             });
             return;
         };
         if decks.is_empty() {
-            ui.label("Für diesen Archetyp wurden keine Decks gefunden.");
+            ui.label(tr!("lists.diesen_archetyp_wurden_keine"));
             return;
         }
 
@@ -39,10 +39,10 @@ impl App {
             .map(|(id, _)| *id);
         if summaries.len() < decks.len() {
             ui.label(
-                RichText::new(format!(
-                    "{} von {} Listen bewertet – die übrigen werden im Hintergrund geladen.",
-                    summaries.len(),
-                    decks.len()
+                RichText::new(tr!(
+                    "lists.listen_bewertet_uebrigen_werden",
+                    summaries_n = summaries.len(),
+                    decks_n = decks.len()
                 ))
                 .weak(),
             );
@@ -58,7 +58,13 @@ impl App {
                 .column(Column::auto().at_least(70.0))
                 .column(Column::auto().at_least(190.0))
                 .header(20.0, |mut h| {
-                    for title in ["Spieler", "Turnier", "Platz", "Datum", "Wildcards nötig"] {
+                    for title in [
+                        tr!("lists.spieler"),
+                        tr!("lists.turnier"),
+                        tr!("lists.platz"),
+                        tr!("lists.datum"),
+                        tr!("lists.wildcards_noetig"),
+                    ] {
                         h.col(|ui| {
                             ui.strong(title);
                         });
@@ -88,13 +94,13 @@ impl App {
                                 Some(s) => {
                                     let (color, mut text) = self.fit_text(s);
                                     if cheapest == Some(d.id) && summaries.len() > 1 {
-                                        text.push_str("  · am günstigsten");
+                                        text.push_str(&tr!("lists.guenstigsten"));
                                     }
                                     ui.label(RichText::new(text).color(color))
                                         .on_hover_text(cost_tooltip(s));
                                 }
                                 None => {
-                                    ui.label(RichText::new("nicht geladen").weak());
+                                    ui.label(RichText::new(tr!("lists.nicht_geladen")).weak());
                                 }
                             });
                         });
@@ -117,7 +123,7 @@ impl App {
             Some(_) => {
                 ui.horizontal(|ui| {
                     ui.spinner();
-                    ui.label("Lade Deckliste …");
+                    ui.label(tr!("lists.lade_deckliste"));
                 });
             }
             None => {}
@@ -152,7 +158,7 @@ impl App {
 
     pub(super) fn built_tab(&mut self, ui: &mut egui::Ui) {
         if self.collection.is_none() || self.db.is_none() {
-            ui.label("Dafür muss zuerst die Sammlung gelesen werden (oben rechts).");
+            ui.label(tr!("lists.dafuer_muss_zuerst_sammlung"));
             return;
         }
         // Neu rechnen, wenn inzwischen weitere Turnierlisten geladen wurden
@@ -162,17 +168,14 @@ impl App {
         if self.built.is_none() || stale {
             self.compute_built();
         }
-        ui.label(format!(
-            "Decks, die du sofort und ohne Wildcards bauen kannst – zusammengestellt aus deinen stärksten {}-legalen Karten je Farbkombination.",
-            FORMATS[self.settings.format].1
+        ui.label(tr!(
+            "lists.decks_sofort_ohne_wildcards",
+            v = FORMATS[self.settings.format].1
         ));
-        ui.label(
-            RichText::new("Die Kartenstärke ist geschätzt (Seltenheit, Vorkommen in Turnierdecks, Werte, Removal). Je mehr Turnierdecks unter „Turnierdecks“ geladen sind, desto besser die Schätzung.")
-                .weak(),
-        );
+        ui.label(RichText::new(tr!("lists.kartenstaerke_geschaetzt_seltenheit_vorkommen")).weak());
         let built = self.built.clone().unwrap_or_default();
         if built.is_empty() {
-            ui.label(RichText::new("Aus deiner Sammlung lässt sich in diesem Format noch kein vollständiges Deck bauen.").color(YELLOW));
+            ui.label(RichText::new(tr!("lists.aus_deiner_sammlung_laesst")).color(YELLOW));
             return;
         }
         ui.add_space(4.0);
@@ -181,31 +184,26 @@ impl App {
                 let text = format!("{}  {:.1}", b.label, b.score);
                 if ui
                     .selectable_label(self.sel_built == i, text)
-                    .on_hover_text(
-                        "Geschätzte Stärke (höher = besser), nur untereinander vergleichbar",
-                    )
+                    .on_hover_text(tr!("lists.geschaetzte_staerke_hoeher_besser"))
                     .clicked()
                 {
                     self.sel_built = i;
                 }
             }
-            if ui.button("Neu berechnen").clicked() {
+            if ui.button(tr!("lists.neu_berechnen")).clicked() {
                 self.built = None;
             }
         });
         let Some(b) = built.get(self.sel_built) else {
             return;
         };
-        ui.label(format!(
-            "{}: {} Kreaturen · {} Removal · Ø {:.1} Mana · {} Rares/Mythics · {} Karten, die auch in Turnierdecks gespielt werden",
-            b.label, b.creatures, b.removal, b.avg_cmc, b.rares, b.meta_cards
-        ));
+        ui.label(tr!("lists.kreaturen_removal_mana_rares", label = b.label, creatures = b.creatures, removal = b.removal, avg_cmc = b.avg_cmc : {:.1}, rares = b.rares, meta_cards = b.meta_cards));
         ui.separator();
         self.deck_view(ui, BUILT_BASE + self.sel_built as u32);
     }
 
     pub(super) fn paste_tab(&mut self, ui: &mut egui::Ui) {
-        ui.label("Deckliste im Arena- oder MTGO-Textformat einfügen (z. B. von MTGGoldfish, Untapped oder aus Arena exportiert):");
+        ui.label(tr!("lists.deckliste_arena_oder_mtgo"));
         egui::ScrollArea::vertical()
             .id_salt("paste")
             .max_height(140.0)
@@ -214,10 +212,10 @@ impl App {
                     egui::TextEdit::multiline(&mut self.paste_text)
                         .desired_rows(6)
                         .desired_width(f32::INFINITY)
-                        .hint_text("4 Watery Grave\n4 Island\n…\n\nSideboard\n2 Duress"),
+                        .hint_text(tr!("lists.4_watery_grave_4")),
                 );
             });
-        if ui.button("Prüfen").clicked() {
+        if ui.button(tr!("lists.pruefen")).clicked() {
             self.repl.retain(|k, _| k.0 != PASTED);
             self.subs.retain(|k, _| k.0 != PASTED);
             self.set_list(PASTED, deck::parse(&self.paste_text));

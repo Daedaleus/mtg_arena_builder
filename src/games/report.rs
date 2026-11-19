@@ -20,12 +20,12 @@ pub struct Category {
 }
 
 impl Category {
-    pub fn title(&self) -> &'static str {
+    pub fn title(&self) -> String {
         self.kind.title()
     }
 
     /// Was man stattdessen tun sollte.
-    pub fn advice(&self) -> &'static str {
+    pub fn advice(&self) -> String {
         self.kind.advice()
     }
 }
@@ -70,7 +70,7 @@ pub(super) fn names(db: &CardDb, grps: &[u32]) -> String {
     let mut list: Vec<String> = grps
         .iter()
         .filter_map(|g| card(db, *g))
-        .map(|c| c.name.clone())
+        .map(|c| c.display_name().to_string())
         .collect();
     list.sort();
     list.dedup();
@@ -195,7 +195,11 @@ fn check_concede(r: &mut Report, found: &mut Findings, g: &GameRecord, nr: usize
             Finding {
                 game: nr,
                 turn: g.last_turn(),
-                text: format!("aufgegeben mit {life_me} Leben (Gegner {life_opp})"),
+                text: tr!(
+                    "games_report.aufgegeben_leben_gegner",
+                    life_me = life_me,
+                    life_opp = life_opp
+                ),
             },
         );
     }
@@ -226,7 +230,11 @@ fn check_keep(r: &mut Report, found: &mut Findings, g: &GameRecord, db: &CardDb,
             Finding {
                 game: nr,
                 turn: 0,
-                text: format!("{} Karten mit {lands} Ländern behalten", hand.len()),
+                text: tr!(
+                    "games_report.karten_laendern_behalten",
+                    hand_n = hand.len(),
+                    lands = lands
+                ),
             },
         );
     }
@@ -251,9 +259,10 @@ fn check_turns(r: &mut Report, found: &mut Findings, g: &GameRecord, db: &CardDb
             Finding {
                 game: nr,
                 turn: h.last_turn,
-                text: format!(
-                    "{} lag {} eigene Züge bezahlbar auf der Hand",
-                    h.card.name, h.turns
+                text: tr!(
+                    "games_report.lag_eigene_zuege_bezahlbar",
+                    name = h.card.display_name(),
+                    turns = h.turns
                 ),
             },
         );
@@ -264,14 +273,19 @@ fn check_turns(r: &mut Report, found: &mut Findings, g: &GameRecord, db: &CardDb
 fn check_opp_turn(found: &mut Findings, t: &TurnStat, lost: i32, nr: usize) {
     let before = t.life_me + lost;
     if !t.blocked && t.my_untapped_creatures > 0 && lost >= 3 && before <= 10 {
-        found.push(Mistake::NoBlock, Finding {
-            game: nr,
-            turn: t.turn,
-            text: format!(
-                "{lost} Schaden bei {before} Leben genommen, {} eigene Kreatur(en) hätten blocken können",
-                t.my_untapped_creatures
-            ),
-        });
+        found.push(
+            Mistake::NoBlock,
+            Finding {
+                game: nr,
+                turn: t.turn,
+                text: tr!(
+                    "games_report.schaden_bei_leben_genommen",
+                    lost = lost,
+                    before = before,
+                    my_untapped_creatures = t.my_untapped_creatures
+                ),
+            },
+        );
     }
 }
 
@@ -288,15 +302,15 @@ fn check_my_turn(found: &mut Findings, t: &TurnStat, db: &CardDb, nr: usize) {
     {
         found.push(
             Mistake::MissedLand,
-            find(format!("{} lag auf der Hand", land.name)),
+            find(tr!("games_report.lag_hand", name = land.display_name())),
         );
     }
     if !t.safe_idle.is_empty() {
         found.push(
             Mistake::SkippedAttack,
-            find(format!(
-                "{} hätte(n) gefahrlos angreifen können",
-                names(db, &t.safe_idle)
+            find(tr!(
+                "games_report.haette_n_gefahrlos_angreifen",
+                v = names(db, &t.safe_idle)
             )),
         );
     }
@@ -311,9 +325,11 @@ fn check_my_turn(found: &mut Findings, t: &TurnStat, db: &CardDb, nr: usize) {
         if let Some(c) = castable {
             found.push(
                 Mistake::UnusedMana,
-                find(format!(
-                    "{} Länder frei, {} ({}) auf der Hand",
-                    t.untapped_lands, c.name, c.mana_cost
+                find(tr!(
+                    "games_report.laender_frei_hand",
+                    untapped_lands = t.untapped_lands,
+                    name = c.display_name(),
+                    mana_cost = c.mana_cost
                 )),
             );
         }
@@ -321,7 +337,7 @@ fn check_my_turn(found: &mut Findings, t: &TurnStat, db: &CardDb, nr: usize) {
     if (3..=6).contains(&t.turn) && t.creatures_me == 0 {
         found.push(
             Mistake::EmptyBoard,
-            find("keine eigene Kreatur auf dem Feld".into()),
+            find(tr!("games_report.keine_eigene_kreatur_feld")),
         );
     }
 }

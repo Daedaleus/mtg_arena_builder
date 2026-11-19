@@ -95,18 +95,18 @@ impl LandVerdict {
         matches!(self, LandVerdict::TooFew | LandVerdict::TooMany)
     }
 
-    pub fn advice(self) -> &'static str {
+    pub fn advice(self) -> String {
         match self {
             LandVerdict::TooFewGames => {
-                "Für eine Aussage über die Länderzahl braucht es mindestens 3 vollständige Partien."
+                tr!("deckcheck.aussage_ueber_laenderzahl_braucht")
             }
             LandVerdict::TooFew => {
-                "Dir fehlten oft Länder: 1–2 Länder mehr spielen (statt der teuersten Karten)."
+                tr!("deckcheck.dir_fehlten_oft_laender")
             }
             LandVerdict::TooMany => {
-                "Du hattest oft zu viele Länder: 1–2 Länder durch günstige Karten ersetzen."
+                tr!("deckcheck.hattest_oft_viele_laender")
             }
-            LandVerdict::Fine => "Die Länderzahl passt zu deinen bisherigen Partien.",
+            LandVerdict::Fine => tr!("deckcheck.laenderzahl_passt_deinen_bisherigen"),
         }
     }
 }

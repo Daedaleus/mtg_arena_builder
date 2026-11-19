@@ -4,6 +4,14 @@ use super::*;
 
 impl App {
     /// Liest die Arena-Logs im Hintergrund ein und ergänzt `games.json`.
+    /// Neue Sprache: zwischengespeicherte Texte (Probehände, eigene Decks)
+    /// neu berechnen lassen.
+    pub(super) fn on_language_changed(&mut self) {
+        self.sims.clear();
+        self.group_sims.clear();
+        self.built = None;
+    }
+
     pub(super) fn scan_games(&mut self) {
         if self.games_loading {
             return;
@@ -51,10 +59,10 @@ impl App {
             paths::find_card_db(Some(&self.settings.mtga_dir)).and_then(|p| CardDb::load(&p));
         match found {
             Ok(db) => {
-                self.db_status = format!(
-                    "Kartendaten: {} Karten (Arena {})",
-                    db.cards.len(),
-                    db.version
+                self.db_status = tr!(
+                    "state.kartendaten_karten_arena",
+                    cards_n = db.cards.len(),
+                    version = db.version
                 );
                 self.db = Some(std::sync::Arc::new(db));
             }
@@ -99,7 +107,7 @@ impl App {
         self.gg_format = None;
         self.sel_gg_event = None;
         self.sel_gg_deck = None;
-        self.status = format!("Lade {}-Metagame von MTGTop8 …", FORMATS[format].1);
+        self.status = tr!("state.lade_metagame_mtgtop8", v = FORMATS[format].1);
         if self.legal_requested.insert(format) {
             let (tx, cache) = (self.tx_msg.clone(), self.data_dir.join("cache"));
             std::thread::spawn(move || {
@@ -113,7 +121,7 @@ impl App {
 
     pub(super) fn sync_collection(&mut self, ctx: &egui::Context) {
         self.syncing = true;
-        self.status = "Lese Sammlung aus MTG Arena …".into();
+        self.status = tr!("state.lese_sammlung_aus_mtg");
         let (tx, ctx, path) = (
             self.tx_msg.clone(),
             ctx.clone(),
@@ -122,16 +130,13 @@ impl App {
         std::thread::spawn(move || {
             let running = cfg!(target_os = "linux") || mtga_reader::api::find_process("MTGA");
             let result = if !running {
-                Err(
-                    "MTG Arena läuft nicht. Bitte das Spiel starten und bis ins Hauptmenü gehen."
-                        .to_string(),
-                )
+                Err(tr!("state.mtg_arena_laeuft_nicht").to_string())
             } else {
                 collection::read_from_game().or_else(|first| {
                     if cfg!(windows) && !collection::is_admin() {
                         // Arena läuft mit höheren Rechten -> einmalig per UAC nachfragen.
                         collection::read_elevated(&path)
-                            .map_err(|e| format!("{e} (ohne Adminrechte: {first})"))
+                            .map_err(|e| tr!("state.ohne_adminrechte", e = e, first = first))
                     } else {
                         Err(first)
                     }
@@ -209,7 +214,7 @@ impl App {
                     owned: self.owned.get(rep).copied().unwrap_or(0),
                     score: 0.0,
                     info: if c.basic {
-                        "Standardland".into()
+                        tr!("state.standardland")
                     } else {
                         c.mana_cost.clone()
                     },
@@ -287,7 +292,7 @@ impl App {
                     out.push(style::Candidate {
                         deck_id: d.id,
                         label: a.name.clone(),
-                        source: "Turnierdecks",
+                        source: tr!("state.turnierdecks"),
                         style: style::DeckProfile::of_deck(list, db).style(),
                         summary,
                     });
@@ -308,7 +313,7 @@ impl App {
                 out.push(style::Candidate {
                     deck_id: *id,
                     label,
-                    source: "Offizielle Events",
+                    source: tr!("state.offizielle_events"),
                     style: style::DeckProfile::of_deck(&d.deck, db).style(),
                     summary,
                 });

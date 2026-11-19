@@ -6,9 +6,9 @@
 //! Aus den Statistiken leitet [`report`] konkrete Verbesserungstipps ab.
 //!
 //! Aufbau:
-//! - Mitschreiben: `object` (Spielobjekt, gefahrloser Angriff), `tracker`
-//!   (Spielzustand), `live_state` (Momentaufnahme fürs Begleitfenster),
-//!   `parser` (Logdateien)
+//! - Mitschreiben: `arena` (Protokollwerte des Logs), `object` (Spielobjekt,
+//!   gefahrloser Angriff), `tracker` (Spielzustand), `live_state`
+//!   (Momentaufnahme fürs Begleitfenster), `parser` (Logdateien)
 //! - Speichern: `record` (Datentypen), `store` (`games.json`)
 //! - Auswerten: `moments` (einzelne Züge), `mistake` (Fehlerarten),
 //!   `report` (alle Partien)
@@ -23,7 +23,9 @@ use serde_json::Value;
 
 use crate::carddb::keyword as kw;
 use crate::carddb::{Card, CardDb, color};
+use arena::{Phase, annotation, card_state, message, step, zone};
 
+pub mod arena;
 mod live_state;
 mod mistake;
 mod moments;

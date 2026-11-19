@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
+use crate::i18n::Language;
 use crate::paths;
 
 /// Alles, was einen Neustart überleben soll.
@@ -30,6 +31,8 @@ pub struct Settings {
     pub sel_deck: Option<u32>,
     /// Gewählte Ersatzkarten: (Deck, Kartenschlüssel, Ersatz).
     pub replacements: Vec<(u32, String, String)>,
+    /// Sprache der Oberfläche (Standard: wie das Betriebssystem).
+    pub language: Language,
 }
 
 impl Default for Settings {
@@ -48,6 +51,7 @@ impl Default for Settings {
             sel_arch: None,
             sel_deck: None,
             replacements: Vec::new(),
+            language: Language::System,
         }
     }
 }

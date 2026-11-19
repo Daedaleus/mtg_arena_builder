@@ -89,7 +89,7 @@ impl LogParser {
     fn on_message(&mut self, m: &Value, ts: u64) {
         let seat = m["systemSeatIds"][0].as_u64().unwrap_or(1) as u32;
         match m["type"].as_str().unwrap_or("") {
-            "GREMessageType_ConnectResp" => {
+            message::CONNECT_RESP => {
                 self.deck = m["connectResp"]["deckMessage"]["deckCards"]
                     .as_array()
                     .into_iter()
@@ -97,7 +97,7 @@ impl LogParser {
                     .map(u)
                     .collect();
             }
-            "GREMessageType_MulliganReq" => {
+            message::MULLIGAN_REQ => {
                 if let Some(t) = self.cur.as_mut() {
                     t.mulligan_reqs += 1;
                     // Die zuletzt angebotene Hand ist die behaltene.
@@ -129,7 +129,7 @@ impl LogParser {
             t.rec.id = id;
         }
         t.apply(g);
-        if info["stage"].as_str() == Some("GameStage_GameOver") {
+        if info["stage"].as_str() == Some(message::GAME_OVER) {
             self.on_game_over(g, info);
         }
     }
@@ -157,7 +157,7 @@ impl LogParser {
             .as_array()
             .into_iter()
             .flatten()
-            .find(|r| r["scope"].as_str() == Some("MatchScope_Game"))
+            .find(|r| r["scope"].as_str() == Some(message::SCOPE_GAME))
         else {
             return;
         };
@@ -171,7 +171,7 @@ impl LogParser {
             .filter(|team| *team > 0)
             .unwrap_or(done.seat());
         let won = match r["result"].as_str() {
-            Some("ResultType_WinLoss") => Some(u(&r["winningTeamId"]) == my_team),
+            Some(message::RESULT_WIN_LOSS) => Some(u(&r["winningTeamId"]) == my_team),
             _ => None,
         };
         // Ohne Kennung (Log begann mitten in einer Partie) wird sie verworfen.

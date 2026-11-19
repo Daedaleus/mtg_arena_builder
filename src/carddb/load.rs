@@ -36,9 +36,9 @@ impl CardDb {
             OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
         )
         .with_context(|| {
-            format!(
-                "Kartendatenbank {} konnte nicht geöffnet werden",
-                path.display()
+            tr!(
+                "carddb_load.kartendatenbank_konnte_nicht_geoeffnet",
+                v = path.display()
             )
         })?;
 

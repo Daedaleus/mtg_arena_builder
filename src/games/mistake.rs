@@ -37,59 +37,49 @@ impl Mistake {
         Mistake::EarlyConcede,
     ];
 
-    pub fn title(self) -> &'static str {
+    pub fn title(self) -> String {
         match self {
-            Mistake::SkippedAttack => "Gefahrlosen Angriff ausgelassen",
-            Mistake::RiskyKeep => "Riskante Starthand behalten",
-            Mistake::MissedLand => "Land nicht gespielt",
-            Mistake::UnusedMana => "Mana ungenutzt",
-            Mistake::BetterTurn => "Besserer Zug möglich",
-            Mistake::HeldCard => "Karte lange nicht gespielt",
-            Mistake::NoBlock => "Bei wenig Leben nicht geblockt",
-            Mistake::EmptyBoard => "Keine Kreatur auf dem Feld",
-            Mistake::EarlyConcede => "Früh aufgegeben",
+            Mistake::SkippedAttack => tr!("games_mistake.gefahrlosen_angriff_ausgelassen"),
+            Mistake::RiskyKeep => tr!("games_mistake.riskante_starthand_behalten"),
+            Mistake::MissedLand => tr!("games_mistake.land_nicht_gespielt"),
+            Mistake::UnusedMana => tr!("games_mistake.mana_ungenutzt"),
+            Mistake::BetterTurn => tr!("games_mistake.besserer_zug_moeglich"),
+            Mistake::HeldCard => tr!("games_mistake.karte_lange_nicht_gespielt"),
+            Mistake::NoBlock => tr!("games_mistake.bei_wenig_leben_nicht"),
+            Mistake::EmptyBoard => tr!("games_mistake.keine_kreatur_feld"),
+            Mistake::EarlyConcede => tr!("games_mistake.frueh_aufgegeben"),
         }
     }
 
     /// Was man stattdessen tun sollte.
-    pub fn advice(self) -> &'static str {
+    pub fn advice(self) -> String {
         match self {
             Mistake::SkippedAttack => {
-                "Wenn keine gegnerische Kreatur deinen Angreifer blocken und dabei töten kann, greif an. \
-                         Schlimmstenfalls opfert der Gegner einen Blocker, sonst verliert er Leben. \
-                         (Fliegend, Reichweite, Todesberührung und Bedrohlich sind berücksichtigt, Zaubertricks des Gegners nicht.)"
+                tr!("games_mistake.wenn_keine_gegnerische_kreatur")
             }
             Mistake::RiskyKeep => {
-                "Behalte nur Starthände mit 2–4 Ländern. Mit 0–1 Land fehlt dir das Mana, mit 5 oder mehr fehlen die Zauber. \
-                         Ein Mulligan auf 6 Karten ist meist besser als so eine Hand."
+                tr!("games_mistake.behalte_nur_starthaende_2")
             }
             Mistake::MissedLand => {
-                "Lege jeden Zug ein Land, wenn du eins hast – auch wenn du es gerade nicht brauchst. Später fehlt es sonst."
+                tr!("games_mistake.lege_jeden_zug_land")
             }
             Mistake::UnusedMana => {
-                "Nutze dein Mana in jedem Zug. Eine Kreatur auf der Hand macht keinen Schaden – spiel sie, sobald du kannst. \
-                         (Die Farben prüft die App nicht; manchmal fehlte also die passende Farbe.)"
+                tr!("games_mistake.nutze_mana_jedem_zug")
             }
             Mistake::BetterTurn => {
-                "Der Zugvorschlag des Begleitfensters hätte in diesen Zügen mehr aus deinem Mana gemacht – \
-                         mit Blick auf Farben und gegnerische Kreaturen. Oft lohnen zwei günstige Karten statt einer teuren \
-                         oder Entfernung vor der nächsten Kreatur."
+                tr!("games_mistake.zugvorschlag_begleitfensters_haette_diesen")
             }
             Mistake::HeldCard => {
-                "Diese Karten lagen mehrere Züge bezahlbar auf deiner Hand. Spiel sie früher – \
-                         oder tausch sie im Deck gegen etwas, das du wirklich spielst. (Spontanzauber zählen hier nicht mit.)"
+                tr!("games_mistake.diese_karten_lagen_mehrere")
             }
             Mistake::NoBlock => {
-                "Bei wenig Leben lohnt es sich zu blocken, auch wenn deine Kreatur dabei stirbt. \
-                         Dann sind deine Lebenspunkte wichtiger als die Kreatur."
+                tr!("games_mistake.bei_wenig_leben_lohnt")
             }
             Mistake::EmptyBoard => {
-                "In Zug 3–6 lag keine eigene Kreatur auf dem Feld – dann kannst du keinen Druck machen und nicht blocken. \
-                         Spiel früh günstige Kreaturen; ein Deck braucht genug davon für die Züge 1–3."
+                tr!("games_mistake.zug_3_6_lag")
             }
             Mistake::EarlyConcede => {
-                "Gerade auf niedrigen Rängen machen Gegner oft Fehler, und Partien drehen sich. \
-                         Spiel weiter, solange du noch Leben hast."
+                tr!("games_mistake.gerade_niedrigen_raengen_machen")
             }
         }
     }

@@ -2,21 +2,23 @@
 
 use super::*;
 
-pub(super) fn event_label(event: &str) -> &str {
-    match event {
-        "Ladder" | "Traditional_Ladder" => "Rangliste",
-        "Play" | "Traditional_Play" => "Spielen",
-        "DualColorPrecons" => "Starterdeck",
-        e if e.starts_with("WelcomeDeckDuels") => "Willkommens-Duell",
-        e if e.starts_with("ColorChallenge") => "Farb-Challenge",
-        _ => "Sonstiges",
+use crate::games::arena::event;
+
+pub(super) fn event_label(name: &str) -> String {
+    match name {
+        event::LADDER | event::LADDER_BO3 => tr!("deckcheck_groups.rangliste"),
+        event::PLAY | event::PLAY_BO3 => tr!("deckcheck_groups.spielen"),
+        event::STARTER_DECKS => tr!("deckcheck_groups.starterdeck"),
+        e if e.starts_with(event::WELCOME_DUELS_PREFIX) => {
+            tr!("deckcheck_groups.willkommens_duell")
+        }
+        e if e.starts_with(event::COLOR_CHALLENGE_PREFIX) => tr!("deckcheck_groups.farb_challenge"),
+        _ => tr!("deckcheck_groups.sonstiges"),
     }
 }
 
-pub(super) fn is_fixed_event(event: &str) -> bool {
-    event.starts_with("WelcomeDeckDuels")
-        || event.starts_with("ColorChallenge")
-        || event == "DualColorPrecons"
+pub(super) fn is_fixed_event(name: &str) -> bool {
+    event::fixed_deck(name)
 }
 
 /// Fasst die Partien nach Deckliste zusammen, zuletzt gespieltes Deck zuerst.
@@ -73,17 +75,17 @@ pub fn group_decks(games: &[GameRecord], db: &CardDb) -> Vec<DeckGroup> {
             .max_by_key(|c| (c.rarity, c.cmc))
             .map(|c| c.name.clone())
             .unwrap_or_default();
-        grp.label = format!(
-            "{} {} – {} ({} Karten, {} Partien)",
-            if colors.is_empty() {
+        grp.label = tr!(
+            "deckcheck_groups.karten_partien",
+            v = if colors.is_empty() {
                 "?"
             } else {
                 colors.as_str()
             },
-            event_label(&first.event),
-            signature,
-            grp.deck.len(),
-            grp.games.len()
+            v2 = event_label(&first.event),
+            signature = signature,
+            deck_n = grp.deck.len(),
+            games_n = grp.games.len()
         );
     }
     groups

@@ -13,7 +13,10 @@ impl App {
         }
         ui.horizontal(|ui| {
             if ui
-                .add_enabled(!self.games_loading, egui::Button::new("Logs neu einlesen"))
+                .add_enabled(
+                    !self.games_loading,
+                    egui::Button::new(tr!("games_tab.logs_neu_einlesen")),
+                )
                 .clicked()
             {
                 self.scan_games();
@@ -28,12 +31,12 @@ impl App {
                 .games_event
                 .as_deref()
                 .map(event_label)
-                .unwrap_or_else(|| "Alle Modi".into());
+                .unwrap_or_else(|| tr!("games_tab.alle_modi"));
             let before = self.games_event.clone();
             egui::ComboBox::from_id_salt("games_event")
                 .selected_text(shown)
                 .show_ui(ui, |ui| {
-                    ui.selectable_value(&mut self.games_event, None, "Alle Modi");
+                    ui.selectable_value(&mut self.games_event, None, tr!("games_tab.alle_modi"));
                     for e in events {
                         let label = event_label(&e);
                         ui.selectable_value(&mut self.games_event, Some(e), label);
@@ -43,30 +46,36 @@ impl App {
                 self.sel_game = None;
                 self.games_page.set(0);
             }
-            ui.label(RichText::new(format!("{} Partien gespeichert", self.games.len())).weak());
+            ui.label(
+                RichText::new(tr!(
+                    "games_tab.partien_gespeichert",
+                    games_n = self.games.len()
+                ))
+                .weak(),
+            );
         });
         ui.horizontal(|ui| {
             ui.selectable_value(
                 &mut self.games_view,
                 0,
-                RichText::new("Übersicht & Tipps").strong(),
+                RichText::new(tr!("games_tab.uebersicht_tipps")).strong(),
             );
             ui.selectable_value(
                 &mut self.games_view,
                 1,
-                RichText::new("Partienliste").strong(),
+                RichText::new(tr!("games_tab.partienliste")).strong(),
             );
-            ui.selectable_value(&mut self.games_view, 2, RichText::new("Verlauf").strong());
+            ui.selectable_value(
+                &mut self.games_view,
+                2,
+                RichText::new(tr!("games_tab.verlauf")).strong(),
+            );
         });
         ui.separator();
         let overview = self.games_view == 0;
         if self.logs_disabled {
             ui.label(
-                RichText::new(
-                    "In Arena sind „Detaillierte Logs“ ausgeschaltet – neue Partien werden nicht mitgeschrieben. \
-                     Einschalten: Zahnrad > Konto > „Detaillierte Logs (Plugin-Unterstützung)“, danach Arena neu starten.",
-                )
-                .color(YELLOW),
+                RichText::new(tr!("games_tab.arena_detaillierte_logs_ausgeschaltet")).color(YELLOW),
             );
         }
         let Some(db) = &self.db else { return };
@@ -78,7 +87,7 @@ impl App {
             .collect();
         if games.is_empty() {
             ui.add_space(10.0);
-            ui.label("Noch keine Partien. Spiel mit eingeschalteten „Detaillierten Logs“ ein paar Runden – die App liest sie dann hier ein.");
+            ui.label(tr!("games_tab.noch_keine_partien_spiel"));
             return;
         }
         if self.games_view == 2 {

@@ -5,9 +5,19 @@ Offene Punkte: [ToDo.md](ToDo.md).
 
 ## Sprache und Stil
 
-- Oberfläche, Kommentare, Doku und Commit-Nachrichten auf **Deutsch**.
+- Kommentare, Doku und Commit-Nachrichten auf **Deutsch**.
+- Oberfläche zweisprachig (Deutsch, Englisch): Anzeigetexte stehen **nur** in
+  `locales/app.yml` und kommen per `tr!("modul.schluessel", name = wert)` in
+  den Code – keine Anzeigetexte als Zeichenketten im Code. Neue Texte immer in
+  beiden Sprachen; die Tests `every_key_has_all_languages_and_same_placeholders`
+  und `every_used_key_exists` prüfen das. Tests laufen auf Deutsch.
 - Texte kurz und für Gelegenheitsspieler verständlich; Arena-Begriffe so,
-  wie die deutsche Arena-Version sie nennt, Kartennamen englisch.
+  wie die jeweilige Arena-Version sie nennt.
+- Kartennamen: intern immer englisch (`Card::name`, Schlüssel, Arena-Import),
+  angezeigt mit `Card::display_name()` bzw. `CardDb::display_name()` in der
+  eingestellten Sprache. Kartenbilder je Sprache über `images::key`.
+- Werte aus dem Arena-Log nie als lose Zeichenketten: `games::arena`
+  (`Phase`, Zonen, Nachrichten, Events).
 - Die eingebaute egui-Schrift kennt keine Pfeile (`→`, `≥`): in der Oberfläche
   „, dann“, „>“ oder Worte verwenden.
 
@@ -34,10 +44,11 @@ Aufzählungen wie `Mistake` oder `LandVerdict`.
 | `sim/` | Probehände (Deck 1000-mal durchspielen): `game` (eine Partie, Summen), `pressure` (Spielfeld, Kampf, Rennen), `profile` (Gegner und Gewohnheiten aus den eigenen Partien), `advice` |
 | `style` | Spielstil (Aggro/Midrange/Control) aus Decks und Partien, Deckempfehlung |
 | `builder` | Decks nur aus eigenen Karten |
-| `games/` | Mitschreiben: `object`, `tracker`, `live_state`, `parser`; Speichern: `record` (Datentypen, Rang), `store` (`games.json`); Auswerten: `moments` (einzelne Züge), `mistake` (Fehlerarten), `report` |
+| `games/` | Mitschreiben: `arena` (Protokollwerte), `object`, `tracker`, `live_state`, `parser`; Speichern: `record` (Datentypen, Rang), `store` (`games.json`); Auswerten: `moments` (einzelne Züge), `mistake` (Fehlerarten), `report` |
 | `deckcheck/`, `opponents`, `progress` | Deck verbessern (`groups`, `mana`, `analysis`), Gegner und Archetyp-Erkennung, Verlauf |
 | `live/`, `turnplan`, `combat` | Begleitfenster (`view`, `hints`, `damage`, `follow`, `draw`), Zugvorschlag, Blocks/Tricks |
-| `settings`, `present`, `paths`, `images` | Einstellungen, Anzeigetexte, Pfade, Bild-Cache |
+| `settings`, `present`, `paths`, `images` | Einstellungen, Anzeigetexte, Pfade, Bild-Cache (Kartenbilder je Sprache) |
+| `i18n` | Sprache (Betriebssystem oder Einstellung), Makro `tr!`; Texte in `locales/app.yml` |
 | `testutil/` | Testhilfen: `cards`, `log` (künstliche Lognachrichten), `pages` (Webseiten) |
 
 ## Regeln

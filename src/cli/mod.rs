@@ -23,6 +23,20 @@ fn done(result: anyhow::Result<()>) -> i32 {
     }
 }
 
+/// Sprache der Ausgaben: Umgebungsvariable `MTG_LANG` (z. B. `en`), sonst
+/// die Einstellung der App.
+fn apply_language() {
+    use mtg_arena_builder::i18n::{self, Language, Locale};
+    let language = std::env::var("MTG_LANG")
+        .map(|tag| Language::Fixed(Locale::from_tag(&tag)))
+        .unwrap_or_else(|_| {
+            mtg_arena_builder::settings::SettingsFile::load(&paths::data_dir())
+                .1
+                .language
+        });
+    i18n::set(language.resolve());
+}
+
 /// Führt einen Kommandozeilen-Aufruf aus. `None`, wenn kein bekannter Befehl
 /// angegeben ist (dann startet die Oberfläche); sonst der Exit-Code.
 pub fn run(args: &[String]) -> Option<i32> {
@@ -33,6 +47,7 @@ pub fn run(args: &[String]) -> Option<i32> {
             .to_string()
     };
     let rest = args.get(2..).unwrap_or_default();
+    apply_language();
     let code = match args.get(1).map(String::as_str)? {
         "--sync-collection" => setup::sync_collection(&arg(2, "")),
         "--check" => setup::check(),

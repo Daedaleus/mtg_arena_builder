@@ -13,7 +13,7 @@ pub(super) struct Tracker {
     pub(super) life: HashMap<u32, i32>,
     pub(super) turn: u32,
     pub(super) active: u32,
-    pub(super) phase: String,
+    pub(super) phase: Phase,
     pub(super) step: String,
     pub(super) last_state_id: u64,
     pub(super) seen_annotations: HashSet<u64>,
@@ -59,7 +59,7 @@ impl Tracker {
     pub(super) fn battlefield(&self) -> impl Iterator<Item = (&u32, &Obj)> {
         self.objects
             .iter()
-            .filter(|(_, o)| self.zone_type(o.zone) == "ZoneType_Battlefield")
+            .filter(|(_, o)| self.zone_type(o.zone) == zone::BATTLEFIELD)
     }
 
     pub(super) fn count(&self, controller: u32, f: impl Fn(&Obj) -> bool) -> u32 {
@@ -72,7 +72,7 @@ impl Tracker {
         let me = self.seat();
         self.zones
             .values()
-            .find(|z| z.0 == "ZoneType_Hand" && z.1 == me)
+            .find(|z| z.0 == zone::HAND && z.1 == me)
             .map(|z| {
                 z.2.iter()
                     .filter_map(|id| self.objects.get(id))
@@ -167,11 +167,11 @@ impl Tracker {
     /// Liegt der Zug noch vor der Angriffserklärung?
     pub(super) fn before_attacks(&self) -> bool {
         self.attacked_ids.is_empty()
-            && (self.phase == "Phase_Main1"
-                || (self.phase == "Phase_Combat"
+            && (self.phase == Phase::Main1
+                || (self.phase == Phase::Combat
                     && matches!(
                         self.step.as_str(),
-                        "Step_BeginCombat" | "Step_DeclareAttack" | ""
+                        step::BEGIN_COMBAT | step::DECLARE_ATTACK | ""
                     )))
     }
 
@@ -183,17 +183,11 @@ impl Tracker {
             zone: u(&o["zoneId"]),
             owner: u(&o["ownerSeatId"]),
             controller: u(&o["controllerSeatId"]),
-            land: has_type(o, "CardType_Land"),
-            creature: has_type(o, "CardType_Creature"),
+            land: has_type(o, card_state::LAND),
+            creature: has_type(o, card_state::CREATURE),
             tapped: o["isTapped"].as_bool().unwrap_or(false),
-            attacking: state(
-                "attackState",
-                &["AttackState_Attacking", "AttackState_Declared"],
-            ),
-            blocking: state(
-                "blockState",
-                &["BlockState_Blocking", "BlockState_Declared"],
-            ),
+            attacking: state("attackState", &card_state::ATTACKING),
+            blocking: state("blockState", &card_state::BLOCKING),
             sick: o["hasSummoningSickness"].as_bool().unwrap_or(false),
             power: o["power"]["value"].as_i64().unwrap_or(0) as i32,
             toughness: o["toughness"]["value"].as_i64().unwrap_or(0) as i32,
@@ -213,7 +207,7 @@ impl Tracker {
         }
         self.last_state_id = state_id;
 
-        if g["type"].as_str() == Some("GameStateType_Full") {
+        if g["type"].as_str() == Some(message::FULL_STATE) {
             self.objects.clear();
             self.zones.clear();
         }
@@ -224,11 +218,11 @@ impl Tracker {
         {
             self.start_turn(turn, u(&ti["activePlayer"]));
         }
-        if let Some(phase) = ti["phase"].as_str() {
+        if let Some(phase) = ti["phase"].as_str().map(Phase::from_arena) {
             if phase != self.phase {
                 self.step.clear();
             }
-            self.phase = phase.to_string();
+            self.phase = phase;
         }
         if let Some(step) = ti["step"].as_str() {
             self.step = step.to_string();
@@ -256,7 +250,7 @@ impl Tracker {
         }
         let (me, opp) = (self.seat(), self.opponent());
         for o in g["gameObjects"].as_array().into_iter().flatten() {
-            if o["type"].as_str() != Some("GameObjectType_Card") {
+            if o["type"].as_str() != Some(message::OBJECT_CARD) {
                 continue;
             }
             let id = u(&o["instanceId"]);
@@ -271,11 +265,7 @@ impl Tracker {
             // Gegnerische Karten merken, sobald sie öffentlich sind.
             let public = matches!(
                 self.zone_type(obj.zone),
-                "ZoneType_Battlefield"
-                    | "ZoneType_Stack"
-                    | "ZoneType_Graveyard"
-                    | "ZoneType_Exile"
-                    | "ZoneType_Revealed"
+                zone::BATTLEFIELD | zone::STACK | zone::GRAVEYARD | zone::EXILE | zone::REVEALED
             );
             if public && obj.owner == opp && obj.grp_id > 0 {
                 self.seen_cards.entry(obj.grp_id).or_default().insert(id);
@@ -314,7 +304,7 @@ impl Tracker {
                 .cloned()
                 .unwrap_or(Value::Null)
         };
-        if is("AnnotationType_DamageDealt") {
+        if is(annotation::DAMAGE_DEALT) {
             let hits = |seat: u32| {
                 a["affectedIds"]
                     .as_array()
@@ -336,7 +326,7 @@ impl Tracker {
                 }
             }
         }
-        if !is("AnnotationType_ZoneTransfer") {
+        if !is(annotation::ZONE_TRANSFER) {
             return;
         }
         let category = detail("category")["valueString"][0]
@@ -350,13 +340,13 @@ impl Tracker {
                 .map(|o| (o.controller, o.grp_id))
                 .unwrap_or((0, 0));
             // Eigene Zauber merken – auch Spontanzauber im gegnerischen Zug.
-            if category == "CastSpell" && controller == self.seat() && grp > 0 {
+            if category == annotation::CAST_SPELL && controller == self.seat() && grp > 0 {
                 self.cur.cast.push(grp);
             }
             match category.as_str() {
-                "PlayLand" if controller == self.active => self.cur.land_played = true,
-                "CastSpell" if controller == self.active => self.cur.spells += 1,
-                "Discard" if controller == self.seat() => self.rec.discards_me += 1,
+                annotation::PLAY_LAND if controller == self.active => self.cur.land_played = true,
+                annotation::CAST_SPELL if controller == self.active => self.cur.spells += 1,
+                annotation::DISCARD if controller == self.seat() => self.rec.discards_me += 1,
                 _ => {}
             }
         }

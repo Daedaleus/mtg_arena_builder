@@ -94,7 +94,7 @@ fn raw_read() -> (Value, Value) {
 
 #[cfg(not(any(target_os = "windows", target_os = "linux", target_os = "macos")))]
 fn raw_read() -> (Value, Value) {
-    let err = serde_json::json!({ "error": "Plattform wird nicht unterstützt" });
+    let err = serde_json::json!({ "error": tr!("collection.plattform_nicht_unterstuetzt") });
     (err.clone(), err)
 }
 
@@ -115,7 +115,7 @@ pub fn read_from_game() -> Result<Collection, String> {
     // Der Speicherleser kann bei unerwarteten Strukturen paniken – abfangen.
     let (cards, inv) = std::thread::spawn(raw_read)
         .join()
-        .map_err(|_| "Speicher von MTG Arena konnte nicht gelesen werden (läuft das Spiel und ist es im Hauptmenü?)".to_string())?;
+        .map_err(|_| tr!("collection.speicher_mtg_arena_konnte").to_string())?;
 
     from_reader(&cards, &inv, now_unix())
 }
@@ -150,7 +150,7 @@ pub fn from_reader(cards: &Value, inv: &Value, now: u64) -> Result<Collection, S
         }
     }
     if out.cards.is_empty() {
-        return Err("Arena hat keine Karten geliefert – bitte im Spiel bis ins Hauptmenü gehen und erneut versuchen.".into());
+        return Err(tr!("collection.arena_hat_keine_karten"));
     }
     if err_of(inv).is_none() {
         let num = |v: &Value, k: &str| v.get(k).and_then(Value::as_i64).unwrap_or(0).max(0) as u32;
@@ -201,22 +201,23 @@ pub fn read_elevated(out: &Path) -> Result<Collection, String> {
         .args(["-NoProfile", "-NonInteractive", "-Command", &script])
         .creation_flags(0x0800_0000) // CREATE_NO_WINDOW
         .status()
-        .map_err(|e| format!("PowerShell konnte nicht gestartet werden: {e}"))?;
+        .map_err(|e| tr!("collection.powershell_konnte_nicht_gestartet", e = e))?;
     if let Ok(e) = fs::read_to_string(&err_path) {
         return Err(e);
     }
     let after = fs::metadata(out).and_then(|m| m.modified()).ok();
     if !status.success() || after.is_none() || after == before {
-        return Err(
-            "Lesen mit Administratorrechten wurde abgebrochen oder ist fehlgeschlagen.".into(),
-        );
+        return Err(tr!(
+            "collection.lesen_administratorrechten_wurde_abgebrochen"
+        ));
     }
-    Collection::load(out).ok_or_else(|| "Gespeicherte Sammlung ist unlesbar.".to_string())
+    Collection::load(out)
+        .ok_or_else(|| tr!("collection.gespeicherte_sammlung_unlesbar").to_string())
 }
 
 #[cfg(not(windows))]
 pub fn read_elevated(_out: &Path) -> Result<Collection, String> {
-    Err("Bitte die App mit root-Rechten starten (sudo), um die Sammlung zu lesen.".into())
+    Err(tr!("collection.bitte_app_root_rechten").into())
 }
 
 #[cfg(test)]

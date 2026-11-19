@@ -65,7 +65,7 @@ fn wildcard_plan_renders() {
             egui::CollapsingHeader::new("x")
                 .default_open(true)
                 .show(ui, |_| {});
-            super::widgets::wildcard_plan_view(ui, &plan)
+            super::widgets::wildcard_plan_view(ui, &plan, &db)
         });
     });
     assert_eq!(

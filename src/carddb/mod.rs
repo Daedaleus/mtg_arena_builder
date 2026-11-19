@@ -76,6 +76,16 @@ impl Card {
         self.roles & role != 0
     }
 
+    /// Name in der eingestellten Sprache: der deutsche Name aus Arena, sonst
+    /// der englische. Zum Nachschlagen und für den Arena-Import gilt immer
+    /// [`Card::name`].
+    pub fn display_name(&self) -> &str {
+        match crate::i18n::current() {
+            crate::i18n::Locale::German => self.name_de.as_deref().unwrap_or(&self.name),
+            crate::i18n::Locale::English => &self.name,
+        }
+    }
+
     /// Hat die Karte die Fähigkeit (siehe [`keyword`])?
     pub fn has_ability(&self, id: u32) -> bool {
         self.abilities.contains(&id)
@@ -200,6 +210,13 @@ impl CardDb {
             .copied()
     }
 
+    /// Anzeigename zu einem (englischen) Kartennamen; unbekannte Namen bleiben.
+    pub fn display_name(&self, name: &str) -> String {
+        self.resolve(name)
+            .and_then(|k| self.representative(&k))
+            .map_or_else(|| name.to_string(), |c| c.display_name().to_string())
+    }
+
     /// Günstigste Seltenheit über alle Drucke – so viel kostet die Wildcard.
     pub fn craft_rarity(&self, key: &str) -> u8 {
         self.printings(key)
@@ -215,14 +232,14 @@ impl CardDb {
     }
 }
 
-pub fn rarity_label(r: u8) -> &'static str {
+pub fn rarity_label(r: u8) -> String {
     match r {
-        0 | 1 => "Land",
-        2 => "Common",
-        3 => "Uncommon",
-        4 => "Rare",
-        5 => "Mythic",
-        _ => "?",
+        0 | 1 => tr!("carddb.land"),
+        2 => tr!("carddb.common"),
+        3 => tr!("carddb.uncommon"),
+        4 => tr!("carddb.rare"),
+        5 => tr!("carddb.mythic"),
+        _ => "?".into(),
     }
 }
 

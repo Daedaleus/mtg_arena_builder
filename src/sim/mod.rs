@@ -65,6 +65,8 @@ pub struct SimReport {
     pub with_habits: bool,
     /// Kurze Empfehlungen, wichtigste zuerst.
     pub advice: Vec<String>,
+    /// Keine Probleme gefunden (dann steht in `advice` nur ein Lob).
+    pub smooth: bool,
 }
 
 /// Kleiner, reproduzierbarer Zufallsgenerator (xorshift64*).
@@ -152,6 +154,11 @@ pub fn simulate_with(
     }
     tally.fill(&mut r);
     r.advice = advice(&r);
+    r.smooth = r.advice.is_empty();
+    if r.smooth {
+        r.advice
+            .push(tr!("sim_advice.deck_laeuft_probehaenden_rund"));
+    }
     r
 }
 

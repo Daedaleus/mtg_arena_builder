@@ -142,7 +142,7 @@ impl App {
             match msg {
                 Msg::Archetypes(format, result) if format == self.settings.format => match result {
                     Ok(list) => {
-                        self.status = format!("{} Archetypen geladen.", list.len());
+                        self.status = tr!("worker.archetypen_geladen", list_n = list.len());
                         let _ = self.tx_job.send(Job::Restore {
                             format,
                             archetypes: list.clone(),
@@ -175,23 +175,18 @@ impl App {
                         self.subs.clear();
                         self.built = None;
                     }
-                    Err(e) => {
-                        self.status = format!(
-                            "Format-Legalität nicht verfügbar ({e}) – Ersatzvorschläge sind ungefiltert."
-                        )
-                    }
+                    Err(e) => self.status = tr!("worker.format_legalitaet_nicht_verfuegbar", e = e),
                 },
                 Msg::Collection(result) => {
                     self.syncing = false;
                     match result {
                         Ok(c) => {
-                            self.status = format!("Sammlung gelesen: {} Karten.", c.total_cards());
+                            self.status =
+                                tr!("worker.sammlung_gelesen_karten", v = c.total_cards());
                             self.collection = Some(c);
                             self.refresh_owned();
                         }
-                        Err(e) => {
-                            self.status = format!("Sammlung konnte nicht gelesen werden: {e}")
-                        }
+                        Err(e) => self.status = tr!("worker.sammlung_konnte_nicht_gelesen", e = e),
                     }
                 }
                 Msg::Restored(format) if format == self.settings.format => {
@@ -234,19 +229,19 @@ impl App {
                 Msg::Pending(n) => {
                     self.pending = n;
                     if n == 0 && self.status.starts_with("Bewerte") {
-                        self.status = "Alle Archetypen bewertet.".into();
+                        self.status = tr!("worker.alle_archetypen_bewertet");
                     }
                 }
                 Msg::GgEvents(format, result) if format == self.settings.format => match result {
                     Ok(list) => {
-                        self.status = format!("{} Events von magic.gg geladen.", list.len());
+                        self.status = tr!("worker.events_magic_gg_geladen", list_n = list.len());
                         self.gg_events = list;
                     }
                     Err(e) => self.status = e,
                 },
                 Msg::GgDecks(slug, result) => match result {
                     Ok(decks) => {
-                        self.status = format!("{} Decks von magic.gg geladen.", decks.len());
+                        self.status = tr!("worker.decks_magic_gg_geladen", decks_n = decks.len());
                         let mut list = Vec::new();
                         for (i, d) in decks.into_iter().enumerate() {
                             let id = magicgg::deck_id(&slug, i);

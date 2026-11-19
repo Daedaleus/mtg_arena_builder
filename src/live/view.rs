@@ -2,14 +2,14 @@
 
 use super::*;
 
-pub(super) fn phase_label(phase: &str) -> &'static str {
+pub(super) fn phase_label(phase: Phase) -> String {
     match phase {
-        "Phase_Beginning" => "Zugbeginn",
-        "Phase_Main1" => "1. Hauptphase",
-        "Phase_Combat" => "Kampf",
-        "Phase_Main2" => "2. Hauptphase",
-        "Phase_Ending" => "Zugende",
-        _ => "",
+        Phase::Beginning => tr!("live_view.zugbeginn"),
+        Phase::Main1 => tr!("live_view.1_hauptphase"),
+        Phase::Combat => tr!("live_view.kampf"),
+        Phase::Main2 => tr!("live_view.2_hauptphase"),
+        Phase::Ending => tr!("live_view.zugende"),
+        Phase::Unknown => String::new(),
     }
 }
 
@@ -17,16 +17,16 @@ pub(super) fn names(db: &CardDb, grps: &[u32], limit: usize) -> String {
     let mut list: Vec<String> = Vec::new();
     for g in grps {
         if let Some(c) = db.cards.get(g)
-            && !list.contains(&c.name)
+            && !list.iter().any(|n| n == c.display_name())
         {
-            list.push(c.name.clone());
+            list.push(c.display_name().to_string());
         }
     }
     let more = list.len().saturating_sub(limit);
     list.truncate(limit);
     let mut text = list.join(", ");
     if more > 0 {
-        text.push_str(&format!(" (+{more})"));
+        text.push_str(&tr!("live_view.text", more = more));
     }
     text
 }
@@ -39,12 +39,12 @@ pub(super) fn guess_opponent<'a>(
 ) -> (String, Option<&'a ArchShare>) {
     let seen = crate::opponents::seen_keys(cards, db);
     match crate::opponents::match_archetype(&seen, meta) {
-        Some(a) => (format!("vermutlich {}", a.name), Some(a)),
+        Some(a) => (tr!("live_view.vermutlich", name = a.name), Some(a)),
         None => {
             let ids: Vec<u32> = cards.to_vec();
             let colors = crate::games::deck_colors(&ids, db);
             let label = if colors.is_empty() {
-                "noch unbekannt".into()
+                tr!("live_view.noch_unbekannt")
             } else {
                 crate::carddb::color::label(&colors)
             };
@@ -70,16 +70,19 @@ pub fn build_view(
     };
     let mut v = CompanionView {
         life: Some((ls.life_me, ls.life_opp)),
-        board: format!(
-            "Länder: {} ({} frei) · Kreaturen: du {}, Gegner {}",
-            ls.lands_me, ls.lands_untapped, ls.creatures_me, ls.creatures_opp
+        board: tr!(
+            "live_view.laender_frei_kreaturen_gegner",
+            lands_me = ls.lands_me,
+            lands_untapped = ls.lands_untapped,
+            creatures_me = ls.creatures_me,
+            creatures_opp = ls.creatures_opp
         ),
         ..Default::default()
     };
     let (opponent, arch) = guess_opponent(&ls.opp_cards, db, meta);
     let hand: Vec<&Card> = ls.hand.iter().filter_map(|g| db.cards.get(g)).collect();
     if ls.mulligan {
-        v.status = "Starthand".into();
+        v.status = tr!("live_view.starthand");
         mulligan_hint(&mut v, &hand);
     } else {
         v.status = turn_status(ls);
@@ -87,10 +90,7 @@ pub fn build_view(
         if !lethal && ls.life_opp <= 5 {
             v.hints.push((
                 Level::Good,
-                format!(
-                    "Gegner hat nur noch {} Leben – nicht aufgeben!",
-                    ls.life_opp
-                ),
+                tr!("live_view.gegner_hat_nur_noch", life_opp = ls.life_opp),
             ));
         }
         if ls.my_turn {
@@ -101,7 +101,7 @@ pub fn build_view(
         trick_warning(&mut v, ls, db, arch);
         if v.hints.is_empty() {
             v.hints
-                .push((Level::Info, "Gerade nichts zu beachten.".into()));
+                .push((Level::Info, tr!("live_view.gerade_nichts_beachten")));
         }
     }
     v.opponent = opponent;
@@ -115,22 +115,17 @@ fn idle_view(last: Option<&GameRecord>) -> CompanionView {
     match last {
         Some(g) => {
             v.status = match g.won {
-                Some(true) => "Partie vorbei – gewonnen!".into(),
-                Some(false) => "Partie vorbei – verloren.".into(),
-                None => "Partie vorbei.".into(),
+                Some(true) => tr!("live_view.partie_vorbei_gewonnen"),
+                Some(false) => tr!("live_view.partie_vorbei_verloren"),
+                None => tr!("live_view.partie_vorbei"),
             };
-            v.hints.push((
-                Level::Info,
-                "Die Auswertung steht gleich unter „Meine Partien“.".into(),
-            ));
+            v.hints
+                .push((Level::Info, tr!("live_view.auswertung_steht_gleich_unter")));
         }
         None => {
-            v.status = "Warte auf eine Partie …".into();
-            v.hints.push((
-                Level::Info,
-                "Tipp: Arena im Fenstermodus oder randlosen Vollbild spielen, damit dieses Fenster sichtbar bleibt."
-                    .into(),
-            ));
+            v.status = tr!("live_view.warte_partie");
+            v.hints
+                .push((Level::Info, tr!("live_view.tipp_arena_fenstermodus_oder")));
         }
     }
     v
@@ -145,14 +140,19 @@ fn mulligan_hint(v: &mut CompanionView, hand: &[&Card]) {
     if crate::games::GOOD_KEEP_LANDS.contains(&n) {
         v.hints.push((
             Level::Good,
-            format!("{n} Länder bei {} Karten – behalten.", hand.len()),
+            tr!(
+                "live_view.laender_bei_karten_behalten",
+                n = n,
+                hand_n = hand.len()
+            ),
         ));
     } else {
         v.hints.push((
             Level::Warn,
-            format!(
-                "{n} Länder bei {} Karten – Mulligan empfohlen (gut sind 2–4).",
-                hand.len()
+            tr!(
+                "live_view.laender_bei_karten_mulligan",
+                n = n,
+                hand_n = hand.len()
             ),
         ));
     }
@@ -161,20 +161,27 @@ fn mulligan_hint(v: &mut CompanionView, hand: &[&Card]) {
 /// „Zug 5 · dein Zug · Kampf“
 fn turn_status(ls: &LiveState) -> String {
     let whose = if ls.my_turn {
-        "dein Zug"
+        tr!("live_view.zug_3")
     } else {
-        "Gegner am Zug"
+        tr!("live_view.gegner_zug")
     };
-    match phase_label(&ls.phase) {
-        "" => format!("Zug {} · {whose}", ls.turn),
-        phase => format!("Zug {} · {whose} · {phase}", ls.turn),
+    let phase = phase_label(ls.phase);
+    if phase.is_empty() {
+        tr!("live_view.zug", turn = ls.turn, whose = whose)
+    } else {
+        tr!(
+            "live_view.zug_2",
+            turn = ls.turn,
+            whose = whose,
+            phase = phase
+        )
     }
 }
 
 /// Siegchancen: Kann ich den Gegner jetzt besiegen? Liefert `true`, wenn ein
 /// tödlicher Angriff möglich ist.
 fn lethal_hint(v: &mut CompanionView, ls: &LiveState, db: &CardDb, hand: &[&Card]) -> bool {
-    if !ls.my_turn || ls.phase == "Phase_Ending" || ls.life_opp <= 0 {
+    if !ls.my_turn || ls.phase == Phase::Ending || ls.life_opp <= 0 {
         return false;
     }
     let extra = crate::turnplan::sources(db, &[], &ls.mana_permanents).len() as u32;
@@ -184,16 +191,18 @@ fn lethal_hint(v: &mut CompanionView, ls: &LiveState, db: &CardDb, hand: &[&Card
     let (burn, burn_cards) = best_burn(hand, mana);
     let total = combat + burn as i32;
     let burn_text = if burn > 0 {
-        format!(" + Brand {burn} ({})", burn_cards.join(", "))
+        tr!("live_view.brand", burn = burn, v = burn_cards.join(", "))
     } else {
         String::new()
     };
     if total >= ls.life_opp {
         v.hints.push((
             Level::Good,
-            format!(
-                "Tödlich möglich! Angriff mit allem {combat}{burn_text} reicht für die {} Leben des Gegners – sofern er keinen Trick hat.",
-                ls.life_opp
+            tr!(
+                "live_view.toedlich_moeglich_angriff_allem",
+                combat = combat,
+                burn_text = burn_text,
+                life_opp = ls.life_opp
             ),
         ));
         return true;
@@ -201,9 +210,12 @@ fn lethal_hint(v: &mut CompanionView, ls: &LiveState, db: &CardDb, hand: &[&Card
     if total > 0 && ls.life_opp <= total + 4 {
         v.hints.push((
             Level::Info,
-            format!(
-                "Gegner fast besiegt: {} Leben, du schaffst jetzt mindestens {total} (Angriff {combat}{burn_text}).",
-                ls.life_opp
+            tr!(
+                "live_view.gegner_fast_besiegt_leben",
+                life_opp = ls.life_opp,
+                total = total,
+                combat = combat,
+                burn_text = burn_text
             ),
         ));
     }
@@ -215,12 +227,15 @@ fn my_turn_hints(v: &mut CompanionView, ls: &LiveState, db: &CardDb) {
     if !ls.safe_attackers.is_empty() {
         v.hints.push((
             Level::Good,
-            format!("Gefahrlos angreifen: {}", names(db, &ls.safe_attackers, 4)),
+            tr!(
+                "live_view.gefahrlos_angreifen",
+                v = names(db, &ls.safe_attackers, 4)
+            ),
         ));
     }
     if matches!(
-        ls.phase.as_str(),
-        "Phase_Beginning" | "Phase_Main1" | "Phase_Main2" | ""
+        ls.phase,
+        Phase::Beginning | Phase::Main1 | Phase::Main2 | Phase::Unknown
     ) {
         turn_hints(v, ls, db);
     }
@@ -233,9 +248,9 @@ fn defense_hints(v: &mut CompanionView, ls: &LiveState, db: &CardDb) {
     if !removal.is_empty() {
         v.hints.push((
             Level::Good,
-            format!(
-                "Jetzt spontan einsetzbar: {} – gegen einen Angreifer.",
-                names(db, &removal, 2)
+            tr!(
+                "live_view.jetzt_spontan_einsetzbar_gegen",
+                v = names(db, &removal, 2)
             ),
         ));
     }
@@ -245,7 +260,7 @@ fn defense_hints(v: &mut CompanionView, ls: &LiveState, db: &CardDb) {
 /// Offenes Mana des Gegners vor einem Kampf: typische Tricks seines Decks.
 fn trick_warning(v: &mut CompanionView, ls: &LiveState, db: &CardDb, arch: Option<&ArchShare>) {
     let combat_ahead = if ls.my_turn {
-        matches!(ls.phase.as_str(), "Phase_Main1" | "Phase_Combat")
+        matches!(ls.phase, Phase::Main1 | Phase::Combat)
     } else {
         ls.opp_attackers > 0
     };
@@ -261,15 +276,15 @@ fn trick_warning(v: &mut CompanionView, ls: &LiveState, db: &CardDb, arch: Optio
         .take(3)
         .map(|(n, share)| match share {
             Some(s) => format!("{n} ({:.0} %)", s * 100.0),
-            None => format!("{n} (schon gesehen)"),
+            None => tr!("live_view.schon_gesehen", n = n),
         })
         .collect();
     v.hints.push((
         Level::Warn,
-        format!(
-            "Vorsicht, Gegner hat {} Mana offen – möglich: {}",
-            ls.opp_untapped_lands,
-            list.join(", ")
+        tr!(
+            "live_view.vorsicht_gegner_hat_mana",
+            opp_untapped_lands = ls.opp_untapped_lands,
+            v = list.join(", ")
         ),
     ));
 }
@@ -281,7 +296,7 @@ fn opp_card_names(ls: &LiveState, db: &CardDb) -> Vec<String> {
         .iter()
         .filter_map(|g| db.cards.get(g))
         .filter(|c| !c.is_land())
-        .map(|c| c.name.clone())
+        .map(|c| c.display_name().to_string())
         .collect();
     seen.sort();
     seen.dedup();

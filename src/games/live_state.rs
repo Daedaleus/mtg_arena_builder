@@ -24,7 +24,7 @@ pub struct LiveCreature {
 pub struct LiveState {
     pub turn: u32,
     pub my_turn: bool,
-    pub phase: String,
+    pub phase: Phase,
     pub life_me: i32,
     pub life_opp: i32,
     /// Eigene Handkarten (grpIds).
@@ -69,7 +69,7 @@ impl Tracker {
         LiveState {
             turn: self.turn,
             my_turn,
-            phase: self.phase.clone(),
+            phase: self.phase,
             life_me: self.life.get(&me).copied().unwrap_or(20),
             life_opp: self.life.get(&opp).copied().unwrap_or(20),
             hand: self.hand(),

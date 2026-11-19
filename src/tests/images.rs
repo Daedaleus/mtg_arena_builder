@@ -21,6 +21,33 @@ fn file_names_and_urls() {
 }
 
 #[test]
+fn keys_and_localized_images() {
+    assert_eq!(key("Shock", Locale::English), "Shock");
+    assert_eq!(key("Shock", Locale::German), "Shock@de");
+    assert_eq!(split_key("Shock@de"), ("Shock", Some("de")));
+    assert_eq!(split_key("Fire // Ice"), ("Fire // Ice", None));
+    // Eigene Cache-Datei je Sprache.
+    assert_ne!(file_stem(&key("Shock", Locale::German)), file_stem("Shock"));
+    assert_eq!(
+        search_url("Shock", "de"),
+        "https://api.scryfall.com/cards/search?q=%21%22Shock%22%20lang%3Ade&unique=prints"
+    );
+    let single = r#"{"data":[{"image_uris":{"normal":"https://img/de.jpg"}}]}"#;
+    assert_eq!(
+        image_from_search(single).as_deref(),
+        Some("https://img/de.jpg")
+    );
+    let faces =
+        r#"{"data":[{"card_faces":[{"image_uris":{"normal":"https://img/front.jpg"}},{}]}]}"#;
+    assert_eq!(
+        image_from_search(faces).as_deref(),
+        Some("https://img/front.jpg")
+    );
+    assert_eq!(image_from_search(r#"{"object":"error"}"#), None);
+    assert_eq!(image_from_search("kein json"), None);
+}
+
+#[test]
 fn decodes_images() {
     let img = decode(&png()).unwrap();
     assert_eq!(img.size, [2, 1]);
