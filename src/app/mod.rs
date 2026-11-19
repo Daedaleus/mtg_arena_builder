@@ -175,6 +175,7 @@ impl App {
     pub fn new(cc: &eframe::CreationContext<'_>) -> App {
         let data_dir = paths::data_dir();
         let (settings_file, settings) = SettingsFile::load(&data_dir);
+        let load_problem = settings_file.problem.clone();
         crate::i18n::set(settings.language.resolve());
 
         // Etwas großzügigere Abstände und die gewählte Textgröße.
@@ -243,6 +244,9 @@ impl App {
         app.tour.sel_deck = app.settings.sel_deck;
         if !app.paste_text.trim().is_empty() {
             app.set_list(PASTED, deck::parse(&app.paste_text));
+        }
+        if let Some(p) = load_problem {
+            app.status = p;
         }
         app.scan_games();
         app

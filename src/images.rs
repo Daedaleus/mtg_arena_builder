@@ -197,24 +197,32 @@ fn store(cache: &Path, name: &str, bytes: Option<&[u8]>) -> Option<Picture> {
     }
 }
 
-fn load(http: &dyn Http, cache: &Path, name: &str) -> Option<Picture> {
+/// Ergebnis einer Bildanfrage.
+#[derive(Clone, Debug, PartialEq)]
+pub enum Fetched {
+    Found(Picture),
+    /// Scryfall kennt kein Bild (gemerkt).
+    NotFound,
+    /// Netzfehler: später erneut versuchen.
+    Failed,
+}
+
+fn load(http: &dyn Http, cache: &Path, name: &str) -> Fetched {
     match from_cache(cache, name) {
-        Cached::Image(img) => Some(img),
-        Cached::Missing => None,
+        Cached::Image(img) => Fetched::Found(img),
+        Cached::Missing => Fetched::NotFound,
         Cached::Unknown => match download(http, name) {
-            Ok(bytes) => store(cache, name, bytes.as_deref()),
-            // Netzfehler: nicht als „fehlt“ merken, später erneut versuchen.
-            Err(_) => None,
+            Ok(bytes) => {
+                store(cache, name, bytes.as_deref()).map_or(Fetched::NotFound, Fetched::Found)
+            }
+            Err(_) => Fetched::Failed,
         },
     }
 }
 
 /// Startet den Bild-Thread. Kartennamen in den zurückgegebenen Kanal schicken;
 /// `done` wird mit dem Bild (oder `None`) aufgerufen.
-pub fn spawn(
-    cache: PathBuf,
-    done: impl Fn(String, Option<Picture>) + Send + 'static,
-) -> Sender<String> {
+pub fn spawn(cache: PathBuf, done: impl Fn(String, Fetched) + Send + 'static) -> Sender<String> {
     let (tx, rx) = channel::<String>();
     let _ = fs::create_dir_all(&cache);
     std::thread::spawn(move || {

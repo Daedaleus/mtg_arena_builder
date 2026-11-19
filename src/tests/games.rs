@@ -551,7 +551,7 @@ fn parses_log_files_and_syncs_store() {
 
     let store = dir.path("games.json");
     let synced = sync(&store, &[partial.clone(), log.clone()]);
-    assert!(synced.save_error.is_none());
+    assert!(synced.problem.is_none());
     let games = synced.games;
     assert_eq!(games.len(), 1);
     assert_eq!(games[0].parser, PARSER_VERSION);
@@ -579,12 +579,42 @@ fn parses_log_files_and_syncs_store() {
     assert_eq!(kept.len(), 1);
     assert_eq!(kept[0].parser, 2, "Version aus der alten Datei");
     // Mit Log wird sie neu berechnet, auch bei gleicher Qualität.
-    assert_eq!(sync(&store, &[log]).games[0].parser, PARSER_VERSION);
-    // Schreibfehler kommt beim Aufrufer an (Ordner statt Datei).
+    assert_eq!(
+        sync(&store, std::slice::from_ref(&log)).games[0].parser,
+        PARSER_VERSION
+    );
+    // Nicht lesbar (Ordner statt Datei): gemeldet, nichts überschrieben.
     let blocked = dir.path("blocked.json");
     std::fs::create_dir(&blocked).unwrap();
-    let failed = sync(&blocked, std::slice::from_ref(&partial));
-    assert!(failed.save_error.is_some());
+    let failed = sync(&blocked, std::slice::from_ref(&log));
+    assert!(failed.problem.is_some());
+    assert_eq!(failed.games.len(), 1, "Partien aus dem Log trotzdem da");
+    assert!(blocked.is_dir());
+}
+
+#[test]
+fn corrupt_store_is_backed_up_not_lost() {
+    let dir = TempDir::new("games_corrupt");
+    let log = write_log(&dir, "Player.log", true);
+    let store = dir.path("games.json");
+    std::fs::write(&store, b"{ kaputt").unwrap();
+    let synced = sync(&store, std::slice::from_ref(&log));
+    assert_eq!(synced.games.len(), 1);
+    let problem = synced.problem.unwrap();
+    assert!(problem.contains("gesichert"), "{problem}");
+    // Die beschädigte Datei liegt daneben, die neue ist gültig.
+    let backups: Vec<_> = std::fs::read_dir(&dir.0)
+        .unwrap()
+        .filter_map(|e| e.ok())
+        .filter(|e| {
+            e.file_name()
+                .to_string_lossy()
+                .starts_with("games.json.corrupt-")
+        })
+        .collect();
+    assert_eq!(backups.len(), 1);
+    assert_eq!(std::fs::read(backups[0].path()).unwrap(), b"{ kaputt");
+    assert_eq!(sync(&store, &[]).games.len(), 1, "neu gespeichert");
 }
 
 // ------------------------------------------------------------ Auswertung ----

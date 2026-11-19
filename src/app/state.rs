@@ -152,6 +152,9 @@ impl App {
     }
 
     pub(super) fn set_list(&mut self, deck_id: u32, list: Deck) {
+        if self.lists.get(&deck_id) != Some(&list) {
+            self.sims.list_replaced(deck_id);
+        }
         if let Some(db) = &self.db {
             self.evals
                 .insert(deck_id, deck::evaluate(&list, db, &self.owned));

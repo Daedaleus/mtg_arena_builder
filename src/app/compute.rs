@@ -3,7 +3,8 @@
 //! Deckbau laufen in eigenen Threads und melden sich per [`Msg`] zurück.
 //!
 //! Grundlage einer Auswertung ist `App::data_gen`: Der Zähler steigt mit
-//! jeder eingetroffenen Nachricht außer Kartenbildern und Probehänden
+//! jeder eingetroffenen Nachricht außer Kartenbildern, Probehänden und
+//! Fortschrittsmeldungen
 //! (Partien, Turnierlisten, Sammlung …).
 
 use super::*;
@@ -12,8 +13,9 @@ use crate::i18n::{self, Locale};
 /// Wofür Probehände laufen.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub(super) enum SimTarget {
-    /// Deck in der Deckansicht (Turnierdeck, eigene Liste, gebautes Deck).
-    Deck(u32),
+    /// Deck in der Deckansicht (Turnierdeck, eigene Liste, gebautes Deck)
+    /// mit dem Stand der Liste beim Start (siehe `SimState::list_gen`).
+    Deck(u32, u64),
     /// Deck aus „Deck verbessern“ (grpIds der Liste).
     Group(Vec<u32>),
 }
@@ -130,8 +132,11 @@ impl App {
     pub(super) fn finish_trial(&mut self, target: SimTarget, trial: sim::Trial) {
         self.sims.running.remove(&target);
         match target {
-            SimTarget::Deck(id) => {
-                self.sims.decks.insert(id, trial);
+            // Inzwischen eine andere Liste unter dieser Kennung: Ergebnis verwerfen.
+            SimTarget::Deck(id, started) => {
+                if started == self.sims.list_gen(id) {
+                    self.sims.decks.insert(id, trial);
+                }
             }
             SimTarget::Group(deck) => {
                 self.sims.groups.insert(deck, trial);

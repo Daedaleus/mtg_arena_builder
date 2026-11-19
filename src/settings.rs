@@ -109,6 +109,11 @@ impl Settings {
 pub struct SettingsFile {
     path: PathBuf,
     saved: Vec<u8>,
+    /// Darf geschrieben werden? Nein, wenn die vorhandene Datei nicht lesbar
+    /// war – sonst würden die Einstellungen durch Standardwerte ersetzt.
+    writable: bool,
+    /// Problem beim Laden (für die Statuszeile).
+    pub problem: Option<String>,
 }
 
 impl SettingsFile {
@@ -116,7 +121,24 @@ impl SettingsFile {
     /// beschädigt, gelten die Standardwerte.
     pub fn load(dir: &Path) -> (SettingsFile, Settings) {
         let path = dir.join("settings.json");
-        let raw: Option<Settings> = paths::read_json(&path);
+        let (raw, problem, writable) = match paths::load_json::<Settings>(&path) {
+            Ok(s) => (Some(s), None, true),
+            Err(paths::LoadError::Missing) => (None, None, true),
+            Err(paths::LoadError::Corrupt(e)) => match paths::backup_corrupt(&path) {
+                Ok(backup) => {
+                    let text = tr!(
+                        "settings.beschaedigt_gesichert",
+                        e = e,
+                        backup = backup.display()
+                    );
+                    (None, Some(text), true)
+                }
+                Err(io) => (None, Some(tr!("settings.nicht_lesbar", e = io)), false),
+            },
+            Err(paths::LoadError::Unreadable(e)) => {
+                (None, Some(tr!("settings.nicht_lesbar", e = e)), false)
+            }
+        };
         // Gespeicherten Stand vor der Migration merken – dann wird eine
         // angepasste Datei beim nächsten Speichern neu geschrieben.
         let saved = raw
@@ -129,14 +151,22 @@ impl SettingsFile {
         } else {
             saved
         };
-        (SettingsFile { path, saved }, settings)
+        (
+            SettingsFile {
+                path,
+                saved,
+                writable,
+                problem,
+            },
+            settings,
+        )
     }
 
     /// Schreibt die Einstellungen, falls sie sich seit dem letzten Speichern
     /// geändert haben. `Ok(true)` = geschrieben, `Ok(false)` = unverändert.
     pub fn save(&mut self, settings: &Settings) -> std::io::Result<bool> {
         let json = serde_json::to_vec_pretty(settings)?;
-        if json == self.saved {
+        if json == self.saved || !self.writable {
             return Ok(false);
         }
         paths::write_atomic(&self.path, &json)?;

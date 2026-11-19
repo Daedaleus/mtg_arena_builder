@@ -80,7 +80,7 @@ fn worker_answers_from_cache() {
     store(&dir.0, "Nichts", None);
     let (done_tx, done_rx) = channel();
     let tx = spawn(dir.0.clone(), move |name, img| {
-        let _ = done_tx.send((name, img.is_some()));
+        let _ = done_tx.send((name, matches!(img, Fetched::Found(_))));
     });
     tx.send("Shock".into()).unwrap();
     tx.send("Nichts".into()).unwrap();
@@ -111,10 +111,10 @@ fn downloads_localized_with_fallback() {
     // Netzfehler: nicht als „fehlt“ merken.
     let dir = TempDir::new("img_fail");
     let failing = FakeHttp::new(vec![("Opt", Reply::Fail)]);
-    assert!(load(&failing, &dir.0, "Opt").is_none());
+    assert_eq!(load(&failing, &dir.0, "Opt"), Fetched::Failed);
     assert!(matches!(from_cache(&dir.0, "Opt"), Cached::Unknown));
     // Gibt es nicht: gemerkt.
     let empty = FakeHttp::new(vec![]);
-    assert!(load(&empty, &dir.0, "Opt").is_none());
+    assert_eq!(load(&empty, &dir.0, "Opt"), Fetched::NotFound);
     assert!(matches!(from_cache(&dir.0, "Opt"), Cached::Missing));
 }

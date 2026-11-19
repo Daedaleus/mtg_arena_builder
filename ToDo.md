@@ -71,3 +71,17 @@ Stand: 16.11.2026. Erledigtes steht in der Git-Historie.
       `DeckSource`-Enum statt gemeinsamem `u32`-Raum (braucht Umstellung von
       `settings.json`), lange Oberflächen-Funktionen (`handle_messages`,
       `top_bar`, `game_list`) weiter teilen.
+- [x] Zweites Review (Note 2), Schritte 1–2: beschädigte `games.json`/
+      `settings.json` werden gesichert statt überschrieben (`LoadError`,
+      thiserror), nicht lesbare nicht überschrieben; Probehände verfallen bei
+      neuer Liste; Legalität und Kartenbilder werden nach Netzfehlern erneut
+      angefragt; Fortschrittsmeldungen lösen keine Neuberechnung aus.
+- [ ] Zweites Review, Schritt 3: gemeinsamer Scryfall-Abstand (`Polite` +
+      einschleusbare Uhr), `images::spawn` mit `Http`, echte Antworten als
+      Testdaten, Vertragstest `#[ignore]` gegen die echte API.
+- [ ] Zweites Review, Schritt 4: `CollectionError`/`FetchError` mit thiserror,
+      übersetzt erst beim Anzeigen; Speicherfehler der Sammlung melden;
+      UAC-Abfrage nur bei verweigertem Zugriff.
+- [ ] Zweites Review, Schritt 5: `enum Format`, `DeckSource`, lange
+      Oberflächen-Funktionen teilen; Kleinigkeiten (`"Format:"` übersetzen,
+      Live-Thread mit neuer Kartendatenbank).

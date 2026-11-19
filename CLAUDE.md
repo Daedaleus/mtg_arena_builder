@@ -93,6 +93,9 @@ Aufzählungen wie `Mistake` oder `LandVerdict`.
 - PowerShell-Skripte (`build.ps1`, `coverage.ps1`) als UTF-8 mit BOM und CRLF
   speichern, sonst zeigt Windows PowerShell 5.1 Umlaute falsch an.
 - `settings.json` von Hand nur ohne BOM schreiben (gelesen wird beides).
+- Nutzerdaten (`games.json`, `settings.json`) mit `paths::load_json` laden und
+  `LoadError` unterscheiden: beschädigt = sichern (`backup_corrupt`), nicht
+  lesbar = nicht überschreiben. `read_json` nur für Caches.
 - Arena-Log: Sitz des Spielers aus `systemSeatIds`, nicht fest Sitz 1. Nach
   Spielende kommen noch Nachrichten ohne Partie-Kennung (siehe Test
   `next_game_after_leftover_message`).

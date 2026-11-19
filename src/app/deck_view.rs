@@ -48,7 +48,7 @@ impl App {
         if clicked.simulate {
             self.simulate_deck(deck_id, &eval);
         }
-        if self.trial_running(&SimTarget::Deck(deck_id)) {
+        if self.trial_running(&SimTarget::Deck(deck_id, self.sims.list_gen(deck_id))) {
             ui.horizontal(|ui| {
                 ui.spinner();
                 ui.label(tr!("common.rechne"));
@@ -221,7 +221,7 @@ impl App {
             })
             .collect();
         let deck = sim::deck_from_entries(entries.iter().map(|(n, q)| (n.as_str(), *q)), db);
-        self.start_trial(SimTarget::Deck(deck_id), deck);
+        self.start_trial(SimTarget::Deck(deck_id, self.sims.list_gen(deck_id)), deck);
     }
 
     /// Kartenliste mit Besitz, Fehlendem und Ersatzauswahl.

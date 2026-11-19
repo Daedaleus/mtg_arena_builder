@@ -168,3 +168,28 @@ fn tabs_roundtrip_through_settings() {
     }
     assert!(Tab::from_saved(99) == Tab::Meta, "unbekannt: erster Reiter");
 }
+
+#[test]
+fn replaced_lists_drop_old_trials() {
+    let mut s = super::parts::SimState::default();
+    assert_eq!(s.list_gen(7), 0);
+    s.decks.insert(
+        7,
+        sim::Trial {
+            fast: Default::default(),
+            mine: None,
+            mine_habits: None,
+            habits: None,
+            profile_games: 0,
+            opponent: None,
+        },
+    );
+    s.list_replaced(7);
+    assert!(s.decks.is_empty(), "alte Probehände weg");
+    assert_eq!(
+        s.list_gen(7),
+        1,
+        "laufende Rechnung mit Stand 0 wird verworfen"
+    );
+    assert_eq!(s.list_gen(8), 0, "andere Decks unberührt");
+}

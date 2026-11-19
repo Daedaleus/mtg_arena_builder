@@ -842,6 +842,12 @@ games_report.lag_hand:
 games_report.schaden_bei_leben_genommen:
   de: "%{lost} Schaden bei %{before} Leben genommen, %{my_untapped_creatures} eigene Kreatur(en) hätten blocken können"
   en: "took %{lost} damage at %{before} life, %{my_untapped_creatures} of your creature(s) could have blocked"
+games_store.beschaedigt_gesichert:
+  de: "games.json war beschädigt (%{e}) und wurde als %{backup} gesichert – Partien aus den Arena-Logs werden neu eingelesen."
+  en: "games.json was corrupt (%{e}) and was saved as %{backup} – games are read again from the Arena logs."
+games_store.nicht_lesbar:
+  de: "games.json ist nicht lesbar (%{e}) – sie wird nicht überschrieben."
+  en: "games.json cannot be read (%{e}) – it will not be overwritten."
 games_store.speichern_fehlgeschlagen:
   de: "Partien konnten nicht gespeichert werden: %{e}"
   en: "Could not save the games: %{e}"
@@ -1220,6 +1226,12 @@ progress_view.rang:
 progress_view.siegquote:
   de: "Siegquote"
   en: "Win rate"
+settings.beschaedigt_gesichert:
+  de: "settings.json war beschädigt (%{e}) und wurde als %{backup} gesichert – es gelten die Standardeinstellungen."
+  en: "settings.json was corrupt (%{e}) and was saved as %{backup} – default settings apply."
+settings.nicht_lesbar:
+  de: "settings.json ist nicht lesbar (%{e}) – Änderungen werden nicht gespeichert."
+  en: "settings.json cannot be read (%{e}) – changes will not be saved."
 sim_advice.deck_laeuft_probehaenden_rund:
   de: "Das Deck läuft in den Probehänden rund – Länder und Kurve passen."
   en: "The deck runs smoothly in the sample hands – lands and curve fit."

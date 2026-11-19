@@ -66,10 +66,9 @@ fn old_files_get_a_version_and_write_errors_are_reported() {
     );
     let text = std::fs::read_to_string(dir.path("settings.json")).unwrap();
     assert!(text.contains("\"version\": 1"), "{text}");
-    // Schreibfehler kommt beim Aufrufer an (Ordner statt Datei).
-    let blocked = TempDir::new("settings_blocked");
-    std::fs::create_dir(blocked.path("settings.json")).unwrap();
-    let (mut file, mut s) = SettingsFile::load(&blocked.0);
+    // Schreibfehler kommt beim Aufrufer an (Ordner gibt es nicht).
+    let gone = TempDir::new("settings_gone");
+    let (mut file, mut s) = SettingsFile::load(&gone.path("fehlt"));
     s.companion = true;
     assert!(file.save(&s).is_err());
 }
@@ -95,4 +94,34 @@ fn format_is_stored_as_code() {
     };
     let json = serde_json::to_string(&s).unwrap();
     assert!(json.contains("\"format\":\"PI\""), "{json}");
+}
+
+#[test]
+fn corrupt_settings_are_backed_up_unreadable_not_overwritten() {
+    let dir = TempDir::new("settings_corrupt");
+    std::fs::write(dir.path("settings.json"), b"{ kaputt").unwrap();
+    let (mut file, mut s) = SettingsFile::load(&dir.0);
+    assert!(file.problem.as_ref().unwrap().contains("gesichert"));
+    assert_eq!(s, Settings::default());
+    s.companion = true;
+    assert!(file.save(&s).unwrap(), "neue Datei neben der Sicherung");
+    let backups = std::fs::read_dir(&dir.0)
+        .unwrap()
+        .filter_map(|e| e.ok())
+        .filter(|e| {
+            e.file_name()
+                .to_string_lossy()
+                .starts_with("settings.json.corrupt-")
+        })
+        .count();
+    assert_eq!(backups, 1);
+
+    // Nicht lesbar (Ordner): nichts überschreiben.
+    let blocked = TempDir::new("settings_unreadable");
+    std::fs::create_dir(blocked.path("settings.json")).unwrap();
+    let (mut file, mut s) = SettingsFile::load(&blocked.0);
+    assert!(file.problem.is_some());
+    s.companion = true;
+    assert!(!file.save(&s).unwrap());
+    assert!(blocked.path("settings.json").is_dir());
 }

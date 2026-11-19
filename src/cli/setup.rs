@@ -100,7 +100,11 @@ pub fn image(names: &[String]) {
     let req = images::spawn(
         paths::data_dir().join("cache").join("img"),
         move |name, img| {
-            let _ = tx.send((name, img.map(|i| i.size)));
+            let size = match img {
+                images::Fetched::Found(p) => Some(p.size),
+                _ => None,
+            };
+            let _ = tx.send((name, size));
         },
     );
     for name in names {

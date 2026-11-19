@@ -46,7 +46,7 @@ pub(super) enum Msg {
     /// Partien aus den Arena-Logs; `bool` = „Detaillierte Logs“ ist aus.
     Games(games::Synced, bool),
     /// Kartenbild von Scryfall (None = keins gefunden).
-    Image(String, Option<images::Picture>),
+    Image(String, images::Fetched),
     Pending(usize),
     /// Probehände fertig.
     Trial(SimTarget, Box<sim::Trial>),
@@ -144,8 +144,8 @@ impl App {
     pub(super) fn handle_messages(&mut self) {
         while let Ok(msg) = self.rx_msg.try_recv() {
             // Neue Daten: zwischengespeicherte Auswertungen neu berechnen
-            // (Kartenbilder und Probehände ändern daran nichts).
-            if !matches!(msg, Msg::Image(..) | Msg::Trial(..)) {
+            // (Kartenbilder, Probehände und Fortschrittsmeldungen ändern daran nichts).
+            if !matches!(msg, Msg::Image(..) | Msg::Trial(..) | Msg::Pending(..)) {
                 self.data_gen = self.data_gen.wrapping_add(1);
             }
             match msg {
@@ -184,7 +184,11 @@ impl App {
                         self.subs.clear();
                         self.built.decks = None;
                     }
-                    Err(e) => self.status = tr!("worker.format_legalitaet_nicht_verfuegbar", e = e),
+                    Err(e) => {
+                        // Beim nächsten Laden des Formats erneut versuchen.
+                        self.tour.legal_requested.remove(&format);
+                        self.status = tr!("worker.format_legalitaet_nicht_verfuegbar", e = e);
+                    }
                 },
                 Msg::Collection(result) => {
                     self.syncing = false;
@@ -221,21 +225,25 @@ impl App {
                     }
                 }
                 Msg::Image(name, img) => match img {
-                    Some(img) => {
+                    images::Fetched::Found(img) => {
                         let img = egui::ColorImage::from_rgba_unmultiplied(img.size, &img.rgba);
                         let tex =
                             self.ctx
                                 .load_texture(format!("card:{name}"), img, Default::default());
                         self.images.textures.insert(name, tex);
                     }
-                    None => {
+                    images::Fetched::NotFound => {
                         self.images.missing.insert(name);
+                    }
+                    // Beim nächsten Überfahren erneut anfragen.
+                    images::Fetched::Failed => {
+                        self.images.requested.borrow_mut().remove(&name);
                     }
                 },
                 Msg::Games(synced, disabled) => {
                     self.games.loading = false;
                     self.games.logs_disabled = disabled;
-                    if let Some(e) = synced.save_error {
+                    if let Some(e) = synced.problem {
                         self.status = e;
                     }
                     let games = synced.games;

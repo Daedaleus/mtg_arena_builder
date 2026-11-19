@@ -25,11 +25,47 @@ pub fn write_atomic(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
     fs::rename(&tmp, path)
 }
 
-/// Liest eine JSON-Datei; ein UTF-8-BOM am Anfang (z. B. von Windows-Editoren) wird ignoriert.
-pub fn read_json<T: serde::de::DeserializeOwned>(path: &Path) -> Option<T> {
-    let bytes = fs::read(path).ok()?;
+/// Warum eine JSON-Datei nicht geladen werden konnte. Wichtig für Dateien
+/// mit Nutzerdaten: Eine fehlende Datei ist normal, eine beschädigte muss
+/// gesichert werden, eine nicht lesbare darf nicht überschrieben werden.
+#[derive(Debug, thiserror::Error)]
+pub enum LoadError {
+    #[error("file does not exist")]
+    Missing,
+    #[error("file is corrupt: {0}")]
+    Corrupt(#[from] serde_json::Error),
+    #[error("file cannot be read: {0}")]
+    Unreadable(std::io::Error),
+}
+
+/// Lädt eine JSON-Datei; ein UTF-8-BOM am Anfang (z. B. von Windows-Editoren) wird ignoriert.
+pub fn load_json<T: serde::de::DeserializeOwned>(path: &Path) -> Result<T, LoadError> {
+    let bytes = fs::read(path).map_err(|e| match e.kind() {
+        std::io::ErrorKind::NotFound => LoadError::Missing,
+        _ => LoadError::Unreadable(e),
+    })?;
     let body = bytes.strip_prefix(b"\xEF\xBB\xBF").unwrap_or(&bytes);
-    serde_json::from_slice(body).ok()
+    Ok(serde_json::from_slice(body)?)
+}
+
+/// Wie [`load_json`], für Dateien, bei denen der Grund egal ist (Caches).
+pub fn read_json<T: serde::de::DeserializeOwned>(path: &Path) -> Option<T> {
+    load_json(path).ok()
+}
+
+/// Benennt eine beschädigte Datei um (`name.corrupt-<Zeitstempel>`), damit sie
+/// nicht überschrieben wird. Liefert den neuen Pfad.
+pub fn backup_corrupt(path: &Path) -> std::io::Result<PathBuf> {
+    let stamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.as_secs());
+    let name = path
+        .file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    let backup = path.with_file_name(format!("{name}.corrupt-{stamp}"));
+    fs::rename(path, &backup)?;
+    Ok(backup)
 }
 
 /// Mögliche Orte der `Player.log` je nach Plattform.

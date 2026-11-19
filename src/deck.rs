@@ -4,13 +4,13 @@ use std::collections::{HashMap, HashSet};
 
 use crate::carddb::{CardDb, Rarity};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct DeckEntry {
     pub qty: u32,
     pub name: String,
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct Deck {
     pub main: Vec<DeckEntry>,
     pub side: Vec<DeckEntry>,

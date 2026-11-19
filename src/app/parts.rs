@@ -64,6 +64,20 @@ pub(super) struct SimState {
     /// Je Deck aus „Deck verbessern“ (grpIds der Liste).
     pub groups: HashMap<Vec<u32>, sim::Trial>,
     pub running: HashSet<SimTarget>,
+    /// Stand je Deck-Kennung; steigt, wenn dort eine neue Liste liegt.
+    pub generations: HashMap<u32, u64>,
+}
+
+impl SimState {
+    pub fn list_gen(&self, id: u32) -> u64 {
+        self.generations.get(&id).copied().unwrap_or(0)
+    }
+
+    /// Neue Liste unter `id`: alte Probehände gelten nicht mehr.
+    pub fn list_replaced(&mut self, id: u32) {
+        self.decks.remove(&id);
+        *self.generations.entry(id).or_insert(0) += 1;
+    }
 }
 
 /// „Aus meiner Sammlung“: gebaute Decks.

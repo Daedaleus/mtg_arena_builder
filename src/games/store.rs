@@ -17,8 +17,43 @@ pub(super) struct Store {
 #[derive(Debug, Default)]
 pub struct Synced {
     pub games: Vec<GameRecord>,
-    /// `games.json` konnte nicht geschrieben werden (die Partien sind trotzdem da).
-    pub save_error: Option<String>,
+    /// Problem mit `games.json` für die Statuszeile: nicht lesbar, beschädigt
+    /// (dann gesichert) oder nicht speicherbar. Die Partien sind trotzdem da.
+    pub problem: Option<String>,
+}
+
+/// Gespeicherte Partien laden. Eine beschädigte Datei wird gesichert (nicht
+/// überschrieben); ist sie nicht lesbar, darf `sync` sie nicht ersetzen.
+fn load_store(store: &Path) -> (Store, Option<String>, bool) {
+    use crate::paths::{LoadError, backup_corrupt, load_json};
+    match load_json::<Store>(store) {
+        Ok(s) => (s, None, true),
+        Err(LoadError::Missing) => (Store::default(), None, true),
+        // Ältere Dateien enthielten nur die Liste der Partien.
+        Err(LoadError::Corrupt(_)) if load_json::<Vec<GameRecord>>(store).is_ok() => {
+            let games = load_json::<Vec<GameRecord>>(store).unwrap_or_default();
+            (Store { version: 1, games }, None, true)
+        }
+        Err(LoadError::Corrupt(e)) => match backup_corrupt(store) {
+            Ok(backup) => {
+                let text = tr!(
+                    "games_store.beschaedigt_gesichert",
+                    e = e,
+                    backup = backup.display()
+                );
+                (Store::default(), Some(text), true)
+            }
+            Err(io) => {
+                let text = tr!("games_store.nicht_lesbar", e = format!("{e}; {io}"));
+                (Store::default(), Some(text), false)
+            }
+        },
+        Err(LoadError::Unreadable(e)) => (
+            Store::default(),
+            Some(tr!("games_store.nicht_lesbar", e = e)),
+            false,
+        ),
+    }
 }
 
 /// Gespeicherte Partien laden, neue aus den Logs dazunehmen und speichern.
@@ -28,13 +63,7 @@ pub struct Synced {
 /// wenn die gespeicherte mit einer älteren Auswertung entstand. Partien,
 /// deren Log nicht mehr existiert, behalten ihre alte Version.
 pub fn sync(store: &Path, logs: &[PathBuf]) -> Synced {
-    // Ältere Dateien enthielten nur die Liste der Partien.
-    let saved: Store = crate::paths::read_json::<Store>(store)
-        .or_else(|| {
-            crate::paths::read_json::<Vec<GameRecord>>(store)
-                .map(|games| Store { version: 1, games })
-        })
-        .unwrap_or_default();
+    let (saved, problem, writable) = load_store(store);
     let file_outdated = saved.version < PARSER_VERSION;
     let mut games = saved.games;
     // Ältere Dateien kannten nur eine Version für alle Partien.
@@ -59,11 +88,8 @@ pub fn sync(store: &Path, logs: &[PathBuf]) -> Synced {
     }
     games.sort_by_key(|g| std::cmp::Reverse(g.started_ms));
     let changed = file_outdated || serde_json::to_vec(&games).unwrap_or_default() != before;
-    if !changed {
-        return Synced {
-            games,
-            save_error: None,
-        };
+    if !changed || !writable {
+        return Synced { games, problem };
     }
     let out = Store {
         version: PARSER_VERSION,
@@ -76,6 +102,6 @@ pub fn sync(store: &Path, logs: &[PathBuf]) -> Synced {
         .map(|e| tr!("games_store.speichern_fehlgeschlagen", e = e));
     Synced {
         games: out.games,
-        save_error,
+        problem: problem.or(save_error),
     }
 }
