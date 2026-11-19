@@ -17,7 +17,12 @@ pub const DEFAULT_RETRY_AFTER: u64 = 60;
 
 /// Höchstens so viele Bytes je Antwort.
 const MAX_BYTES: u64 = 5_000_000;
-pub const USER_AGENT: &str = "mtg_arena_builder/0.1 (privates Deckbau-Werkzeug)";
+/// Kennung bei Anfragen: Programm, Version und wo es zu finden ist.
+pub const USER_AGENT: &str = concat!(
+    "mtg_arena_builder/",
+    env!("CARGO_PKG_VERSION"),
+    " (+https://github.com/Daedaleus/mtg_arena_builder)"
+);
 
 /// Mindestabstand zwischen zwei Anfragen an denselben Host.
 pub const GAPS: [(&str, Duration); 3] = [

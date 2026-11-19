@@ -28,7 +28,8 @@ Stand: 19.11.2026. Erledigtes steht in der Git-Historie.
 
 ## Technik
 
-- [x] Sicherung: privates Repository `Daedaleus/mtg_checker` auf GitHub.
+- [x] Repository `Daedaleus/mtg_arena_builder` auf GitHub; vorbereitet zum
+      Veröffentlichen (Lizenzdatei, Hinweise im README).
 - [x] CI mit GitHub Actions: fmt, Clippy, Tests und Release-Build auf
       Windows, Linux und macOS, Testabdeckung ≥ 90 %.
 - [ ] Linux-Version irgendwann starten und ausprobieren (bauen und Tests

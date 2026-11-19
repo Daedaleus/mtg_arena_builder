@@ -6,7 +6,7 @@ eigenen Sammlung ab, baut Decks aus vorhandenen Karten, wertet die eigenen
 Partien aus und gibt während einer Partie Hinweise in einem kleinen
 Begleitfenster.
 
-Die Oberfläche ist deutsch. Im Alltag genutzt wird die Windows-Version; Linux
+Im Alltag genutzt wird die Windows-Version; Linux
 und macOS werden in der CI gebaut und getestet, sind aber noch nicht im
 echten Einsatz ausprobiert (siehe [ToDo.md](ToDo.md)).
 
@@ -152,7 +152,19 @@ entsprechende Datenordner):
   und [magic.gg](https://magic.gg/decklists) (2 s Abstand, Cache).
 - Legalität und Kartenbilder: [Scryfall](https://scryfall.com) (ohne API-Schlüssel).
 
+## Hinweise
+
+- Die Sammlung wird – wie bei anderen Arena-Trackern – nur lesend aus dem
+  Arbeitsspeicher von Arena gelesen (dafür Administratorrechte). Arena selbst
+  wird nicht verändert; die Nutzung geschieht auf eigene Verantwortung.
+- Alle anderen Daten kommen aus dem Arena-Log, der lokalen Kartendatenbank
+  und öffentlichen Webseiten (siehe „Datenquellen“).
+
 ## Lizenz
 
-GPL-3.0-or-later (wegen mtga-reader). Privates Werkzeug, nicht mit Wizards of
-the Coast verbunden.
+[GPL-3.0-or-later](LICENSE) (wegen mtga-reader).
+
+MTG Arena Builder is unofficial Fan Content permitted under the
+[Fan Content Policy](https://company.wizards.com/en/legal/fancontentpolicy).
+Not approved/endorsed by Wizards. Portions of the materials used are property
+of Wizards of the Coast. ©Wizards of the Coast LLC.

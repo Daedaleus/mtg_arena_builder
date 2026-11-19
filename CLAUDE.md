@@ -94,7 +94,7 @@ Aufzählungen wie `Mistake` oder `LandVerdict`.
   sperrt `http::Polite` die Seite für die genannte Wartezeit. Den
   Vertragstest gegen Scryfall nicht mehrmals kurz hintereinander starten.
 - Commits und Pushes nur auf Wunsch des Nutzers. Remote `origin` ist das
-  private Repository `Daedaleus/mtg_checker` auf GitHub, Branch `main`.
+  Repository `Daedaleus/mtg_arena_builder` auf GitHub, Branch `main`.
   GitHub CLI: `C:\Program Files\GitHub CLI\gh.exe` (angemeldet).
 
 ## Fallstricke

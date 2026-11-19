@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 description = "Turnierdecks mit der eigenen MTG-Arena-Sammlung abgleichen"
 license = "GPL-3.0-or-later"
+repository = "https://github.com/Daedaleus/mtg_arena_builder"
 publish = false
 
 [dependencies]
