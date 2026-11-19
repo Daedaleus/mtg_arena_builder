@@ -3,6 +3,11 @@
 Features and download: [README.md](README.md). Building, tests, command line
 and releases: [CONTRIBUTING.md](CONTRIBUTING.md). Open items are GitHub issues
 (`gh issue list`); new ideas and found problems go there, not into a file.
+Create issues following the forms in `.github/ISSUE_TEMPLATE/`, also with
+`gh issue create`: the same `### …` sections in the same order (empty ones as
+`_No response_`) and the form's label. Bugs use "Bug report" (label `bug`),
+everything else "Idea" (label `enhancement`); add other labels only where
+they really fit.
 
 ## Language and style
 
