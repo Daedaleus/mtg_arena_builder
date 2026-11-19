@@ -50,11 +50,52 @@ hand, and not several times in a row: `cargo test -- --ignored`.
 Before every commit: `cargo fmt`, `cargo clippy --all-targets -- -D warnings`,
 `cargo test` (or simply `.\build.ps1`).
 
+## Commit messages
+
+[Conventional Commits](https://www.conventionalcommits.org) with a
+[gitmoji](https://gitmoji.dev) icon after the colon, in English:
+
+```
+<type>(<optional scope>): <icon> <description>
+
+feat(sim): ✨ add prowess to the race
+fix(collection): 🐛 ask for admin rights only when access is denied
+docs: 📝 add screenshots to the README
+```
+
+| Type | Icon | For |
+|---|---|---|
+| `feat` | ✨ | a new feature |
+| `fix` | 🐛 | a bug fix |
+| `docs` | 📝 | documentation only |
+| `style` | 🎨 | formatting, no code change |
+| `refactor` | ♻️ | restructuring without changing behaviour |
+| `perf` | ⚡️ | faster or leaner |
+| `test` | ✅ | tests only |
+| `build` | 📦️ | build scripts, dependencies |
+| `ci` | 👷 | GitHub Actions |
+| `chore` | 🔧 | everything else (config, housekeeping) |
+| `revert` | ⏪️ | undo an earlier commit |
+
+The scope is optional and names the module (`sim`, `games`, `live`, `app` …).
+A breaking change gets a `!` before the colon (`feat!: ✨ …`). The description
+starts lowercase and has no full stop.
+
+The hook in `.githooks/` checks this when committing. Switch it on once per
+clone:
+
+```powershell
+git config core.hooksPath .githooks
+```
+
 ## Pull requests
 
 `main` is protected: every change goes through a pull request, also for the
 maintainer. Create a branch, push it and open a pull request; it can be
 merged once the CI checks are green. Keep pull requests focused on one topic.
+Pull requests are squash-merged, so the **title** becomes the commit message
+on `main` and must follow the same format (checked by
+[pr-title.yml](.github/workflows/pr-title.yml)).
 
 ## Command line (diagnostics)
 

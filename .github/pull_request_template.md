@@ -1,3 +1,6 @@
+<!-- Title: conventional commit with icon, e.g. "feat(sim): ✨ add prowess"
+     (see CONTRIBUTING.md) – it becomes the commit message on main. -->
+
 ## What and why
 
 <!-- Short description; link the issue if there is one (e.g. "Fixes #12"). -->

@@ -8,6 +8,10 @@ and releases: [CONTRIBUTING.md](CONTRIBUTING.md). Open items: [TODO.md](TODO.md)
 - Documentation (README, TODO, CONTRIBUTING, SECURITY, this file) and commit
   messages in **English**. Code comments and doc comments stay **German**
   (the existing code base is German throughout).
+- Commit messages and pull request titles: Conventional Commits with the
+  matching gitmoji icon after the colon, e.g. `feat(sim): ✨ add prowess` or
+  `fix: 🐛 keep settings` (types and icons in CONTRIBUTING.md, checked by
+  `.githooks/commit-msg` and `pr-title.yml`).
 - The interface is bilingual (German, English): display texts live **only** in
   `locales/app.yml` and reach the code via `tr!("module.key", name = value)` –
   no display texts as string literals in code. New texts always in both
@@ -102,8 +106,8 @@ display texts – there are enums like `Mistake` or `LandVerdict` for that.
   `Daedaleus/mtg_arena_builder` on GitHub. GitHub CLI:
   `C:\Program Files\GitHub CLI\gh.exe` (logged in).
 - `main` is protected: never push to it directly. Work on a branch, push the
-  branch, open a pull request with `gh pr create`; it is merged once the
-  required checks are green.
+  branch, open a pull request with `gh pr create`; it is squash-merged once
+  the required checks are green, so its title becomes the commit message.
 - Releases: bump `version` in `Cargo.toml` via a pull request, then tag the
   merged commit on `main` with `vX.Y.Z` and push the tag (see
   CONTRIBUTING.md). Release notes template: `.github/release-notes.md`.

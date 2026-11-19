@@ -1,0 +1,2 @@
+# Shell-Skripte immer mit LF, sonst bricht sh unter Windows ab.
+.githooks/* text eol=lf
