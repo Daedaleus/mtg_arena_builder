@@ -26,6 +26,7 @@ use crate::carddb::{Card, CardDb, GrpId, color};
 use arena::{Phase, annotation, card_state, message, step, zone};
 
 pub mod arena;
+mod filter;
 mod live_state;
 mod mistake;
 mod moments;
@@ -37,6 +38,7 @@ mod report;
 mod store;
 mod tracker;
 
+pub use filter::{GameMode, GamesFilter, deck_key};
 pub use live_state::*;
 pub use mistake::*;
 pub use moments::*;

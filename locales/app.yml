@@ -887,6 +887,24 @@ games_store.nicht_lesbar:
 games_store.speichern_fehlgeschlagen:
   de: "Partien konnten nicht gespeichert werden: %{e}"
   en: "Could not save the games: %{e}"
+games_filter.rangliste:
+  de: "Rangliste"
+  en: "Ranked"
+games_filter.spielen:
+  de: "Spielen"
+  en: "Play"
+games_filter.brawl:
+  de: "Brawl"
+  en: "Brawl"
+games_filter.limited:
+  de: "Limited (Draft, Sealed)"
+  en: "Limited (draft, sealed)"
+games_filter.events:
+  de: "Events und Starterdecks"
+  en: "Events and starter decks"
+games_tab.alle_decks:
+  de: "Alle Decks"
+  en: "All decks"
 games_tab.alle_modi:
   de: "Alle Modi"
   en: "All modes"

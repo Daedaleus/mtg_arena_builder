@@ -12,8 +12,10 @@ pub(super) struct GamesState {
     pub scanned: Option<std::time::Instant>,
     /// In Arena sind „Detaillierte Logs“ aus.
     pub logs_disabled: bool,
-    /// Filter nach Arena-Event (`None` = alle).
-    pub event: Option<String>,
+    /// Welche Partien ausgewertet werden (Modus-Gruppe, Deck).
+    pub filter: games::GamesFilter,
+    /// Filter schon mit der letzten Partie vorbelegt (einmal je Sitzung).
+    pub filter_set: bool,
     pub sel: Option<usize>,
     /// Unterseite: 0 = Übersicht, 1 = Partienliste, 2 = Verlauf.
     pub view: u8,
