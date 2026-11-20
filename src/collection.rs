@@ -30,8 +30,15 @@ impl Wildcards {
     }
 }
 
+/// Aktuelle Version von `collection.json`. Wird sie erhöht, passt
+/// [`Collection::migrate`] ältere Dateien an.
+pub const COLLECTION_VERSION: u32 = 1;
+
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct Collection {
+    /// Version der Datei (0 = vor Einführung der Versionsnummer).
+    #[serde(default)]
+    pub version: u32,
     /// grpId -> Anzahl
     pub cards: HashMap<GrpId, u32>,
     pub wildcards: Wildcards,
@@ -42,11 +49,23 @@ pub struct Collection {
 
 impl Collection {
     pub fn load(path: &Path) -> Option<Collection> {
-        crate::paths::read_json(path)
+        crate::paths::read_json::<Collection>(path).map(Collection::migrate)
     }
 
+    /// Bringt eine Sammlung aus einer älteren Datei auf den aktuellen Stand.
+    /// Version 0 (ohne Nummer) hat dieselben Felder – nur die Nummer fehlt.
+    pub fn migrate(mut self) -> Collection {
+        self.version = COLLECTION_VERSION;
+        self
+    }
+
+    /// Schreibt die Sammlung immer mit der aktuellen Versionsnummer.
     pub fn save(&self, path: &Path) -> Result<()> {
-        let json = serde_json::to_vec(self)?;
+        let current = Collection {
+            version: COLLECTION_VERSION,
+            ..self.clone()
+        };
+        let json = serde_json::to_vec(&current)?;
         crate::paths::write_atomic(path, &json).with_context(|| path.display().to_string())
     }
 
