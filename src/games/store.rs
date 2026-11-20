@@ -4,7 +4,7 @@ use super::*;
 
 /// Version der Auswertung. Wird sie erhöht, werden gespeicherte Partien beim
 /// nächsten Einlesen aus noch vorhandenen Logs neu berechnet.
-pub(super) const PARSER_VERSION: u32 = 5;
+pub(super) const PARSER_VERSION: u32 = 6;
 
 #[derive(Default, Serialize, Deserialize)]
 #[serde(default)]

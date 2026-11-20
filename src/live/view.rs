@@ -224,12 +224,13 @@ fn lethal_hint(v: &mut CompanionView, ls: &LiveState, db: &CardDb, hand: &[&Card
 
 /// Eigener Zug: gefahrlose Angreifer und in den Hauptphasen der Zugvorschlag.
 fn my_turn_hints(v: &mut CompanionView, ls: &LiveState, db: &CardDb) {
-    if !ls.safe_attackers.is_empty() {
+    let attackers = worth_attacking(ls, db);
+    if !attackers.is_empty() {
         v.hints.push((
             Level::Good,
             tr!(
                 "live_view.gefahrlos_angreifen",
-                v = names(db, &ls.safe_attackers, 4)
+                v = names(db, &attackers, 4)
             ),
         ));
     }

@@ -96,6 +96,10 @@ fn cards_query(conn: &Connection) -> String {
     )
 }
 
+/// Supertypen in der Arena-Datenbank (Spalte `Supertypes`).
+const SUPERTYPE_BASIC: u8 = 1;
+const SUPERTYPE_LEGENDARY: u8 = 2;
+
 /// Eine Karte aus einer Zeile der Kartenabfrage (Rollen kommen später dazu).
 fn card_from_row(r: &rusqlite::Row) -> rusqlite::Result<Card> {
     let text = |r: &rusqlite::Row, i: usize| -> String {
@@ -105,6 +109,7 @@ fn card_from_row(r: &rusqlite::Row) -> rusqlite::Result<Card> {
             .unwrap_or_default()
     };
     let mana = text(r, 7);
+    let supertypes = parse_list::<u8>(&text(r, 10));
     let colors = parse_list::<u8>(&text(r, 11))
         .into_iter()
         .filter(|c| (1..=5).contains(c))
@@ -126,7 +131,8 @@ fn card_from_row(r: &rusqlite::Row) -> rusqlite::Result<Card> {
         mana_cost: pretty_mana(&mana),
         types: parse_list(&text(r, 8)),
         subtypes: parse_list(&text(r, 9)),
-        basic: parse_list::<u8>(&text(r, 10)).contains(&1),
+        basic: supertypes.contains(&SUPERTYPE_BASIC),
+        legendary: supertypes.contains(&SUPERTYPE_LEGENDARY),
         colors,
         back_face: r.get::<_, i64>(12).unwrap_or(0) == 1,
         abilities: parse_list(&text(r, 13)),
@@ -137,6 +143,7 @@ fn card_from_row(r: &rusqlite::Row) -> rusqlite::Result<Card> {
         burn: 0,
         enters_tapped: false,
         mana: None,
+        tap_ability: false,
     })
 }
 

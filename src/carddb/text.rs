@@ -100,6 +100,8 @@ pub(super) struct AbilityInfo {
     roles: HashMap<u32, u8>,
     burn: HashMap<u32, u32>,
     tapped: HashSet<u32>,
+    /// Aktivierte Fähigkeiten, die Tappen kosten.
+    tap_cost: HashSet<u32>,
     /// Manafähigkeiten: erzeugte Farben (0 = farblos).
     mana: HashMap<u32, u8>,
 }
@@ -120,6 +122,9 @@ impl AbilityInfo {
         if let Some(colors) = mana_of(text) {
             self.mana.insert(id, colors);
         }
+        if tap_cost_of(text) {
+            self.tap_cost.insert(id);
+        }
     }
 }
 
@@ -131,6 +136,7 @@ pub(super) fn apply_abilities(card: &mut Card, info: &AbilityInfo) {
         .filter_map(|a| info.roles.get(a))
         .fold(0, |m, r| m | r);
     card.enters_tapped = card.abilities.iter().any(|a| info.tapped.contains(a));
+    card.tap_ability = card.abilities.iter().any(|a| info.tap_cost.contains(a));
     // Brandschaden zählt nur bei Spontanzaubern und Hexereien – bei Kreaturen
     // steckt er oft in Fähigkeiten, die nicht sofort wirken.
     if card
@@ -154,6 +160,14 @@ pub(super) fn apply_abilities(card: &mut Card, info: &AbilityInfo) {
             .filter_map(|a| info.mana.get(a))
             .fold(None, |m: Option<u8>, c| Some(m.unwrap_or(0) | c));
     }
+}
+
+/// Kostet die aktivierte Fähigkeit Tappen? Die Kosten stehen vor dem
+/// Doppelpunkt: „{oT}: …“ oder „{oT}, Opfere …: …“.
+pub(super) fn tap_cost_of(text: &str) -> bool {
+    let t = strip_tags(text).to_lowercase();
+    t.split_once(':')
+        .is_some_and(|(cost, _)| cost.contains("{ot}"))
 }
 
 /// Farben einer Manafähigkeit wie „{oT}: Add {oG}.“ (0 = farblos), sonst `None`.

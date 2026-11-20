@@ -88,6 +88,11 @@ fn card_usage_and_swaps() {
             my_turn(1, 6, &[GIANT, OGRE], &[OGRE]),
             my_turn(3, 6, &[GIANT], &[]),
             my_turn(5, 6, &[GIANT], &[]),
+            // Abschließender Gegnerzug: Der letzte Zug wird nicht bewertet.
+            TurnStat {
+                turn: 6,
+                ..Default::default()
+            },
         ]
     };
     let mut g1 = game(false, "Ladder", turns());

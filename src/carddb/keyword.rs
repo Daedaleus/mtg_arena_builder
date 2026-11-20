@@ -10,5 +10,6 @@ pub const FLYING: u32 = 8;
 pub const HASTE: u32 = 9;
 pub const REACH: u32 = 13;
 pub const TRAMPLE: u32 = 14;
+pub const VIGILANCE: u32 = 15;
 pub const INDESTRUCTIBLE: u32 = 104;
 pub const MENACE: u32 = 142;

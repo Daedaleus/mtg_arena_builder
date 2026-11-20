@@ -142,6 +142,8 @@ pub struct Card {
     pub types: Vec<u8>,
     pub subtypes: Vec<u32>,
     pub basic: bool,
+    /// Legendär: Pro Spieler darf nur eine Karte dieses Namens im Spiel sein.
+    pub legendary: bool,
     /// Farbidentität als Bitmaske (Bit 0 = Weiß … Bit 4 = Grün).
     pub colors: u8,
     pub mana_cost: String,
@@ -161,6 +163,8 @@ pub struct Card {
     pub enters_tapped: bool,
     /// Nichtland mit Manafähigkeit („{T}: Add …“): erzeugte Farben, 0 = farblos.
     pub mana: Option<u8>,
+    /// Hat eine aktivierte Fähigkeit, die Tappen kostet („{T}: …“, „{T}, …: …“).
+    pub tap_ability: bool,
 }
 
 /// Entfernt oder neutralisiert gegnerische Karten (Zerstören, Schaden, Verbannen …).

@@ -14,6 +14,18 @@ use crate::carddb::{
 /// Höchstens so viele Handkarten werden kombiniert (2^n Möglichkeiten).
 const MAX_CANDIDATES: usize = 12;
 
+/// Legendary-Regel: Eine legendäre Karte, deren Name schon auf meiner Seite
+/// im Spiel ist, würde sofort wieder auf den Friedhof gehen – sie kommt für den
+/// Zugvorschlag nicht in Frage, ebenso ein zweites Exemplar auf der Hand.
+pub fn without_legend_duplicates(db: &CardDb, hand: &[GrpId], board: &[GrpId]) -> Vec<GrpId> {
+    let name_of = |g: &GrpId| db.cards.get(g).filter(|c| c.legendary).map(|c| &c.name);
+    let mut taken: std::collections::HashSet<&String> = board.iter().filter_map(name_of).collect();
+    hand.iter()
+        .filter(|g| name_of(g).is_none_or(|name| taken.insert(name)))
+        .copied()
+        .collect()
+}
+
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Plan {
     /// Land, das gelegt werden soll.

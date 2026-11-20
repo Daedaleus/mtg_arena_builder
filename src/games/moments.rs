@@ -22,9 +22,12 @@ pub struct HeldCard<'a> {
 /// Zahl der eigenen Länder (ohne Farben).
 pub fn held_cards<'a>(g: &GameRecord, db: &'a CardDb) -> Vec<HeldCard<'a>> {
     let mut held: Vec<HeldCard> = Vec::new();
-    for t in g.turns.iter().filter(|t| t.mine) {
+    // Der letzte Zug zählt nicht: Die Partie endete darin.
+    let done = g.turns.len().saturating_sub(1);
+    for t in g.turns[..done].iter().filter(|t| t.mine) {
         let mut counted = HashSet::new();
-        for c in t.hand.iter().filter_map(|grp| card(db, *grp)) {
+        let playable = crate::turnplan::without_legend_duplicates(db, &t.hand, &t.board);
+        for c in playable.iter().filter_map(|grp| card(db, *grp)) {
             let castable = !c.is_land() && !c.is_instant() && c.cmc > 0 && c.cmc <= t.lands_me;
             if !castable || !counted.insert(&c.name) {
                 continue;
@@ -56,7 +59,8 @@ pub fn key_moment(t: &TurnStat, db: &CardDb) -> Option<String> {
     if !t.mine || t.lands.is_empty() {
         return None;
     }
-    let mut hand = t.hand.clone();
+    // Hand zu Zugbeginn; legendäre Karten, die schon im Spiel sind, fallen weg.
+    let mut hand = crate::turnplan::without_legend_duplicates(db, &t.hand, &t.board);
     hand.extend(&t.cast);
     let plan = crate::turnplan::plan(
         db,

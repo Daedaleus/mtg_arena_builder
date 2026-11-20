@@ -40,6 +40,8 @@ pub struct LiveState {
     /// Eigene ungetappte Nichtländer, die jetzt Mana erzeugen könnten
     /// (Kreaturen ohne Einsatzverzögerung); ob sie es können, weiß die Kartendatenbank.
     pub mana_permanents: Vec<GrpId>,
+    /// Eigene bleibende Karten außer Ländern (für die Legendary-Regel).
+    pub board: Vec<GrpId>,
     pub land_played: bool,
     pub creatures_me: u32,
     pub creatures_opp: u32,
@@ -100,6 +102,7 @@ impl Tracker {
                 })
                 .map(|o| o.grp_id)
                 .collect(),
+            board: self.my_board(),
             land_played: self.cur.land_played,
             creatures_me: self.count(me, |o| o.creature),
             creatures_opp: self.count(opp, |o| o.creature),

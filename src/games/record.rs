@@ -42,6 +42,10 @@ pub struct TurnStat {
     pub lands: Vec<GrpId>,
     /// Kreaturen des Gegners am Zugende: (grpId, Kraft).
     pub opp_creatures: Vec<(GrpId, i32)>,
+    /// Eigene bleibende Karten außer Ländern am Zugende (für die
+    /// Legendary-Regel).
+    #[serde(default)]
+    pub board: Vec<GrpId>,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]

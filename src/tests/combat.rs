@@ -213,3 +213,16 @@ fn fights_resolve() {
         (false, vec![false, true])
     );
 }
+
+#[test]
+fn worth_attacking_keeps_blockers_and_tappers_home() {
+    let db = std_db();
+    // Elf: Tapp-Fähigkeit. Bär: frei. Engel: Wachsamkeit. Unbekannt: bleibt.
+    let safe = [ELF, BEAR, ANGEL, GrpId(9999)];
+    assert_eq!(
+        worth_attacking(&db, &safe, 20, 5),
+        vec![BEAR, ANGEL, GrpId(9999)]
+    );
+    // Gegner hat genug Kraft für tödlichen Schaden: nur Wachsamkeit greift an.
+    assert_eq!(worth_attacking(&db, &safe, 5, 5), vec![ANGEL]);
+}
