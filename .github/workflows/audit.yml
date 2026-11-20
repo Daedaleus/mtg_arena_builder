@@ -1,6 +1,6 @@
-# Prüft die Abhängigkeiten gegen die RustSec-Datenbank bekannter
-# Sicherheitslücken – bei Änderungen an Cargo.lock und wöchentlich, weil neue
-# Meldungen auch ohne eigene Änderung auftauchen.
+# Checks the dependencies against the RustSec database of known
+# vulnerabilities – on changes to Cargo.lock and weekly, because new
+# advisories appear without any change on our side.
 name: Audit
 
 on:
@@ -13,13 +13,13 @@ on:
     - cron: '17 5 * * 1'
   workflow_dispatch:
 
-# Standard für alle Jobs: nur lesen. Wer mehr braucht (Release), sagt es selbst.
+# Default for all jobs: read only.
 permissions:
   contents: read
 
 jobs:
   advisories:
-    name: Sicherheitsmeldungen (cargo-deny)
+    name: Advisories (cargo-deny)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7

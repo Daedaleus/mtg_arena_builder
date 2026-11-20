@@ -1,12 +1,12 @@
-# Einstellungen für cargo-deny (siehe .github/workflows/audit.yml).
+# Settings for cargo-deny (see .github/workflows/audit.yml).
 
 [advisories]
-# Bekannte Meldungen, die das Programm nicht betreffen. Jede Ausnahme mit
-# Grund; beim nächsten egui-Upgrade prüfen, ob sie entfallen kann.
+# Known advisories that don't affect the program. Every exception with a
+# reason; check at the next egui upgrade whether it can go.
 ignore = [
-    # quick-xml 0.30 kommt nur über eframe 0.29 > accesskit_unix > zbus_xml
-    # herein (Bedienungshilfen, nur Linux) und liest dort XML vom lokalen
-    # D-Bus, nicht aus dem Netz. Ein Update geht erst mit neuerem egui.
+    # quick-xml 0.30 only comes in through eframe 0.29 > accesskit_unix >
+    # zbus_xml (accessibility, Linux only) and reads XML from the local D-Bus
+    # there, not from the network. An update needs a newer egui.
     { id = "RUSTSEC-2026-0194", reason = "quick-xml via accesskit_unix (Linux D-Bus only); needs egui upgrade" },
     { id = "RUSTSEC-2026-0195", reason = "quick-xml via accesskit_unix (Linux D-Bus only); needs egui upgrade" },
 ]

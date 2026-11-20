@@ -1,15 +1,14 @@
 ﻿<#
 .SYNOPSIS
-    Windows-Teil von `mise run install`: Release nach dist\, Desktop-Verknüpfung,
-    laufende App neu starten.
+    Windows part of `mise run install`: release into dist\, desktop shortcut,
+    restart of the running app.
 
 .DESCRIPTION
-    Wird von mise nach `mise run build` aufgerufen (siehe mise.toml), nicht
-    direkt. Kopiert target\release\mtg_arena_builder.exe als versionierte Datei
-    mit SHA-256 und als "MTG Arena Builder.exe" nach dist\ und legt die
-    Verknüpfung "MTG Arena Builder" auf dem Desktop an. Eine laufende App aus
-    dist\ wird dafür beendet (ihr Zustand ist gespeichert) und danach neu
-    gestartet.
+    Called by mise after `mise run build` (see mise.toml), not directly.
+    Copies target\release\mtg_arena_builder.exe as a versioned file with
+    SHA-256 and as "MTG Arena Builder.exe" into dist\ and creates the desktop
+    shortcut "MTG Arena Builder". A running app from dist\ is stopped for
+    this (its state is saved) and started again afterwards.
 #>
 $ErrorActionPreference = "Stop"
 $root = Split-Path $PSScriptRoot -Parent
@@ -19,14 +18,14 @@ $version = (Select-String -Path Cargo.toml -Pattern '^version = "(.*)"$' | Selec
 $dist = Join-Path $root "dist"
 New-Item -ItemType Directory -Force $dist | Out-Null
 
-# Laufende App aus dist\ beenden, sonst ist die Datei gesperrt (und danach neu starten).
+# Stop a running app from dist\, otherwise the file is locked (restart it afterwards).
 $wasRunning = $false
 Get-Process | Where-Object { $_.Path -and $_.Path.StartsWith($dist, [StringComparison]::OrdinalIgnoreCase) } | ForEach-Object {
-    Write-Host "Beende laufende App (PID $($_.Id))" -ForegroundColor Yellow
+    Write-Host "Stopping running app (PID $($_.Id))" -ForegroundColor Yellow
     $script:wasRunning = $true
-    # Nur das Hauptfenster regulär schließen (speichert den Zustand). Hält Windows das
-    # Begleitfenster für das Hauptfenster, würde sonst nur dieses geschlossen und
-    # dauerhaft abgeschaltet – dann lieber direkt beenden.
+    # Close only the main window normally (saves the state). If Windows treats
+    # the companion window as the main window, only that one would close and
+    # stay switched off – then rather stop the process directly.
     $main = $_.MainWindowTitle -eq "MTG Arena Builder"
     if (-not $main -or -not $_.CloseMainWindow() -or -not $_.WaitForExit(5000)) { $_ | Stop-Process -Force }
     $_.WaitForExit(5000) | Out-Null
@@ -45,13 +44,13 @@ $shortcut = (New-Object -ComObject WScript.Shell).CreateShortcut($link)
 $shortcut.TargetPath = $current
 $shortcut.WorkingDirectory = $dist
 $shortcut.IconLocation = "$current,0"
-$shortcut.Description = "Turnierdecks mit der eigenen MTG-Arena-Sammlung abgleichen"
+$shortcut.Description = "Compare tournament decks with your MTG Arena collection"
 $shortcut.Save()
-Write-Host "Verknüpfung aktualisiert: $link" -ForegroundColor Green
+Write-Host "Shortcut updated: $link" -ForegroundColor Green
 
 $sizeMb = [math]::Round((Get-Item $current).Length / 1MB, 1)
-Write-Host "Fertig: $current (Version $version, $sizeMb MB)" -ForegroundColor Green
+Write-Host "Done: $current (version $version, $sizeMb MB)" -ForegroundColor Green
 if ($wasRunning) {
     Start-Process $current -WorkingDirectory $dist
-    Write-Host "App neu gestartet" -ForegroundColor Green
+    Write-Host "App restarted" -ForegroundColor Green
 }

@@ -1,22 +1,21 @@
-# Wöchentliche Updates für Rust-Abhängigkeiten und GitHub Actions,
-# jeweils in einem gesammelten Pull Request.
+# Weekly updates for Rust dependencies and GitHub Actions, each bundled in
+# one pull request. mise.toml (Rust and tool versions) is not covered.
 version: 2
 updates:
   - package-ecosystem: cargo
     directory: /
     schedule:
       interval: weekly
-    # Commit-Nachrichten im Stil der Conventional Commits: „build(deps): …“
+    # Conventional commit messages: "build(deps): …"
     commit-message:
       prefix: build
       include: scope
     groups:
       cargo:
         patterns: ['*']
-    # Große Versionssprünge ändern die API und sind ein eigener Umbau; bei
-    # egui/eframe gilt das schon für 0.29 auf 0.30. Automatisch also nur
-    # kompatible Updates – Sicherheitsupdates meldet Dependabot unabhängig
-    # davon.
+    # Major versions change the API and are a rework of their own; for
+    # egui/eframe even 0.29 to 0.30 is. So only compatible updates come
+    # automatically – security updates are reported by Dependabot anyway.
     ignore:
       - dependency-name: '*'
         update-types: ['version-update:semver-major']

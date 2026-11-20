@@ -1,7 +1,7 @@
-# Prüft den Titel eines Pull Requests mit denselben Regeln wie der lokale
-# Hook .githooks/commit-msg (Conventional Commits mit Icon). Der Titel wird
-# beim Squash-Merge zur Commit-Nachricht auf main.
-name: PR-Titel
+# Checks a pull request title with the same rules as the local hook
+# .githooks/commit-msg (conventional commits with icon). The title becomes
+# the commit message on main when squash-merging.
+name: PR title
 
 on:
   pull_request:
@@ -12,13 +12,13 @@ permissions:
 
 jobs:
   title:
-    name: Conventional Commit mit Icon
-    # Dependabot schreibt „build(deps): bump …“ ohne Icon.
+    name: Conventional commit with icon
+    # Dependabot writes "build(deps): bump …" without an icon.
     if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - name: Titel prüfen
+      - name: Check title
         env:
           TITLE: ${{ github.event.pull_request.title }}
         run: |

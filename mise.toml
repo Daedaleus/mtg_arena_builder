@@ -1,13 +1,13 @@
-# Werkzeuge und Aufgaben für alle Systeme – lokal und in der CI dieselben.
-# Einrichten:  mise trust && mise install
-# Aufgaben:    mise tasks          (Liste)
-#              mise run check      (fmt, Clippy, Tests)
-#              mise run coverage   (Testabdeckung, mindestens 90 %)
-#              mise run install    (Release bauen, nach dist/; Windows: Verknüpfung, App neu starten)
+# Tools and tasks for every system – the same locally and in CI.
+# Setup:   mise trust && mise install
+# Tasks:   mise tasks          (list)
+#          mise run check      (fmt, Clippy, tests)
+#          mise run coverage   (test coverage, at least 90 %)
+#          mise run install    (release build into dist/; Windows: shortcut, restart the app)
 #
-# Unter Windows laufen die Befehle mit `cmd /c`, sonst mit `sh`: deshalb ein
-# Befehl je Eintrag (mise bricht beim ersten Fehler ab) und doppelte
-# Anführungszeichen, die in beiden Shells gleich wirken.
+# On Windows mise runs commands with `cmd /c`, elsewhere with `sh`: hence one
+# command per entry (mise stops at the first failure) and double quotes,
+# which behave the same in both shells.
 
 [tools]
 rust = { version = "1.100", components = "clippy,rustfmt,llvm-tools" }
@@ -15,28 +15,28 @@ rust = { version = "1.100", components = "clippy,rustfmt,llvm-tools" }
 git-cliff = "2.14.2"
 
 [vars]
-# Oberfläche, Programmstart und Testhilfen zählen bei der Abdeckung nicht mit.
+# Interface, program start and test helpers don't count for coverage.
 coverage_ignore = '[\\/]app[\\/]|(testutil|main)\.rs$|[\\/]tests[\\/]'
 coverage_min = "90"
 
 [tasks.fmt]
-description = "Code formatieren"
+description = "Format the code"
 run = "cargo fmt --all"
 
 [tasks.fmt-check]
-description = "Formatierung prüfen"
+description = "Check formatting"
 run = "cargo fmt --all -- --check"
 
 [tasks.clippy]
-description = "Clippy, Warnungen als Fehler"
+description = "Clippy, warnings as errors"
 run = "cargo clippy --all-targets --locked -- -D warnings"
 
 [tasks.test]
-description = "Alle Tests"
+description = "All tests"
 run = "cargo test --locked"
 
 [tasks.check]
-description = "Vor jedem Commit: Formatierung, Clippy, Tests"
+description = "Before every commit: formatting, Clippy, tests"
 run = [
     "cargo fmt --all -- --check",
     "cargo clippy --all-targets --locked -- -D warnings",
@@ -44,19 +44,19 @@ run = [
 ]
 
 [tasks.coverage]
-description = "Testabdeckung messen (HTML-Bericht in target/llvm-cov/html)"
+description = "Measure test coverage (HTML report in target/llvm-cov/html)"
 run = [
     'cargo llvm-cov --lib --locked --html --ignore-filename-regex "{{vars.coverage_ignore}}"',
     'cargo llvm-cov report --summary-only --ignore-filename-regex "{{vars.coverage_ignore}}" --fail-under-lines {{vars.coverage_min}}',
 ]
 
 [tasks.build]
-description = "Prüfen und die Release-Version bauen"
+description = "Check, then build the release version"
 depends = ["check"]
 run = "cargo build --release --locked"
 
 [tasks.install]
-description = "Release nach dist/ mit Prüfsumme; unter Windows Desktop-Verknüpfung und Neustart der laufenden App"
+description = "Release into dist/ with checksum; on Windows also a desktop shortcut and restart of the running app"
 depends = ["build"]
 run = """
 version=$(sed -n 's/^version = "\\(.*\\)"$/\\1/p' Cargo.toml | head -n 1)
@@ -65,10 +65,10 @@ mkdir -p dist
 cp target/release/mtg_arena_builder "dist/$name"
 cd dist
 if command -v sha256sum > /dev/null; then sha256sum "$name" > "$name.sha256"; else shasum -a 256 "$name" > "$name.sha256"; fi
-echo "Fertig: dist/$name"
+echo "Done: dist/$name"
 """
 run_windows = "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-windows.ps1"
 
 [tasks.changelog]
-description = "Vorschau der Release-Notizen für das nächste Release"
+description = "Preview of the release notes for the next release"
 run = "git cliff --unreleased"

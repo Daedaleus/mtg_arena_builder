@@ -121,7 +121,7 @@ updates.
    ```
 
 The tag triggers the full CI run. If everything passes and the tag matches the
-version in `Cargo.toml`, the job "GitHub-Release" publishes the programs
+version in `Cargo.toml`, the job "GitHub release" publishes the programs
 (Windows, Linux, macOS if built) with `.sha256` files, a `SHA256SUMS.txt` and a
 signed build provenance attestation.
 
