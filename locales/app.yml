@@ -72,7 +72,7 @@ chrome.arena_starten_ins_hauptmenue:
   de: "Arena starten, ins Hauptmenü gehen und „Sammlung aktualisieren“ klicken."
   en: "Start Arena, go to the main menu and click “Update collection”."
 chrome.arena_zahnrad_konto_detaillierte:
-  de: "In Arena: Zahnrad > Konto > „Detaillierte Logs (Plugin-Unterstützung)“, dann Arena neu starten."
+  de: "In Arena: Zahnrad > Account > „Detaillierte Logs“, dann Arena neu starten."
   en: "In Arena: gear > Account > “Detailed Logs (Plugin Support)”, then restart Arena."
 chrome.aus_meiner_sammlung:
   de: "Aus meiner Sammlung"
@@ -909,7 +909,7 @@ games_tab.alle_modi:
   de: "Alle Modi"
   en: "All modes"
 games_tab.arena_detaillierte_logs_ausgeschaltet:
-  de: "In Arena sind „Detaillierte Logs“ ausgeschaltet – neue Partien werden nicht mitgeschrieben. Einschalten: Zahnrad > Konto > „Detaillierte Logs (Plugin-Unterstützung)“, danach Arena neu starten."
+  de: "In Arena sind „Detaillierte Logs“ ausgeschaltet – neue Partien werden nicht mitgeschrieben. Einschalten: Zahnrad > Account > „Detaillierte Logs“, danach Arena neu starten."
   en: "“Detailed Logs” are turned off in Arena – new games are not logged. To turn them on: gear > Account > “Detailed Logs (Plugin Support)”, then restart Arena."
 games_tab.logs_neu_einlesen:
   de: "Logs neu einlesen"
