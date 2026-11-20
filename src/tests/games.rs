@@ -900,3 +900,67 @@ fn skipped_attacks_respect_blockers_and_tap_abilities() {
     g.turns[0].opp_creatures = vec![(OGRE, 3), (DRAGON, 7)];
     assert!(skipped(&g).is_empty());
 }
+
+#[test]
+fn game_modes_group_arena_events() {
+    use GameMode::*;
+    for (event, mode) in [
+        ("Ladder", Ranked),
+        ("Traditional_Ladder", Ranked),
+        ("Historic_Ladder", Ranked),
+        ("Play", Play),
+        ("Traditional_Play", Play),
+        ("Play_Brawl", Brawl),
+        ("DemoBrawlDecks_TRK_20261110", Brawl),
+        ("QuickDraft_FDN_20261101", Limited),
+        ("Sealed_TRK_20261110", Limited),
+        ("WelcomeDeckDuels_TRK_20261110", Event),
+        ("DualColorPrecons", Event),
+        ("Jump_In_2024", Event),
+        ("", Event),
+    ] {
+        assert_eq!(GameMode::of(event), mode, "{event}");
+    }
+    assert!(GameMode::ALL.iter().all(|m| !m.label().is_empty()));
+}
+
+#[test]
+fn games_filter_by_mode_and_deck() {
+    let db = std_db();
+    let with = |id: &str, event: &str, deck: Vec<GrpId>| GameRecord {
+        id: id.into(),
+        event: event.into(),
+        deck,
+        ..Default::default()
+    };
+    let red = vec![MOUNTAIN, OGRE, SHOCK];
+    let brawl = with("b", "Play_Brawl", vec![FOREST, BEAR]);
+    let ranked = with("r", "Ladder", red.clone());
+    // Andere Reihenfolge, gleiche Karten = gleiches Deck.
+    let ranked_again = with("r2", "Traditional_Ladder", vec![SHOCK, MOUNTAIN, OGRE]);
+    let no_deck = with("x", "Ladder", vec![]);
+
+    let all = GamesFilter::default();
+    assert!(
+        [&brawl, &ranked, &no_deck]
+            .iter()
+            .all(|g| all.matches(g, &db))
+    );
+
+    let filter = GamesFilter::like(&ranked, &db);
+    assert_eq!(filter.mode, Some(GameMode::Ranked));
+    assert!(filter.matches(&ranked, &db) && filter.matches(&ranked_again, &db));
+    assert!(!filter.matches(&brawl, &db), "Brawl mischt sich nicht dazu");
+    assert!(
+        !filter.matches(&no_deck, &db),
+        "ohne Deckliste kein Deck-Treffer"
+    );
+
+    let mode_only = GamesFilter {
+        deck: None,
+        ..filter
+    };
+    assert!(mode_only.matches(&no_deck, &db) && !mode_only.matches(&brawl, &db));
+    assert_eq!(GamesFilter::like(&no_deck, &db).deck, None);
+    assert_eq!(deck_key(&red, &db), deck_key(&ranked_again.deck, &db));
+}

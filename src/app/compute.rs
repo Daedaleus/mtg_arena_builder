@@ -22,7 +22,9 @@ pub(super) enum SimTarget {
 
 /// Auswertung „Meine Partien“ für einen Filter.
 pub(super) struct GamesAnalysis {
-    key: (u64, Option<String>, Locale),
+    key: (u64, games::GamesFilter, Locale),
+    /// Decks im gewählten Modus für die Auswahl: (Anzeige, Schlüssel).
+    pub decks: Vec<(String, Vec<String>)>,
     pub games: Vec<GameRecord>,
     /// Feste Nummern aller gespeicherten Partien (auch bei Filter nach Modus).
     pub numbers: games::GameNumbers,
@@ -48,20 +50,22 @@ impl App {
     /// Auswertung „Meine Partien“, nur bei geänderter Grundlage neu berechnet.
     /// `None`, solange Kartendaten fehlen.
     pub(super) fn games_analysis(&mut self) -> Option<GamesAnalysis> {
-        let key = (self.data_gen, self.games.event.clone(), i18n::current());
+        let key = (self.data_gen, self.games.filter.clone(), i18n::current());
         if let Some(a) = self.games.cache.take()
             && a.key == key
         {
             return Some(a);
         }
         let db = self.db.clone()?;
+        let filter = &self.games.filter;
         let games: Vec<GameRecord> = self
             .games
             .list
             .iter()
-            .filter(|g| self.games.event.as_ref().is_none_or(|e| &g.event == e))
+            .filter(|g| filter.matches(g, &db))
             .cloned()
             .collect();
+        let decks = self.deck_choices(&db);
         let numbers = games::GameNumbers::new(&self.games.list);
         let report = games::report(&games, &numbers, &db);
         let shares = opponents::arch_shares(&self.meta_archetypes(), &db);
@@ -76,6 +80,7 @@ impl App {
         Some(GamesAnalysis {
             key,
             loaded: candidates.len(),
+            decks,
             games,
             numbers,
             report,
@@ -84,6 +89,25 @@ impl App {
             player,
             recs,
         })
+    }
+
+    /// Decks der Partien im gewählten Modus, zuletzt gespieltes zuerst.
+    fn deck_choices(&self, db: &CardDb) -> Vec<(String, Vec<String>)> {
+        let mode_only = games::GamesFilter {
+            mode: self.games.filter.mode,
+            deck: None,
+        };
+        let in_mode: Vec<GameRecord> = self
+            .games
+            .list
+            .iter()
+            .filter(|g| mode_only.matches(g, db))
+            .cloned()
+            .collect();
+        deckcheck::group_decks(&in_mode, db)
+            .into_iter()
+            .map(|g| (g.label, games::deck_key(&g.deck, db)))
+            .collect()
     }
 
     /// Auswertung „Deck verbessern“ für das Deck an Stelle `sel`.

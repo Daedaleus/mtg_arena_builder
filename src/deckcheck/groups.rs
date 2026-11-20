@@ -25,19 +25,7 @@ pub(super) fn is_fixed_event(name: &str) -> bool {
 pub fn group_decks(games: &[GameRecord], db: &CardDb) -> Vec<DeckGroup> {
     let mut groups: Vec<DeckGroup> = Vec::new();
     // Gleiche Karte in anderem Druck = gleiches Deck: Schlüssel über die Namen.
-    let key_of = |deck: &[GrpId]| -> Vec<String> {
-        let mut k: Vec<String> = deck
-            .iter()
-            .map(|g| {
-                db.cards
-                    .get(g)
-                    .map(|c| name_key(&c.name))
-                    .unwrap_or_else(|| g.to_string())
-            })
-            .collect();
-        k.sort();
-        k
-    };
+    let key_of = |deck: &[GrpId]| crate::games::deck_key(deck, db);
     let mut keys: Vec<Vec<String>> = Vec::new();
     for (i, g) in games.iter().enumerate() {
         if g.deck.is_empty() {

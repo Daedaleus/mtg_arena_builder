@@ -12,6 +12,7 @@ impl App {
         {
             self.scan_games();
         }
+        self.preset_games_filter();
         ui.horizontal(|ui| self.games_toolbar(ui));
         ui.horizontal(|ui| self.games_views(ui));
         ui.separator();
@@ -93,26 +94,10 @@ impl App {
         if self.games.loading {
             ui.spinner();
         }
-        let mut events: Vec<String> = self.games.list.iter().map(|g| g.event.clone()).collect();
-        events.sort();
-        events.dedup();
-        let shown = self
-            .games
-            .event
-            .as_deref()
-            .map(event_label)
-            .unwrap_or_else(|| tr!("games_tab.alle_modi"));
-        let before = self.games.event.clone();
-        egui::ComboBox::from_id_salt("games_event")
-            .selected_text(shown)
-            .show_ui(ui, |ui| {
-                ui.selectable_value(&mut self.games.event, None, tr!("games_tab.alle_modi"));
-                for e in events {
-                    let label = event_label(&e);
-                    ui.selectable_value(&mut self.games.event, Some(e), label);
-                }
-            });
-        if before != self.games.event {
+        let before = self.games.filter.clone();
+        self.mode_choice(ui);
+        self.deck_choice(ui);
+        if before != self.games.filter {
             self.games.sel = None;
             self.games.page.set(0);
         }
@@ -123,6 +108,73 @@ impl App {
             ))
             .weak(),
         );
+    }
+
+    /// Beim ersten Öffnen Modus und Deck der letzten Partie wählen, damit sich
+    /// verschiedene Modi und Decks nicht in einer Auswertung mischen.
+    fn preset_games_filter(&mut self) {
+        if self.games.filter_set {
+            return;
+        }
+        let (Some(db), Some(last)) = (self.db.as_ref(), self.games.list.first()) else {
+            return;
+        };
+        self.games.filter = games::GamesFilter::like(last, db);
+        self.games.filter_set = true;
+    }
+
+    /// Auswahl der Modus-Gruppe; bei Wechsel gilt wieder „alle Decks“.
+    fn mode_choice(&mut self, ui: &mut egui::Ui) {
+        let mut modes: Vec<games::GameMode> = self
+            .games
+            .list
+            .iter()
+            .map(|g| games::GameMode::of(&g.event))
+            .collect();
+        modes.sort();
+        modes.dedup();
+        let label = |m: Option<games::GameMode>| {
+            m.map_or_else(|| tr!("games_tab.alle_modi"), |m| m.label())
+        };
+        let mut mode = self.games.filter.mode;
+        egui::ComboBox::from_id_salt("games_mode")
+            .selected_text(label(mode))
+            .show_ui(ui, |ui| {
+                ui.selectable_value(&mut mode, None, label(None));
+                for m in modes {
+                    ui.selectable_value(&mut mode, Some(m), m.label());
+                }
+            });
+        if mode != self.games.filter.mode {
+            self.games.filter = games::GamesFilter { mode, deck: None };
+        }
+    }
+
+    /// Auswahl des Decks unter den Decks des gewählten Modus.
+    fn deck_choice(&mut self, ui: &mut egui::Ui) {
+        let decks = self
+            .games
+            .cache
+            .as_ref()
+            .map(|a| a.decks.clone())
+            .unwrap_or_default();
+        let shown = self
+            .games
+            .filter
+            .deck
+            .as_ref()
+            .and_then(|k| decks.iter().find(|(_, key)| key == k))
+            .map_or_else(|| tr!("games_tab.alle_decks"), |(label, _)| label.clone());
+        let mut deck = self.games.filter.deck.clone();
+        egui::ComboBox::from_id_salt("games_deck")
+            .selected_text(shown)
+            .show_ui(ui, |ui| {
+                ui.selectable_value(&mut deck, None, tr!("games_tab.alle_decks"));
+                for (label, key) in decks {
+                    ui.selectable_value(&mut deck, Some(key), label);
+                }
+            });
+        self.games.filter.deck = deck;
     }
 
     /// Unterseiten: Übersicht, Partienliste, Verlauf.
