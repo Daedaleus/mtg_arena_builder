@@ -1,11 +1,11 @@
-# Changelog aus den Commit-Nachrichten (Conventional Commits mit Icon, siehe
-# CONTRIBUTING.md) – erzeugt mit git-cliff für die Release-Notizen.
-# Vorschau der noch nicht veröffentlichten Änderungen: git cliff --unreleased
+# Changelog from the commit messages (conventional commits with icon, see
+# CONTRIBUTING.md) – generated with git-cliff for the release notes.
+# Preview of the unreleased changes: mise run changelog
 
 [changelog]
 header = ""
-# Die Gruppen tragen eine unsichtbare Nummer für die Reihenfolge
-# (<!-- 00 -->), die `striptags` beim Anzeigen entfernt.
+# The groups carry an invisible number for their order (<!-- 00 -->), which
+# `striptags` removes when shown.
 body = """
 {% for group, commits in commits | group_by(attribute="group") %}
 ### {{ group | striptags | trim }}
@@ -22,16 +22,16 @@ footer = ""
 
 [git]
 conventional_commits = true
-# Ältere Commits ohne das Format nicht verwerfen, sondern unter „Other“.
+# Don't drop older commits without the format, list them under "Other".
 filter_unconventional = false
 split_commits = false
 commit_preprocessors = [
-    # Das Icon nach dem Doppelpunkt entfernen – die Überschrift zeigt es.
+    # Remove the icon after the colon – the heading shows it.
     { pattern = '^(\w+(?:\([^)]*\))?!?: )[^\x00-\x7F]+ ', replace = "${1}" },
 ]
 commit_parsers = [
     { message = "^Merge ", skip = true },
-    # Der Versions-Commit eines Releases gehört nicht in dessen Liste.
+    # The version commit of a release doesn't belong in its own list.
     { message = "^chore\\(release\\)", skip = true },
     { message = "^feat", group = "<!-- 00 -->✨ Features" },
     { message = "^fix", group = "<!-- 01 -->🐛 Bug fixes" },

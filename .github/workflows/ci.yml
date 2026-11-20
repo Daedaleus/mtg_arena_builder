@@ -1,18 +1,18 @@
-# Prüft und baut die App auf Windows, Linux und macOS.
-# Formatierung und Testabdeckung laufen einmal (Linux), Clippy, Tests und
-# Release-Build auf allen drei Systemen. Die fertigen Programme stehen als
-# Artefakte am Lauf zum Herunterladen bereit.
+# Checks and builds the app on Windows, Linux and macOS.
+# Formatting and coverage run once (Linux); Clippy, tests and the release
+# build on all three systems. The built programs are available as artifacts
+# of the run.
 #
-# Ein Versions-Tag (z. B. `v0.2.0`, passend zu `version` in Cargo.toml) löst
-# denselben Lauf aus; sind alle Prüfungen grün, entsteht daraus ein
-# GitHub-Release mit den Programmen und ihren SHA-256-Prüfsummen.
+# A version tag (e.g. `v0.2.0`, matching `version` in Cargo.toml) triggers the
+# same run; if every check passes, it becomes a GitHub release with the
+# programs and their SHA-256 checksums.
 #
-# Sicherheit: Jedes gebaute Programm wird auf Viren geprüft (Defender auf
-# Windows, ClamAV für alle), Releases bekommen einen signierten
-# Herkunftsnachweis. Abhängigkeiten prüft audit.yml.
+# Security: every built program is scanned for malware (Defender on Windows,
+# ClamAV for all), releases get a signed build provenance attestation.
+# Dependencies are checked by audit.yml.
 #
-# Werkzeuge und Prüfbefehle kommen aus mise.toml (wie lokal mit `mise run …`):
-# dieselben Versionen und dieselben Aufgaben auf jedem Rechner.
+# Tools and check commands come from mise.toml (like `mise run …` locally):
+# the same versions and tasks on every machine.
 name: CI
 
 on:
@@ -29,13 +29,13 @@ concurrency:
 env:
   CARGO_TERM_COLOR: always
 
-# Standard für alle Jobs: nur lesen. Wer mehr braucht (Release), sagt es selbst.
+# Default for all jobs: read only. Jobs that need more (release) say so.
 permissions:
   contents: read
 
 jobs:
   fmt:
-    name: Formatierung
+    name: Formatting
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -64,13 +64,13 @@ jobs:
             os: macos-latest
             artifact: mtg_arena_builder-macos-arm64
             binary: target/release/mtg_arena_builder
-            # GitHub teilt macOS-Rechner oft erst spät oder gar nicht zu – ein
-            # Ausfall dort macht den Lauf nicht rot (Windows und Linux schon).
+            # GitHub often assigns macOS runners late or not at all – a
+            # failure there doesn't fail the run (Windows and Linux do).
             optional: true
     runs-on: ${{ matrix.os }}
     continue-on-error: ${{ matrix.optional }}
-    # Ohne Cache (z. B. nach Änderungen an Cargo.toml) braucht Windows über
-    # 30 Minuten für Clippy, Tests und Release-Build.
+    # Without cache (e.g. after changes to Cargo.toml or the toolchain)
+    # Windows needs over 30 minutes for Clippy, tests and the release build.
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v7
@@ -78,7 +78,7 @@ jobs:
         with:
           install_args: rust
       - uses: Swatinem/rust-cache@v2
-      - name: Linux-Pakete für die Oberfläche
+      - name: Linux packages for the interface
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
@@ -88,9 +88,9 @@ jobs:
         run: mise run clippy
       - name: Tests
         run: mise run test
-      - name: Release-Build
+      - name: Release build
         run: cargo build --release --locked
-      - name: Programm und Prüfsumme bereitlegen
+      - name: Program and checksum
         shell: bash
         run: |
           ext=""
@@ -99,22 +99,22 @@ jobs:
           mkdir -p dist
           cp "${{ matrix.binary }}" "dist/$name"
           cd dist
-          # Windows (Git Bash) und Linux haben sha256sum, macOS nur shasum.
+          # Windows (Git Bash) and Linux have sha256sum, macOS only shasum.
           if command -v sha256sum > /dev/null; then
             sha256sum "$name" > "$name.sha256"
           else
             shasum -a 256 "$name" > "$name.sha256"
           fi
-      # Die Windows-Rechner von GitHub haben Microsoft Defender dabei:
-      # Signaturen aktualisieren und das fertige Programm prüfen.
-      - name: Virenscan (Microsoft Defender)
+      # GitHub's Windows runners come with Microsoft Defender: update the
+      # signatures and scan the built program.
+      - name: Malware scan (Microsoft Defender)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
           $mp = Join-Path $env:ProgramFiles 'Windows Defender\MpCmdRun.exe'
           & $mp -SignatureUpdate | Out-Host
           & $mp -Scan -ScanType 3 -File (Resolve-Path dist) -DisableRemediation | Out-Host
-          if ($LASTEXITCODE -ne 0) { throw "Defender meldet einen Fund (Exit $LASTEXITCODE)" }
+          if ($LASTEXITCODE -ne 0) { throw "Defender reports a detection (exit $LASTEXITCODE)" }
       - uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.artifact }}
@@ -122,7 +122,7 @@ jobs:
           if-no-files-found: error
 
   scan:
-    name: Virenscan (ClamAV)
+    name: Malware scan (ClamAV)
     needs: build
     runs-on: ubuntu-latest
     steps:
@@ -131,17 +131,17 @@ jobs:
           pattern: mtg_arena_builder-*
           path: dist
           merge-multiple: true
-      - name: ClamAV installieren und Signaturen laden
+      - name: Install ClamAV and load signatures
         run: |
           sudo apt-get update
           sudo apt-get install -y clamav
           sudo systemctl stop clamav-freshclam || true
           sudo freshclam
-      - name: Programme prüfen
+      - name: Scan programs
         run: clamscan --recursive --infected dist
 
   coverage:
-    name: Testabdeckung
+    name: Coverage
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -149,61 +149,61 @@ jobs:
         with:
           install_args: rust github:taiki-e/cargo-llvm-cov
       - uses: Swatinem/rust-cache@v2
-      - name: Linux-Pakete für die Oberfläche
+      - name: Linux packages for the interface
         run: |
           sudo apt-get update
           sudo apt-get install -y libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev \
             libxkbcommon-dev libwayland-dev libgl1-mesa-dev
-      # Filter (Oberfläche, Programmstart, Testhilfen) und Mindestwert stehen
-      # in mise.toml.
-      - name: Abdeckung messen (mindestens 90 %)
+      # Filter (interface, program start, test helpers) and minimum are in
+      # mise.toml.
+      - name: Measure coverage (at least 90 %)
         run: mise run coverage
 
   release:
-    name: GitHub-Release
+    name: GitHub release
     if: startsWith(github.ref, 'refs/tags/v')
     needs: [fmt, build, coverage, scan]
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      # für den Herkunftsnachweis (Build-Provenance)
+      # for the build provenance attestation
       id-token: write
       attestations: write
     steps:
       - uses: actions/checkout@v7
         with:
-          # ganze Historie mit Tags – für den Changelog seit dem letzten Release
+          # full history with tags – for the changelog since the last release
           fetch-depth: 0
-      - name: Tag passt zur Version in Cargo.toml
+      - name: Tag matches the version in Cargo.toml
         run: |
           version=$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -n 1)
           if [ "v$version" != "$GITHUB_REF_NAME" ]; then
-            echo "::error::Tag $GITHUB_REF_NAME passt nicht zu Version $version in Cargo.toml"
+            echo "::error::Tag $GITHUB_REF_NAME does not match version $version in Cargo.toml"
             exit 1
           fi
-      # macOS darf fehlen (siehe oben) – dann enthält das Release nur
-      # Windows und Linux.
+      # macOS may be missing (see above) – then the release only contains
+      # Windows and Linux.
       - uses: actions/download-artifact@v8
         with:
           pattern: mtg_arena_builder-*
           path: dist
           merge-multiple: true
-      - name: Gemeinsame Prüfsummen-Datei
+      - name: Combined checksum file
         run: |
           cd dist
           sha256sum $(ls | grep -v '\.sha256$') > SHA256SUMS.txt
           cat SHA256SUMS.txt
-      # Signierter Nachweis, dass genau diese Dateien von diesem Workflow aus
-      # diesem Commit gebaut wurden (prüfbar mit `gh attestation verify`).
+      # Signed proof that exactly these files were built by this workflow from
+      # this commit (verify with `gh attestation verify`).
       - uses: actions/attest-build-provenance@v4
         with:
           subject-checksums: dist/SHA256SUMS.txt
-      # Änderungen seit dem letzten Release aus den Commit-Nachrichten
-      # (cliff.toml), danach Download und Prüfanleitung.
+      # Changes since the last release from the commit messages (cliff.toml),
+      # followed by download and verification hints.
       - uses: jdx/mise-action@v5
         with:
           install_args: git-cliff
-      - name: Release-Notizen
+      - name: Release notes
         run: |
           {
             echo "## What's changed"
@@ -212,7 +212,7 @@ jobs:
             cat .github/release-notes.md
           } > "$RUNNER_TEMP/notes.md"
           cat "$RUNNER_TEMP/notes.md"
-      - name: Release anlegen
+      - name: Create release
         env:
           GH_TOKEN: ${{ github.token }}
         run: >
