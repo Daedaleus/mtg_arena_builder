@@ -53,6 +53,13 @@ pub struct CompanionView {
 
 pub use crate::opponents::{ArchShare, arch_shares};
 
+/// Gefahrlose Angreifer, die sich auch lohnen (siehe
+/// [`crate::combat::worth_attacking`]).
+fn worth_attacking(ls: &LiveState, db: &CardDb) -> Vec<GrpId> {
+    let opp_power: i32 = ls.opp_creatures.iter().map(|(_, p)| p).sum();
+    crate::combat::worth_attacking(db, &ls.safe_attackers, ls.life_me, opp_power)
+}
+
 /// Zwischen Live-Thread, Begleitfenster und Hauptfenster geteilter Zustand.
 #[derive(Default)]
 pub struct Shared {

@@ -135,6 +135,7 @@ impl Tracker {
             .filter(|o| o.controller == opp && o.creature)
             .map(|o| (o.grp_id, o.power.max(0)))
             .collect();
+        t.board = self.my_board();
         if t.mine {
             t.safe_idle = self
                 .safe_snapshot
@@ -144,6 +145,16 @@ impl Tracker {
                 .collect();
         }
         self.rec.turns.push(t);
+    }
+
+    /// Eigene bleibende Karten außer Ländern.
+    pub(super) fn my_board(&self) -> Vec<GrpId> {
+        let me = self.seat();
+        self.battlefield()
+            .map(|(_, o)| o)
+            .filter(|o| o.controller == me && !o.land && o.grp_id.is_known())
+            .map(|o| o.grp_id)
+            .collect()
     }
 
     pub(super) fn start_turn(&mut self, turn: u32, active: u32) {

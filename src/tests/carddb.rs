@@ -197,15 +197,16 @@ fn arena_db(dir: &TempDir, with_de: bool) -> std::path::PathBuf {
             (1, 1, 'Shock'), (2, 1, 'Hedge Maze'), (3, 1, '<i>Forest</i>'), (4, 1, 'Token'),
             (5, 1, ''), (6, 1, 'Grizzly Bears'),
             (50, 1, 'CARDNAME deals 2 damage to any target.'),
-            (51, 1, 'CARDNAME enters tapped.');
-         INSERT INTO Abilities VALUES (500, 50), (501, 51);
+            (51, 1, 'CARDNAME enters tapped.'),
+            (52, 1, '{oT}: Add {oG}.');
+         INSERT INTO Abilities VALUES (500, 50), (501, 51), (502, 52);
          INSERT INTO Cards VALUES
             (100, 1, 2, 'M21', '159', 1, 'oR', '4', '', '', '4', 0, '500:50', '', '', NULL, 0),
             (101, 2, 3, 'MKM', '262', 1, '', '5', '10,11', '', '2,5', 0, '501:51', '', '', NULL, 0),
             (102, 3, 1, 'FDN', '280', 1, '', '5', '11', '1', '5', 0, '', '', '', NULL, 0),
             (103, 4, 0, 'TKN', '1', 1, '', '2', '', '', '', 0, '', '1', '1', NULL, 1),
             (104, 5, 2, 'X', '1', 1, 'o1', '2', '', '', '', 0, '', '1', '1', NULL, 0),
-            (105, 6, 2, 'Y22', '7', 1, 'o1oG', '2', '', '', '5', 1, '', '2', '2', 'Y22', 0);",
+            (105, 6, 2, 'Y22', '7', 1, 'o1oG', '2', '', '2', '5', 1, '502:52', '2', '2', 'Y22', 0);",
     );
     if with_de {
         sql.push_str(
@@ -243,6 +244,22 @@ fn loads_arena_database() {
     assert!(bears.back_face);
     assert!(!bears.regular);
     assert_eq!((bears.power.as_str(), bears.toughness.as_str()), ("2", "2"));
+    // Supertyp 2 = legendär; „{oT}: …“ ist eine Tapp-Fähigkeit.
+    assert!(bears.legendary && bears.tap_ability);
+    assert!(!shock.legendary && !shock.tap_ability && !forest.legendary);
+}
+
+#[test]
+fn tap_costs_come_from_the_cost_part() {
+    assert!(text::tap_cost_of("{oT}: Add {oG}."));
+    assert!(text::tap_cost_of("{oT}, Sacrifice CARDNAME: Draw a card."));
+    assert!(!text::tap_cost_of("Flying"));
+    assert!(!text::tap_cost_of(
+        "Whenever you attack, tap target creature. {oT} untaps"
+    ));
+    assert!(!text::tap_cost_of(
+        "{o2}: CARDNAME gets +1/+1 until end of turn. Then {oT} it"
+    ));
 }
 
 #[test]

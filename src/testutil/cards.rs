@@ -99,6 +99,15 @@ impl CardBuilder {
         self.0.mana = Some(colors_of(&symbols));
         self
     }
+    pub fn legendary(mut self) -> Self {
+        self.0.legendary = true;
+        self
+    }
+    /// Aktivierte Fähigkeit, die Tappen kostet.
+    pub fn tap_ability(mut self) -> Self {
+        self.0.tap_ability = true;
+        self
+    }
     pub fn abilities(mut self, ids: &[u32]) -> Self {
         self.0.abilities = ids.to_vec();
         self
@@ -143,6 +152,7 @@ pub const SPIKE: GrpId = GrpId(25);
 pub const GROWTH: GrpId = GrpId(26);
 pub const DRAGON: GrpId = GrpId(30);
 pub const ANGEL: GrpId = GrpId(31);
+pub const LEGEND: GrpId = GrpId(32);
 
 /// Kleine, aber vielseitige Kartenauswahl für Tests.
 pub fn std_cards() -> Vec<Card> {
@@ -169,6 +179,7 @@ pub fn std_cards() -> Vec<Card> {
             .cost("{G}")
             .creature(1, 1)
             .mana("G")
+            .tap_ability()
             .build(),
         card(GIANT, "Stone Giant")
             .cost("{4}{G}{G}")
@@ -223,7 +234,13 @@ pub fn std_cards() -> Vec<Card> {
         card(ANGEL, "Serra Angel")
             .cost("{3}{W}{W}")
             .creature(4, 4)
-            .abilities(&[8])
+            .abilities(&[8, crate::carddb::keyword::VIGILANCE])
+            .rarity(4)
+            .build(),
+        card(LEGEND, "Isamaru, Hound of Konda")
+            .cost("{W}")
+            .creature(2, 2)
+            .legendary()
             .rarity(4)
             .build(),
     ]

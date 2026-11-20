@@ -80,9 +80,10 @@ pub(super) fn card_name(db: &CardDb, grp: GrpId) -> String {
 
 /// Zugvorschlag: Land, Zauber und was man zurückhalten sollte.
 pub(super) fn turn_hints(v: &mut CompanionView, ls: &LiveState, db: &CardDb) {
+    let hand = crate::turnplan::without_legend_duplicates(db, &ls.hand, &ls.board);
     let plan = crate::turnplan::plan(
         db,
-        &ls.hand,
+        &hand,
         &ls.untapped_lands,
         &ls.mana_permanents,
         ls.land_played,
@@ -149,7 +150,7 @@ pub(super) fn turn_hints(v: &mut CompanionView, ls: &LiveState, db: &CardDb) {
         ));
     }
     if ls.phase == Phase::Main1
-        && !ls.safe_attackers.is_empty()
+        && !worth_attacking(ls, db).is_empty()
         && crate::turnplan::creatures_after_combat(db, &plan)
     {
         v.hints

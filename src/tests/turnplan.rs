@@ -189,3 +189,21 @@ fn mana_creatures_count_as_sources() {
         "Elf liefert kein Rot"
     );
 }
+
+#[test]
+fn legend_rule_allows_one_copy() {
+    let db = std_db();
+    assert_eq!(
+        without_legend_duplicates(&db, &[LEGEND, BEAR, LEGEND], &[]),
+        vec![LEGEND, BEAR]
+    );
+    assert_eq!(
+        without_legend_duplicates(&db, &[LEGEND, BEAR], &[LEGEND, OGRE]),
+        vec![BEAR]
+    );
+    // Nicht legendäre Karten dürfen mehrfach.
+    assert_eq!(
+        without_legend_duplicates(&db, &[BEAR, BEAR], &[BEAR]),
+        vec![BEAR, BEAR]
+    );
+}

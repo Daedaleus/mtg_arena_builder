@@ -104,9 +104,12 @@ impl<'a> Game<'a> {
         if (turn > 1 || !self.on_play) && !self.library.is_empty() {
             self.hand.push(self.library.remove(0));
         }
+        // Legendary-Regel: nur ein Exemplar je Name im Spiel.
+        let board: Vec<GrpId> = self.board.mine.iter().map(|u| u.card).collect();
+        let hand = turnplan::without_legend_duplicates(db, &self.hand, &board);
         let plan = turnplan::plan(
             db,
-            &self.hand,
+            &hand,
             &self.lands,
             &self.mana_sources,
             false,

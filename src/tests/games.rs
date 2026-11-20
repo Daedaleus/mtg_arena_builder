@@ -385,7 +385,8 @@ fn key_moments_compare_with_suggestion() {
         .is_none()
     );
 
-    let mut g = game("x", Some(false), vec![t.clone()]);
+    // Ein Gegnerzug danach: Der letzte Zug einer Partie wird nicht bewertet.
+    let mut g = game("x", Some(false), vec![t.clone(), turn(2, false)]);
     g.turns[0].lands_me = 4;
     let r = report_all(&[g], &db);
     let cat = r
@@ -653,7 +654,7 @@ fn game_numbers_stay_when_a_newer_game_arrives() {
     let mut t = turn(1, true);
     t.hand = vec![MOUNTAIN];
     t.land_played = false;
-    first.turns = vec![t];
+    first.turns = vec![t, turn(2, false)];
     let all = [second, first.clone()];
     let r = report(
         std::slice::from_ref(&first),
@@ -702,7 +703,9 @@ fn report_finds_mistakes() {
     t5.lands_me = 3;
     t5.life_me = 6;
     t5.creatures_me = 1;
-    let mut g1 = game("a", Some(false), vec![t1, t3, t4, t5]);
+    let mut t6 = turn(6, false);
+    t6.life_me = 6;
+    let mut g1 = game("a", Some(false), vec![t1, t3, t4, t5, t6]);
     g1.opening_hand = vec![MOUNTAIN, OGRE, OGRE, OGRE, OGRE, OGRE, OGRE];
     g1.reason = EndReason::Concede;
     g1.opp_cards.insert(BEAR, 2);
@@ -726,7 +729,7 @@ fn report_finds_mistakes() {
     assert_eq!(r.bad_keeps, (0, 1));
     assert_eq!(r.discards, 1);
     assert_eq!(r.my_turns, 3);
-    assert_eq!(r.avg_turns, 6.0);
+    assert_eq!(r.avg_turns, 6.5);
     assert_eq!(r.opp_cards, vec![("Grizzly Bears".to_string(), 2)]);
     assert_eq!(
         r.damage_sources,
@@ -798,4 +801,93 @@ fn end_reasons_keep_arena_values() {
         EndReason::Concede
     );
     assert!(matches!(EndReason::from_arena("X"), EndReason::Other(_)));
+}
+
+#[test]
+fn last_turn_of_a_game_is_not_judged() {
+    // Partie endet in meinem Zug 19 (Gegner gibt auf), bevor ich ein Land lege.
+    let mut t18 = turn(18, false);
+    t18.life_me = 12;
+    let mut t19 = turn(19, true);
+    t19.hand = vec![FOREST];
+    t19.land_played = false;
+    t19.safe_idle = vec![BEAR];
+    t19.life_me = 12;
+    let mut g = game("ende", Some(true), vec![t18, t19.clone()]);
+    g.reason = EndReason::Concede;
+    let r = report_all(&[g.clone()], &std_db());
+    assert!(r.categories.iter().all(|c| c.items.is_empty()));
+    assert_eq!(r.my_turns, 1, "der Zug zählt trotzdem als gespielt");
+
+    // Derselbe Zug mitten in der Partie wird bewertet.
+    g.turns.push(turn(20, false));
+    let r = report_all(&[g], &std_db());
+    let kinds: Vec<Mistake> = r
+        .categories
+        .iter()
+        .filter(|c| !c.items.is_empty())
+        .map(|c| c.kind)
+        .collect();
+    assert!(kinds.contains(&Mistake::MissedLand) && kinds.contains(&Mistake::SkippedAttack));
+}
+
+#[test]
+fn legendary_already_in_play_is_not_suggested() {
+    let db = std_db();
+    // Isamaru liegt im Spiel, ein zweites auf der Hand: kein „besserer Zug“.
+    let mut t = turn(3, true);
+    t.hand = vec![LEGEND, LEGEND];
+    t.lands = vec![PLAINS, PLAINS, PLAINS];
+    t.lands_me = 3;
+    t.board = vec![LEGEND];
+    assert!(key_moment(&t, &db).is_none());
+    // Ohne Isamaru im Spiel wäre es ein Vorschlag (eins, nicht beide).
+    t.board.clear();
+    t.hand = vec![LEGEND, LEGEND, BEAR];
+    t.lands = vec![PLAINS, PLAINS, FOREST];
+    let text = key_moment(&t, &db).unwrap();
+    assert_eq!(text.matches("Isamaru").count(), 1, "{text}");
+
+    // Auch „lange gehalten“ zählt das zweite Exemplar nicht.
+    let mut held = turn(1, true);
+    held.hand = vec![LEGEND];
+    held.lands_me = 1;
+    held.board = vec![LEGEND];
+    let g = game(
+        "legende",
+        Some(false),
+        vec![
+            held.clone(),
+            held.clone(),
+            held.clone(),
+            held,
+            turn(5, false),
+        ],
+    );
+    assert!(held_cards(&g, &db).is_empty());
+}
+
+#[test]
+fn skipped_attacks_respect_blockers_and_tap_abilities() {
+    let db = std_db();
+    let mut t = turn(5, true);
+    t.life_me = 10;
+    // Elf hat eine Tapp-Fähigkeit, der Bär nicht.
+    t.safe_idle = vec![ELF, BEAR];
+    t.opp_creatures = vec![(OGRE, 3)];
+    let mut g = game("angriff", Some(false), vec![t.clone(), turn(6, false)]);
+    let skipped = |g: &GameRecord| {
+        report_all(std::slice::from_ref(g), &db)
+            .categories
+            .into_iter()
+            .find(|c| c.kind == Mistake::SkippedAttack)
+            .map(|c| c.items)
+            .unwrap_or_default()
+    };
+    let found = skipped(&g);
+    assert_eq!(found.len(), 1);
+    assert!(found[0].text.contains("Grizzly Bears") && !found[0].text.contains("Llanowar"));
+    // Droht tödlicher Schaden, ist Zurückhalten richtig.
+    g.turns[0].opp_creatures = vec![(OGRE, 3), (DRAGON, 7)];
+    assert!(skipped(&g).is_empty());
 }

@@ -243,12 +243,17 @@ fn check_keep(r: &mut Report, found: &mut Findings, g: &GameRecord, db: &CardDb,
 /// Alle Züge einer vollständig mitgeschriebenen Partie.
 fn check_turns(r: &mut Report, found: &mut Findings, g: &GameRecord, db: &CardDb, nr: usize) {
     let mut prev_life = START_LIFE;
-    for t in &g.turns {
+    let last = g.turns.len().saturating_sub(1);
+    for (i, t) in g.turns.iter().enumerate() {
         let lost = prev_life - t.life_me;
         prev_life = t.life_me;
         if t.mine {
             r.my_turns += 1;
-            check_my_turn(found, t, db, nr);
+            // Im letzten Zug endete die Partie (Sieg, Niederlage, Aufgabe) –
+            // oft bevor ich etwas tun konnte. Nichts als verpasst werten.
+            if i < last {
+                check_my_turn(found, t, db, nr);
+            }
         } else {
             check_opp_turn(found, t, lost, nr);
         }
@@ -305,12 +310,14 @@ fn check_my_turn(found: &mut Findings, t: &TurnStat, db: &CardDb, nr: usize) {
             find(tr!("games_report.lag_hand", name = land.display_name())),
         );
     }
-    if !t.safe_idle.is_empty() {
+    let opp_power: i32 = t.opp_creatures.iter().map(|(_, p)| p).sum();
+    let skipped = crate::combat::worth_attacking(db, &t.safe_idle, t.life_me, opp_power);
+    if !skipped.is_empty() {
         found.push(
             Mistake::SkippedAttack,
             find(tr!(
                 "games_report.haette_n_gefahrlos_angreifen",
-                v = names(db, &t.safe_idle)
+                v = names(db, &skipped)
             )),
         );
     }

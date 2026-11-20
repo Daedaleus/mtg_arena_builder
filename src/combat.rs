@@ -115,6 +115,25 @@ fn through(attacker: &LiveCreature, blockers: &[&LiveCreature]) -> i32 {
     }
 }
 
+/// Welche der gefahrlosen Angreifer lohnt es wirklich, anzugreifen?
+/// Kreaturen mit Tapp-Fähigkeit bleiben für ihre Fähigkeit stehen. Hat der
+/// Gegner genug Kraft im Spiel, um mich im nächsten Zug zu besiegen, bleiben
+/// Blocker zurück. Wachsamkeit tappt beim Angriff nicht – solche Kreaturen
+/// können immer angreifen.
+pub fn worth_attacking(db: &CardDb, safe: &[GrpId], life_me: i32, opp_power: i32) -> Vec<GrpId> {
+    let lethal_threat = opp_power >= life_me;
+    safe.iter()
+        .filter(|g| {
+            // Unbekannte Karten gelten als gewöhnliche Kreatur.
+            let card = db.cards.get(g);
+            let vigilance = card.is_some_and(|c| c.abilities.contains(&keyword::VIGILANCE));
+            let tapper = card.is_some_and(|c| c.tap_ability);
+            vigilance || (!tapper && !lethal_threat)
+        })
+        .copied()
+        .collect()
+}
+
 /// Berechnet einen Blockvorschlag. Angreifer mit Bedrohlichkeit brauchen zwei
 /// Blocker: Sie werden nur aufgehalten, wenn zwei Blocker sie gemeinsam töten
 /// und dabei keiner stirbt, oder als Opfer, wenn der Schaden sonst tödlich wäre.
