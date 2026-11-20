@@ -154,39 +154,81 @@ fn game_row(
     clicked
 }
 
-/// Details einer Partie: Starthand, Tipps und Zugtabelle.
-pub(super) fn game_detail(
-    ui: &mut egui::Ui,
-    g: &GameRecord,
-    numbers: &games::GameNumbers,
-    db: &CardDb,
-) {
-    ui.add_space(8.0);
-    ui.separator();
-    ui.heading(tr!(
-        "game_list.partie",
-        v = numbers.of(g),
-        v2 = event_label(&g.event)
-    ));
-    opening_hand(ui, g, db);
-    game_tips(ui, g, numbers, db);
-    biggest_threat(ui, g, db);
-    ui.add_space(4.0);
-    if g.turns.is_empty() {
-        ui.label(tr!("game_list.diese_partie_stehen_keine"));
-        return;
+impl App {
+    /// Details einer Partie: Starthand, Tipps und Zugtabelle.
+    pub(super) fn game_detail(
+        &self,
+        ui: &mut egui::Ui,
+        g: &GameRecord,
+        numbers: &games::GameNumbers,
+        db: &CardDb,
+    ) {
+        ui.add_space(8.0);
+        ui.separator();
+        ui.heading(tr!(
+            "game_list.partie",
+            v = numbers.of(g),
+            v2 = event_label(&g.event)
+        ));
+        opening_hand(ui, g, db);
+        self.game_tips(ui, g, numbers, db);
+        biggest_threat(ui, g, db);
+        ui.add_space(4.0);
+        if g.turns.is_empty() {
+            ui.label(tr!("game_list.diese_partie_stehen_keine"));
+            return;
+        }
+        if !g.complete {
+            ui.label(
+                RichText::new(tr!(
+                    "game_list.erst_ab_zug_mitgeschrieben",
+                    v = g.turns.first().map(|t| t.turn).unwrap_or(0)
+                ))
+                .color(YELLOW),
+            );
+        }
+        ui.label(RichText::new(tr!("game_list.stand_jeweils_ende_zuges")).weak());
+        turn_table(ui, numbers.of(g), g, db);
     }
-    if !g.complete {
-        ui.label(
-            RichText::new(tr!(
-                "game_list.erst_ab_zug_mitgeschrieben",
-                v = g.turns.first().map(|t| t.turn).unwrap_or(0)
-            ))
-            .color(YELLOW),
-        );
+
+    /// Tipps nur für diese Partie, nach Zug sortiert.
+    fn game_tips(
+        &self,
+        ui: &mut egui::Ui,
+        g: &GameRecord,
+        numbers: &games::GameNumbers,
+        db: &CardDb,
+    ) {
+        let single = games::report(std::slice::from_ref(g), numbers, db);
+        let found: Vec<(String, &games::Finding)> = single
+            .categories
+            .iter()
+            .flat_map(|c| c.items.iter().map(move |f| (c.title(), f)))
+            .collect();
+        if found.is_empty() {
+            if g.complete {
+                ui.label(RichText::new(tr!("game_list.dieser_partie_hat_app")).color(GREEN));
+            }
+        } else {
+            ui.strong(tr!("game_list.was_dieser_partie_besser"));
+            let mut sorted = found;
+            sorted.sort_by_key(|(_, f)| f.turn);
+            for (title, f) in sorted {
+                let when = if f.turn == 0 {
+                    tr!("game_list.starthand")
+                } else {
+                    tr!("game_list.zug", turn = f.turn)
+                };
+                let line = ui.label(tr!(
+                    "game_list.text_2",
+                    when = when,
+                    title = title,
+                    text = f.text
+                ));
+                self.cards_hover(line, &f.cards);
+            }
+        }
     }
-    ui.label(RichText::new(tr!("game_list.stand_jeweils_ende_zuges")).weak());
-    turn_table(ui, numbers.of(g), g, db);
 }
 
 /// Behaltene Starthand mit Länderzahl.
@@ -207,38 +249,6 @@ fn opening_hand(ui: &mut egui::Ui, g: &GameRecord, db: &CardDb) {
         lands = lands,
         v = names.join(", ")
     ));
-}
-
-/// Tipps nur für diese Partie, nach Zug sortiert.
-fn game_tips(ui: &mut egui::Ui, g: &GameRecord, numbers: &games::GameNumbers, db: &CardDb) {
-    let single = games::report(std::slice::from_ref(g), numbers, db);
-    let found: Vec<(String, &games::Finding)> = single
-        .categories
-        .iter()
-        .flat_map(|c| c.items.iter().map(move |f| (c.title(), f)))
-        .collect();
-    if found.is_empty() {
-        if g.complete {
-            ui.label(RichText::new(tr!("game_list.dieser_partie_hat_app")).color(GREEN));
-        }
-    } else {
-        ui.strong(tr!("game_list.was_dieser_partie_besser"));
-        let mut sorted = found;
-        sorted.sort_by_key(|(_, f)| f.turn);
-        for (title, f) in sorted {
-            let when = if f.turn == 0 {
-                tr!("game_list.starthand")
-            } else {
-                tr!("game_list.zug", turn = f.turn)
-            };
-            ui.label(tr!(
-                "game_list.text_2",
-                when = when,
-                title = title,
-                text = f.text
-            ));
-        }
-    }
 }
 
 /// Karte, die in dieser Partie am meisten Schaden gemacht hat.

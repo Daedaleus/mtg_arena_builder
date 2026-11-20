@@ -63,7 +63,7 @@ impl App {
                     if let Some(i) = self.games.sel
                         && let Some(g) = a.games.get(i)
                     {
-                        game_detail(ui, g, &a.numbers, &db);
+                        self.game_detail(ui, g, &a.numbers, &db);
                     }
                 }
             });

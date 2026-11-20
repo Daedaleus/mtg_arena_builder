@@ -53,9 +53,17 @@ pub fn held_cards<'a>(g: &GameRecord, db: &'a CardDb) -> Vec<HeldCard<'a>> {
 /// damit ein Zug als „besserer Zug möglich“ gilt.
 pub(super) const KEY_MOMENT_MANA: u32 = 2;
 
+/// Ein Zug, in dem der Zugvorschlag deutlich mehr Mana genutzt hätte.
+#[derive(Clone, Debug, PartialEq)]
+pub struct KeyMoment {
+    pub text: String,
+    /// Die vorgeschlagenen Karten.
+    pub cards: Vec<GrpId>,
+}
+
 /// Vergleicht einen eigenen Zug mit dem Zugvorschlag: Hand zu Zugbeginn
 /// (Hand am Ende plus gewirkte Karten) und Länder am Zugende.
-pub fn key_moment(t: &TurnStat, db: &CardDb) -> Option<String> {
+pub fn key_moment(t: &TurnStat, db: &CardDb) -> Option<KeyMoment> {
     if !t.mine || t.lands.is_empty() {
         return None;
     }
@@ -86,11 +94,15 @@ pub fn key_moment(t: &TurnStat, db: &CardDb) -> Option<String> {
         .filter_map(|g| card(db, *g))
         .map(|c| c.display_name().to_string())
         .collect();
-    Some(tr!(
+    let text = tr!(
         "games_moments.mana_genutzt_moeglich_mana",
         used = used,
         mana_total = plan.mana_total,
         v = names.join(&tr!("common.dann")),
         mana_used = plan.mana_used
-    ))
+    );
+    Some(KeyMoment {
+        text,
+        cards: plan.spells,
+    })
 }

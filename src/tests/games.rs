@@ -343,7 +343,10 @@ fn key_moments_compare_with_suggestion() {
         lands: vec![FOREST, FOREST, MOUNTAIN, MOUNTAIN],
         ..Default::default()
     };
-    let text = key_moment(&t, &db).unwrap();
+    let moment = key_moment(&t, &db).unwrap();
+    // Die vorgeschlagenen Karten kommen mit, für die Bilder in der Oberfläche.
+    assert!(!moment.cards.is_empty() && moment.cards.iter().all(|g| t.hand.contains(g)));
+    let text = moment.text;
     assert!(
         text.starts_with("0 von 4 Mana genutzt – möglich:"),
         "{text}"
@@ -751,6 +754,9 @@ fn report_finds_mistakes() {
     let held = &cat(Mistake::HeldCard).items;
     assert_eq!(held.len(), 1);
     assert!(held[0].text.starts_with("Hill Ogre lag 3"));
+    assert_eq!(held[0].cards, vec![OGRE]);
+    assert_eq!(cat(Mistake::MissedLand).items[0].cards, vec![MOUNTAIN]);
+    assert!(cat(Mistake::EarlyConcede).items[0].cards.is_empty());
     assert_eq!(cat(Mistake::EarlyConcede).items.len(), 1);
     // Häufigste Fehlerart zuerst.
     assert!(
@@ -845,7 +851,9 @@ fn legendary_already_in_play_is_not_suggested() {
     t.board.clear();
     t.hand = vec![LEGEND, LEGEND, BEAR];
     t.lands = vec![PLAINS, PLAINS, FOREST];
-    let text = key_moment(&t, &db).unwrap();
+    let moment = key_moment(&t, &db).unwrap();
+    assert_eq!(moment.cards.iter().filter(|g| **g == LEGEND).count(), 1);
+    let text = moment.text;
     assert_eq!(text.matches("Isamaru").count(), 1, "{text}");
 
     // Auch „lange gehalten“ zählt das zweite Exemplar nicht.
@@ -887,6 +895,7 @@ fn skipped_attacks_respect_blockers_and_tap_abilities() {
     let found = skipped(&g);
     assert_eq!(found.len(), 1);
     assert!(found[0].text.contains("Grizzly Bears") && !found[0].text.contains("Llanowar"));
+    assert_eq!(found[0].cards, vec![BEAR], "Karten für die Bilder");
     // Droht tödlicher Schaden, ist Zurückhalten richtig.
     g.turns[0].opp_creatures = vec![(OGRE, 3), (DRAGON, 7)];
     assert!(skipped(&g).is_empty());
