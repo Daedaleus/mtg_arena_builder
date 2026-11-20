@@ -81,6 +81,7 @@ fn report(my_turns: u32, mistakes: &[(Mistake, usize)]) -> Report {
                         game: 1,
                         turn: 3,
                         text: String::new(),
+                        cards: Vec::new(),
                     })
                     .collect(),
             })

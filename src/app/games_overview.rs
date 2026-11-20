@@ -21,7 +21,7 @@ impl App {
         ui.add_space(6.0);
         top_mistakes(ui, r);
         ui.add_space(8.0);
-        let clicked = all_findings(ui, r);
+        let clicked = all_findings(self, ui, r);
         self.card_lists(ui, r);
         ui.add_space(6.0);
         ui.separator();
@@ -206,8 +206,9 @@ fn top_mistakes(ui: &mut egui::Ui, r: &games::Report) {
     }
 }
 
-/// Alle Fehlerarten mit allen Fundstellen. Liefert die angeklickte Partie (Index).
-fn all_findings(ui: &mut egui::Ui, r: &games::Report) -> Option<usize> {
+/// Alle Fehlerarten mit allen Fundstellen (Kartenbilder beim Überfahren).
+/// Liefert die feste Nummer der angeklickten Partie.
+fn all_findings(app: &App, ui: &mut egui::Ui, r: &games::Report) -> Option<usize> {
     let mut clicked = None;
     ui.strong(tr!("games_overview.alle_auffaelligkeiten"));
     ui.label(
@@ -231,15 +232,13 @@ fn all_findings(ui: &mut egui::Ui, r: &games::Report) -> Option<usize> {
                 } else {
                     tr!("games_overview.zug", turn = f.turn)
                 };
-                if ui
-                    .link(tr!(
-                        "games_overview.partie",
-                        game = f.game,
-                        when = when,
-                        text = f.text
-                    ))
-                    .clicked()
-                {
+                let link = ui.link(tr!(
+                    "games_overview.partie",
+                    game = f.game,
+                    when = when,
+                    text = f.text
+                ));
+                if app.cards_hover(link, &f.cards).clicked() {
                     clicked = Some(f.game);
                 }
             }

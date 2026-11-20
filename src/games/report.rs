@@ -10,6 +10,8 @@ pub struct Finding {
     /// Zug; 0 = vor dem ersten Zug (Starthand).
     pub turn: u32,
     pub text: String,
+    /// Karten, um die es geht – die Oberfläche zeigt ihre Bilder beim Überfahren.
+    pub cards: Vec<GrpId>,
 }
 
 /// Eine Art von Fehler mit allen Fundstellen.
@@ -200,6 +202,7 @@ fn check_concede(r: &mut Report, found: &mut Findings, g: &GameRecord, nr: usize
                     life_me = life_me,
                     life_opp = life_opp
                 ),
+                cards: Vec::new(),
             },
         );
     }
@@ -235,6 +238,7 @@ fn check_keep(r: &mut Report, found: &mut Findings, g: &GameRecord, db: &CardDb,
                     hand_n = hand.len(),
                     lands = lands
                 ),
+                cards: Vec::new(),
             },
         );
     }
@@ -269,6 +273,7 @@ fn check_turns(r: &mut Report, found: &mut Findings, g: &GameRecord, db: &CardDb
                     name = h.card.display_name(),
                     turns = h.turns
                 ),
+                cards: vec![h.card.grp_id],
             },
         );
     }
@@ -289,6 +294,7 @@ fn check_opp_turn(found: &mut Findings, t: &TurnStat, lost: i32, nr: usize) {
                     before = before,
                     my_untapped_creatures = t.my_untapped_creatures
                 ),
+                cards: Vec::new(),
             },
         );
     }
@@ -297,17 +303,21 @@ fn check_opp_turn(found: &mut Findings, t: &TurnStat, lost: i32, nr: usize) {
 /// Eigener Zug: Land, Angriff, Mana und Feld.
 fn check_my_turn(found: &mut Findings, t: &TurnStat, db: &CardDb, nr: usize) {
     let hand: Vec<&Card> = t.hand.iter().filter_map(|grp| card(db, *grp)).collect();
-    let find = |text: String| Finding {
+    let find = |text: String, cards: Vec<GrpId>| Finding {
         game: nr,
         turn: t.turn,
         text,
+        cards,
     };
     if !t.land_played
         && let Some(land) = hand.iter().find(|c| c.is_land())
     {
         found.push(
             Mistake::MissedLand,
-            find(tr!("games_report.lag_hand", name = land.display_name())),
+            find(
+                tr!("games_report.lag_hand", name = land.display_name()),
+                vec![land.grp_id],
+            ),
         );
     }
     let opp_power: i32 = t.opp_creatures.iter().map(|(_, p)| p).sum();
@@ -315,14 +325,17 @@ fn check_my_turn(found: &mut Findings, t: &TurnStat, db: &CardDb, nr: usize) {
     if !skipped.is_empty() {
         found.push(
             Mistake::SkippedAttack,
-            find(tr!(
-                "games_report.haette_n_gefahrlos_angreifen",
-                v = names(db, &skipped)
-            )),
+            find(
+                tr!(
+                    "games_report.haette_n_gefahrlos_angreifen",
+                    v = names(db, &skipped)
+                ),
+                skipped.clone(),
+            ),
         );
     }
-    if let Some(text) = key_moment(t, db) {
-        found.push(Mistake::BetterTurn, find(text));
+    if let Some(moment) = key_moment(t, db) {
+        found.push(Mistake::BetterTurn, find(moment.text, moment.cards));
     } else if t.lands.is_empty() && t.untapped_lands >= 1 {
         // Ältere Aufzeichnung ohne Länder: einfache Prüfung ohne Farben.
         let castable = hand
@@ -332,19 +345,22 @@ fn check_my_turn(found: &mut Findings, t: &TurnStat, db: &CardDb, nr: usize) {
         if let Some(c) = castable {
             found.push(
                 Mistake::UnusedMana,
-                find(tr!(
-                    "games_report.laender_frei_hand",
-                    untapped_lands = t.untapped_lands,
-                    name = c.display_name(),
-                    mana_cost = c.mana_cost
-                )),
+                find(
+                    tr!(
+                        "games_report.laender_frei_hand",
+                        untapped_lands = t.untapped_lands,
+                        name = c.display_name(),
+                        mana_cost = c.mana_cost
+                    ),
+                    vec![c.grp_id],
+                ),
             );
         }
     }
     if (3..=6).contains(&t.turn) && t.creatures_me == 0 {
         found.push(
             Mistake::EmptyBoard,
-            find(tr!("games_report.keine_eigene_kreatur_feld")),
+            find(tr!("games_report.keine_eigene_kreatur_feld"), Vec::new()),
         );
     }
 }

@@ -111,7 +111,6 @@ mod tasks;
 mod widgets;
 mod worker;
 
-use game_list::game_detail;
 use progress_view::progress_view;
 use widgets::*;
 use worker::{Job, Msg, worker};
