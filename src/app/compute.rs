@@ -24,6 +24,8 @@ pub(super) enum SimTarget {
 pub(super) struct GamesAnalysis {
     key: (u64, Option<String>, Locale),
     pub games: Vec<GameRecord>,
+    /// Feste Nummern aller gespeicherten Partien (auch bei Filter nach Modus).
+    pub numbers: games::GameNumbers,
     pub report: games::Report,
     pub opp_groups: Vec<opponents::OppGroup>,
     pub opp_names: Vec<String>,
@@ -60,7 +62,8 @@ impl App {
             .filter(|g| self.games.event.as_ref().is_none_or(|e| &g.event == e))
             .cloned()
             .collect();
-        let report = games::report(&games, &db);
+        let numbers = games::GameNumbers::new(&self.games.list);
+        let report = games::report(&games, &numbers, &db);
         let shares = opponents::arch_shares(&self.meta_archetypes(), &db);
         let opp_groups = opponents::analyze(&games, &db, &shares);
         let opp_names = games
@@ -74,6 +77,7 @@ impl App {
             key,
             loaded: candidates.len(),
             games,
+            numbers,
             report,
             opp_groups,
             opp_names,

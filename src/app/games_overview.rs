@@ -3,7 +3,7 @@
 use super::*;
 
 impl App {
-    /// Übersicht; liefert die angeklickte Partie und das angeklickte
+    /// Übersicht; liefert die feste Nummer der angeklickten Partie und das angeklickte
     /// empfohlene Deck.
     pub(super) fn games_overview(
         &self,
@@ -240,7 +240,7 @@ fn all_findings(ui: &mut egui::Ui, r: &games::Report) -> Option<usize> {
                     ))
                     .clicked()
                 {
-                    clicked = Some(f.game - 1);
+                    clicked = Some(f.game);
                 }
             }
         });

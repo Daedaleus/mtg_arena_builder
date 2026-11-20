@@ -57,7 +57,7 @@ pub fn games_cli() -> anyhow::Result<()> {
             );
         }
     }
-    let r = games::report(&games, &db);
+    let r = games::report(&games, &games::GameNumbers::new(&games), &db);
     println!(
         "\n{} Siege, {} Niederlagen ({} aufgegeben), Ø {:.1} Züge, {} eigene Züge ausgewertet",
         r.wins, r.losses, r.conceded, r.avg_turns, r.my_turns
@@ -308,7 +308,7 @@ pub fn sim() -> anyhow::Result<()> {
 pub fn style_cli() -> anyhow::Result<()> {
     let db = carddb::CardDb::load(&paths::find_card_db(None)?)?;
     let games = games::sync(&paths::data_dir().join("games.json"), &paths::player_logs()).games;
-    let report = games::report(&games, &db);
+    let report = games::report(&games, &games::GameNumbers::new(&games), &db);
     let s = mtg_arena_builder::style::analyze(&games, &db, &report);
     for r in &s.records {
         println!("{}: {} Partien, {} Siege", r.style.name(), r.games, r.wins);
