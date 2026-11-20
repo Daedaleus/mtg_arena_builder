@@ -85,11 +85,14 @@ display texts – there are enums like `Mistake` or `LandVerdict` for that.
 
 ## Rules
 
-- Before every commit: `cargo fmt`, `cargo clippy --all-targets -- -D warnings`,
-  `cargo test`. `build.ps1` does all of this and builds the release version.
+- Tools and tasks come from `mise.toml` (pinned Rust, cargo-llvm-cov,
+  git-cliff); CI runs the same tasks. Before every commit: `mise run check`
+  (fmt, Clippy with `-D warnings`, tests). `mise run install` builds the
+  release version into `dist/`. On Windows mise runs tasks with `cmd /c`:
+  one command per `run` entry, double quotes only.
 - **Tests:** new logic gets tests in `src/tests/<module>.rs` (included via
   `#[cfg(test)] #[path = "tests/<module>.rs"] mod tests;`). Test data (cards,
-  log messages, temporary folders) from `src/testutil/`. `coverage.ps1`
+  log messages, temporary folders) from `src/testutil/`. `mise run coverage`
   requires at least 90 % line coverage excluding `src/app/` and `main.rs`.
 - Tests must touch neither the network nor the real data directory. Network in
   tests via `testutil::FakeHttp` (with real, shortened responses from
@@ -121,7 +124,7 @@ display texts – there are enums like `Mistake` or `LandVerdict` for that.
 
 ## Pitfalls
 
-- `build.ps1` stops the running app and restarts it. If an Arena game is in
+- `mise run install` stops the running app and restarts it (Windows). If an Arena game is in
   progress, ask first – the companion window disappears briefly.
 - The release .exe has no console window and opens the interface: never start
   it from a script without a time limit. For console output use the debug
@@ -129,8 +132,8 @@ display texts – there are enums like `Mistake` or `LandVerdict` for that.
 - When changing Rust code (or YAML) via Python/shell scripts, `\n`, `\r`,
   `\1` and `\'` easily turn into real characters – check the result or use
   the Edit tool.
-- Save PowerShell scripts (`build.ps1`, `coverage.ps1`) as UTF-8 with BOM and
-  CRLF, otherwise Windows PowerShell 5.1 shows umlauts wrongly.
+- Save PowerShell scripts (`scripts/install-windows.ps1`) as UTF-8 with BOM
+  and CRLF, otherwise Windows PowerShell 5.1 shows umlauts wrongly.
 - Write `settings.json` by hand only without BOM (both are read).
 - Load user data (`games.json`, `settings.json`) with `paths::load_json` and
   distinguish `LoadError`: damaged = back up (`backup_corrupt`), unreadable =

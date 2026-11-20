@@ -10,6 +10,9 @@
 # Sicherheit: Jedes gebaute Programm wird auf Viren geprüft (Defender auf
 # Windows, ClamAV für alle), Releases bekommen einen signierten
 # Herkunftsnachweis. Abhängigkeiten prüft audit.yml.
+#
+# Werkzeuge und Prüfbefehle kommen aus mise.toml (wie lokal mit `mise run …`):
+# dieselben Versionen und dieselben Aufgaben auf jedem Rechner.
 name: CI
 
 on:
@@ -32,10 +35,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: jdx/mise-action@v5
         with:
-          components: rustfmt
-      - run: cargo fmt --all -- --check
+          install_args: rust
+      - run: mise run fmt-check
 
   build:
     name: ${{ matrix.name }}
@@ -67,9 +70,9 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: jdx/mise-action@v5
         with:
-          components: clippy
+          install_args: rust
       - uses: Swatinem/rust-cache@v2
       - name: Linux-Pakete für die Oberfläche
         if: runner.os == 'Linux'
@@ -78,9 +81,9 @@ jobs:
           sudo apt-get install -y libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev \
             libxkbcommon-dev libwayland-dev libgl1-mesa-dev
       - name: Clippy
-        run: cargo clippy --all-targets --locked -- -D warnings
+        run: mise run clippy
       - name: Tests
-        run: cargo test --locked
+        run: mise run test
       - name: Release-Build
         run: cargo build --release --locked
       - name: Programm und Prüfsumme bereitlegen
@@ -138,22 +141,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: jdx/mise-action@v5
         with:
-          components: llvm-tools-preview
+          install_args: rust github:taiki-e/cargo-llvm-cov
       - uses: Swatinem/rust-cache@v2
-      - uses: taiki-e/install-action@cargo-llvm-cov
       - name: Linux-Pakete für die Oberfläche
         run: |
           sudo apt-get update
           sudo apt-get install -y libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev \
             libxkbcommon-dev libwayland-dev libgl1-mesa-dev
-      # Wie coverage.ps1: Oberfläche, Programmstart und Testhilfen zählen nicht mit.
+      # Filter (Oberfläche, Programmstart, Testhilfen) und Mindestwert stehen
+      # in mise.toml.
       - name: Abdeckung messen (mindestens 90 %)
-        run: >
-          cargo llvm-cov --lib --locked
-          --ignore-filename-regex '[\\/]app[\\/]|(testutil|main)\.rs$|[\\/]tests[\\/]'
-          --fail-under-lines 90
+        run: mise run coverage
 
   release:
     name: GitHub-Release
@@ -196,9 +196,9 @@ jobs:
           subject-checksums: dist/SHA256SUMS.txt
       # Änderungen seit dem letzten Release aus den Commit-Nachrichten
       # (cliff.toml), danach Download und Prüfanleitung.
-      - uses: taiki-e/install-action@v2
+      - uses: jdx/mise-action@v5
         with:
-          tool: git-cliff
+          install_args: git-cliff
       - name: Release-Notizen
         run: |
           {
