@@ -1,2 +1,4 @@
 # Shell-Skripte immer mit LF, sonst bricht sh unter Windows ab.
 .githooks/* text eol=lf
+# PowerShell-Skripte mit CRLF, sonst liest Windows PowerShell 5.1 sie falsch.
+*.ps1 text eol=crlf

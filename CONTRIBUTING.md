@@ -11,82 +11,40 @@ Code comments are German, documentation and commit messages English.
 
 ## Building
 
-Requires Rust (edition 2024) and, on Windows, the MSVC build tools. Linux
-needs the usual egui packages (see `.github/workflows/ci.yml`).
+Tools and tasks come from [mise](https://mise.jdx.dev) (`mise.toml`), the same
+on Windows, Linux and macOS and in CI. On Windows you also need the MSVC build
+tools; Linux needs the usual egui packages (see `.github/workflows/ci.yml`).
 
 ```powershell
-cargo run               # debug build
-.\build.ps1             # fmt, Clippy, tests, release build, desktop shortcut
-.\build.ps1 -Coverage   # additionally test coverage (at least 90 %)
-.\build.ps1 -SkipChecks # build only
+mise trust          # once per clone: allow the tasks in mise.toml
+mise install        # Rust (with clippy, rustfmt, llvm-tools), cargo-llvm-cov, git-cliff
+mise tasks          # list of tasks
 ```
 
-`build.ps1` puts `dist\MTG Arena Builder.exe` (statically linked, no
-installation needed) plus a versioned copy with SHA-256 into `dist\`. A running
-instance is stopped before building and restarted afterwards.
+| Task | What it does |
+|---|---|
+| `mise run check` | Formatting, Clippy (warnings as errors), all tests |
+| `mise run fmt` | Format the code |
+| `mise run coverage` | Test coverage, fails below 90 % (HTML report in `target/llvm-cov/html`) |
+| `mise run build` | `check`, then the release build |
+| `mise run install` | `build`, then a versioned copy with SHA-256 in `dist/`. On Windows also `dist\MTG Arena Builder.exe` (statically linked, no installation needed), a desktop shortcut, and a running instance is stopped and restarted |
+| `mise run changelog` | Preview of the next release notes |
+
+`cargo run` starts a debug build directly.
 
 ## Tests
-
-```powershell
-cargo test              # all tests (about 0.3 s)
-.\coverage.ps1 -Open    # measure coverage, open HTML report
-```
 
 Tests live per module in `src/tests/`. They need neither Arena nor the
 internet: card databases, Arena log messages and web pages are generated in
 `src/testutil/`, network replies come from recorded responses in
 `src/testutil/fixtures/`. Coverage is measured without the interface
-(`src/app/`) and program start (`main.rs`); `coverage.ps1` fails below 90 %.
-One-time setup:
-
-```powershell
-rustup component add llvm-tools-preview
-cargo install cargo-llvm-cov --locked
-```
+(`src/app/`) and program start (`main.rs`); `mise run coverage` fails below
+90 % (filter and minimum in `mise.toml`).
 
 One test talks to the real Scryfall API and is ignored by default; run it by
 hand, and not several times in a row: `cargo test -- --ignored`.
 
-Before every commit: `cargo fmt`, `cargo clippy --all-targets -- -D warnings`,
-`cargo test` (or simply `.\build.ps1`).
-
-## Commit messages
-
-[Conventional Commits](https://www.conventionalcommits.org) with a
-[gitmoji](https://gitmoji.dev) icon after the colon, in English:
-
-```
-<type>(<optional scope>): <icon> <description>
-
-feat(sim): ✨ add prowess to the race
-fix(collection): 🐛 ask for admin rights only when access is denied
-docs: 📝 add screenshots to the README
-```
-
-| Type | Icon | For |
-|---|---|---|
-| `feat` | ✨ | a new feature |
-| `fix` | 🐛 | a bug fix |
-| `docs` | 📝 | documentation only |
-| `style` | 🎨 | formatting, no code change |
-| `refactor` | ♻️ | restructuring without changing behaviour |
-| `perf` | ⚡️ | faster or leaner |
-| `test` | ✅ | tests only |
-| `build` | 📦️ | build scripts, dependencies |
-| `ci` | 👷 | GitHub Actions |
-| `chore` | 🔧 | everything else (config, housekeeping) |
-| `revert` | ⏪️ | undo an earlier commit |
-
-The scope is optional and names the module (`sim`, `games`, `live`, `app` …).
-A breaking change gets a `!` before the colon (`feat!: ✨ …`). The description
-starts lowercase and has no full stop.
-
-The hook in `.githooks/` checks this when committing. Switch it on once per
-clone:
-
-```powershell
-git config core.hooksPath .githooks
-```
+Before every commit: `mise run check`.
 
 ## Pull requests
 
@@ -176,6 +134,5 @@ from [.github/release-notes.md](.github/release-notes.md). Preview what the
 next release will list:
 
 ```powershell
-cargo install git-cliff --locked   # once
-git cliff --unreleased
+mise run changelog
 ```

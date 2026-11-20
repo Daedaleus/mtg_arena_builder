@@ -1,0 +1,74 @@
+# Werkzeuge und Aufgaben für alle Systeme – lokal und in der CI dieselben.
+# Einrichten:  mise trust && mise install
+# Aufgaben:    mise tasks          (Liste)
+#              mise run check      (fmt, Clippy, Tests)
+#              mise run coverage   (Testabdeckung, mindestens 90 %)
+#              mise run install    (Release bauen, nach dist/; Windows: Verknüpfung, App neu starten)
+#
+# Unter Windows laufen die Befehle mit `cmd /c`, sonst mit `sh`: deshalb ein
+# Befehl je Eintrag (mise bricht beim ersten Fehler ab) und doppelte
+# Anführungszeichen, die in beiden Shells gleich wirken.
+
+[tools]
+rust = { version = "1.100", components = "clippy,rustfmt,llvm-tools" }
+"github:taiki-e/cargo-llvm-cov" = "0.9.1"
+git-cliff = "2.14.2"
+
+[vars]
+# Oberfläche, Programmstart und Testhilfen zählen bei der Abdeckung nicht mit.
+coverage_ignore = '[\\/]app[\\/]|(testutil|main)\.rs$|[\\/]tests[\\/]'
+coverage_min = "90"
+
+[tasks.fmt]
+description = "Code formatieren"
+run = "cargo fmt --all"
+
+[tasks.fmt-check]
+description = "Formatierung prüfen"
+run = "cargo fmt --all -- --check"
+
+[tasks.clippy]
+description = "Clippy, Warnungen als Fehler"
+run = "cargo clippy --all-targets --locked -- -D warnings"
+
+[tasks.test]
+description = "Alle Tests"
+run = "cargo test --locked"
+
+[tasks.check]
+description = "Vor jedem Commit: Formatierung, Clippy, Tests"
+run = [
+    "cargo fmt --all -- --check",
+    "cargo clippy --all-targets --locked -- -D warnings",
+    "cargo test --locked",
+]
+
+[tasks.coverage]
+description = "Testabdeckung messen (HTML-Bericht in target/llvm-cov/html)"
+run = [
+    'cargo llvm-cov --lib --locked --html --ignore-filename-regex "{{vars.coverage_ignore}}"',
+    'cargo llvm-cov report --summary-only --ignore-filename-regex "{{vars.coverage_ignore}}" --fail-under-lines {{vars.coverage_min}}',
+]
+
+[tasks.build]
+description = "Prüfen und die Release-Version bauen"
+depends = ["check"]
+run = "cargo build --release --locked"
+
+[tasks.install]
+description = "Release nach dist/ mit Prüfsumme; unter Windows Desktop-Verknüpfung und Neustart der laufenden App"
+depends = ["build"]
+run = """
+version=$(sed -n 's/^version = "\\(.*\\)"$/\\1/p' Cargo.toml | head -n 1)
+name="mtg_arena_builder-$version"
+mkdir -p dist
+cp target/release/mtg_arena_builder "dist/$name"
+cd dist
+if command -v sha256sum > /dev/null; then sha256sum "$name" > "$name.sha256"; else shasum -a 256 "$name" > "$name.sha256"; fi
+echo "Fertig: dist/$name"
+"""
+run_windows = "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-windows.ps1"
+
+[tasks.changelog]
+description = "Vorschau der Release-Notizen für das nächste Release"
+run = "git cliff --unreleased"

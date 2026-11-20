@@ -88,15 +88,18 @@ first start (*More info* > *Run anyway*).
 
 ## Building from source
 
-Requires Rust (edition 2024) and, on Windows, the MSVC build tools.
+Requires [mise](https://mise.jdx.dev) (installs the pinned Rust version and
+tools) and, on Windows, the MSVC build tools.
 
 ```powershell
-cargo run --release
+mise trust
+mise install
+mise run build
 ```
 
-On Windows, `.\build.ps1` runs all checks, builds the release version into
-`dist\` and creates a desktop shortcut. Tests, coverage, the diagnostic
-command line and the release process are described in
+`mise run install` additionally puts the program into `dist/` (on Windows with
+a desktop shortcut). Tests, coverage, the diagnostic command line and the
+release process are described in
 [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Privacy and safety
