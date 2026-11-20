@@ -108,6 +108,29 @@ fn save_load_roundtrip() {
 }
 
 #[test]
+fn collection_files_carry_a_version() {
+    let dir = TempDir::new("collection");
+    let path = dir.path("collection.json");
+    // Gespeichert wird immer mit der aktuellen Nummer.
+    Collection::default().save(&path).unwrap();
+    let saved: serde_json::Value = serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+    assert_eq!(saved["version"], json!(COLLECTION_VERSION));
+    // Eine alte Datei ohne Nummer wird gelesen und auf den Stand gebracht.
+    let old = json!({
+        "cards": { "7": 4 },
+        "wildcards": { "common": 1, "uncommon": 2, "rare": 3, "mythic": 4 },
+        "gold": 100,
+        "gems": 0,
+        "updated_unix": 1
+    });
+    std::fs::write(&path, old.to_string()).unwrap();
+    let back = Collection::load(&path).unwrap();
+    assert_eq!(back.version, COLLECTION_VERSION);
+    assert_eq!(back.cards[&GrpId(7)], 4);
+    assert_eq!((back.wildcards.rare, back.gold), (3, 100));
+}
+
+#[test]
 fn reader_error_text() {
     assert_eq!(err_of(&json!({ "ok": 1 })), None);
     assert_eq!(err_of(&json!({ "error": "x" })).as_deref(), Some("x"));
