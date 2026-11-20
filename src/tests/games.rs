@@ -387,7 +387,7 @@ fn key_moments_compare_with_suggestion() {
 
     let mut g = game("x", Some(false), vec![t.clone()]);
     g.turns[0].lands_me = 4;
-    let r = report(&[g], &db);
+    let r = report_all(&[g], &db);
     let cat = r
         .categories
         .iter()
@@ -630,6 +630,44 @@ fn turn(n: u32, mine: bool) -> TurnStat {
     }
 }
 
+/// Auswertung mit Nummern über genau diese Partien.
+fn report_all(games: &[GameRecord], db: &CardDb) -> Report {
+    report(games, &GameNumbers::new(games), db)
+}
+
+#[test]
+fn game_numbers_stay_when_a_newer_game_arrives() {
+    // Gespeichert wird neueste zuerst; die Nummer folgt der Zeit.
+    let mut first = game("first", Some(false), vec![]);
+    first.started_ms = 1_000;
+    let mut second = game("second", Some(true), vec![]);
+    second.started_ms = 2_000;
+    let before = GameNumbers::new(std::slice::from_ref(&first));
+    let after = GameNumbers::new(&[second.clone(), first.clone()]);
+    assert_eq!(before.of(&first), 1);
+    assert_eq!(after.of(&first), 1, "die erste Partie bleibt #1");
+    assert_eq!(after.of(&second), 2);
+    assert_eq!(after.of(&game("unbekannt", None, vec![])), 0);
+
+    // Fundstellen tragen die feste Nummer, auch in einer Auswahl.
+    let mut t = turn(1, true);
+    t.hand = vec![MOUNTAIN];
+    t.land_played = false;
+    first.turns = vec![t];
+    let all = [second, first.clone()];
+    let r = report(
+        std::slice::from_ref(&first),
+        &GameNumbers::new(&all),
+        &std_db(),
+    );
+    let missed = r
+        .categories
+        .iter()
+        .find(|c| c.kind == Mistake::MissedLand)
+        .unwrap();
+    assert_eq!(missed.items[0].game, 1);
+}
+
 fn game(id: &str, won: Option<bool>, turns: Vec<TurnStat>) -> GameRecord {
     GameRecord {
         id: id.into(),
@@ -680,7 +718,7 @@ fn report_finds_mistakes() {
     g2.opp_cards.insert(BEAR, 1);
     g2.damage_taken.insert(SHOCK, 2);
 
-    let r = report(&[g1, g2], &db);
+    let r = report_all(&[g1, g2], &db);
     assert_eq!((r.games, r.wins, r.losses, r.conceded), (2, 1, 1, 1));
     assert_eq!(r.on_play, (0, 1));
     assert_eq!(r.on_draw, (1, 1));
@@ -721,7 +759,7 @@ fn report_finds_mistakes() {
 
 #[test]
 fn report_of_nothing() {
-    let r = report(&[], &std_db());
+    let r = report_all(&[], &std_db());
     assert_eq!(r.games, 0);
     assert_eq!(r.avg_turns, 0.0);
     assert!(r.categories.iter().all(|c| c.items.is_empty()));

@@ -37,6 +37,7 @@ impl App {
             self.games.cache = Some(a);
             return;
         }
+        // Index in `a.games` der angeklickten Partie.
         let mut clicked: Option<usize> = None;
         let mut open: Option<u32> = None;
 
@@ -45,7 +46,8 @@ impl App {
             .auto_shrink([false, false])
             .show(ui, |ui| {
                 if overview {
-                    (clicked, open) = self.games_overview(
+                    let number;
+                    (number, open) = self.games_overview(
                         ui,
                         &a.report,
                         &a.opp_groups,
@@ -53,12 +55,15 @@ impl App {
                         &a.recs,
                         a.loaded,
                     );
+                    // Fundstellen nennen die feste Nummer, nicht die Listenposition.
+                    clicked =
+                        number.and_then(|n| a.games.iter().position(|g| a.numbers.of(g) == n));
                 } else {
-                    clicked = self.game_list(ui, &a.games, &db, &a.opp_names);
+                    clicked = self.game_list(ui, &a.games, &a.numbers, &db, &a.opp_names);
                     if let Some(i) = self.games.sel
                         && let Some(g) = a.games.get(i)
                     {
-                        game_detail(ui, i, g, &db);
+                        game_detail(ui, g, &a.numbers, &db);
                     }
                 }
             });

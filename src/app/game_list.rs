@@ -8,6 +8,7 @@ impl App {
         &self,
         ui: &mut egui::Ui,
         games: &[GameRecord],
+        numbers: &games::GameNumbers,
         db: &CardDb,
         opp_names: &[String],
     ) -> Option<usize> {
@@ -50,7 +51,8 @@ impl App {
                     for (i, g) in games.iter().enumerate().take(end).skip(start) {
                         body.row(20.0, |mut row| {
                             let selected = self.games.sel == Some(i);
-                            if game_row(&mut row, i, g, db, &opp_names[i], selected) {
+                            let nr = numbers.of(g);
+                            if game_row(&mut row, nr, g, db, &opp_names[i], selected) {
                                 clicked = Some(i);
                             }
                         });
@@ -97,7 +99,7 @@ impl App {
 /// Eine Zeile der Partienliste; liefert, ob die Nummer angeklickt wurde.
 fn game_row(
     row: &mut egui_extras::TableRow,
-    i: usize,
+    nr: usize,
     g: &GameRecord,
     db: &CardDb,
     opp_name: &str,
@@ -105,9 +107,7 @@ fn game_row(
 ) -> bool {
     let mut clicked = false;
     row.col(|ui| {
-        clicked = ui
-            .selectable_label(selected, format!("#{}", i + 1))
-            .clicked();
+        clicked = ui.selectable_label(selected, format!("#{nr}")).clicked();
     });
     row.col(|ui| {
         ui.label(ago(g.started_ms));
@@ -155,16 +155,21 @@ fn game_row(
 }
 
 /// Details einer Partie: Starthand, Tipps und Zugtabelle.
-pub(super) fn game_detail(ui: &mut egui::Ui, i: usize, g: &GameRecord, db: &CardDb) {
+pub(super) fn game_detail(
+    ui: &mut egui::Ui,
+    g: &GameRecord,
+    numbers: &games::GameNumbers,
+    db: &CardDb,
+) {
     ui.add_space(8.0);
     ui.separator();
     ui.heading(tr!(
         "game_list.partie",
-        v = i + 1,
+        v = numbers.of(g),
         v2 = event_label(&g.event)
     ));
     opening_hand(ui, g, db);
-    game_tips(ui, g, db);
+    game_tips(ui, g, numbers, db);
     biggest_threat(ui, g, db);
     ui.add_space(4.0);
     if g.turns.is_empty() {
@@ -181,7 +186,7 @@ pub(super) fn game_detail(ui: &mut egui::Ui, i: usize, g: &GameRecord, db: &Card
         );
     }
     ui.label(RichText::new(tr!("game_list.stand_jeweils_ende_zuges")).weak());
-    turn_table(ui, i, g, db);
+    turn_table(ui, numbers.of(g), g, db);
 }
 
 /// Behaltene Starthand mit Länderzahl.
@@ -205,8 +210,8 @@ fn opening_hand(ui: &mut egui::Ui, g: &GameRecord, db: &CardDb) {
 }
 
 /// Tipps nur für diese Partie, nach Zug sortiert.
-fn game_tips(ui: &mut egui::Ui, g: &GameRecord, db: &CardDb) {
-    let single = games::report(std::slice::from_ref(g), db);
+fn game_tips(ui: &mut egui::Ui, g: &GameRecord, numbers: &games::GameNumbers, db: &CardDb) {
+    let single = games::report(std::slice::from_ref(g), numbers, db);
     let found: Vec<(String, &games::Finding)> = single
         .categories
         .iter()

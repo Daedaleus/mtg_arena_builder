@@ -5,7 +5,7 @@ use super::*;
 /// Ein auffälliger Moment in einer Partie.
 #[derive(Clone, Debug)]
 pub struct Finding {
-    /// Partie-Nummer (1 = erste im übergebenen Slice).
+    /// Feste Partie-Nummer (siehe [`GameNumbers`]).
     pub game: usize,
     /// Zug; 0 = vor dem ersten Zug (Starthand).
     pub turn: u32,
@@ -80,8 +80,8 @@ pub(super) fn names(db: &CardDb, grps: &[GrpId]) -> String {
 /// Starthände mit so vielen Ländern gelten als gut.
 pub const GOOD_KEEP_LANDS: std::ops::RangeInclusive<usize> = 2..=4;
 
-/// Wertet die Partien aus. Partie-Nummern zählen ab 1 in der übergebenen Reihenfolge.
-pub fn report(games: &[GameRecord], db: &CardDb) -> Report {
+/// Wertet die Partien aus. Fundstellen tragen die feste Nummer aus `numbers`.
+pub fn report(games: &[GameRecord], numbers: &GameNumbers, db: &CardDb) -> Report {
     let mut r = Report {
         games: games.len(),
         ..Default::default()
@@ -89,8 +89,8 @@ pub fn report(games: &[GameRecord], db: &CardDb) -> Report {
     let mut found = Findings::default();
     let mut opp: HashMap<String, usize> = HashMap::new();
     let mut damage: HashMap<String, u32> = HashMap::new();
-    for (i, g) in games.iter().enumerate() {
-        let nr = i + 1;
+    for g in games {
+        let nr = numbers.of(g);
         count_result(&mut r, g);
         count_opponent(&mut opp, &mut damage, g, db);
         check_concede(&mut r, &mut found, g, nr);
