@@ -1,9 +1,9 @@
-//! „Meine Partien“ > „Partienliste“: Tabelle aller Partien und Zugdetails einer Partie.
+//! "My games" > "Game list": table of all games and turn details of a game.
 
 use super::*;
 
 impl App {
-    /// Tabelle der Partien; liefert die angeklickte Partie.
+    /// Table of the games; returns the clicked game.
     pub(super) fn game_list(
         &self,
         ui: &mut egui::Ui,
@@ -14,7 +14,7 @@ impl App {
     ) -> Option<usize> {
         let mut clicked = None;
         let (start, end) = self.pager(ui, games.len());
-        // --- Partienliste ---
+        // --- Game list ---
         ui.push_id("games_table", |ui| {
             TableBuilder::new(ui)
                 .striped(true)
@@ -62,12 +62,12 @@ impl App {
         clicked
     }
 
-    /// Blättern (10 Partien je Seite); liefert den angezeigten Bereich.
+    /// Paging (10 games per page); returns the shown range.
     fn pager(&self, ui: &mut egui::Ui, total: usize) -> (usize, usize) {
         let (start, end, pages, page) =
             present::page_range(total, self.games.page.get(), present::PAGE_SIZE);
         self.games.page.set(page);
-        // --- Blättern ---
+        // --- Paging ---
         if pages > 1 {
             ui.horizontal(|ui| {
                 if ui
@@ -96,7 +96,7 @@ impl App {
     }
 }
 
-/// Eine Zeile der Partienliste; liefert, ob die Nummer angeklickt wurde.
+/// One row of the game list; returns whether the number was clicked.
 fn game_row(
     row: &mut egui_extras::TableRow,
     nr: usize,
@@ -157,7 +157,7 @@ fn game_row(
 }
 
 impl App {
-    /// Details einer Partie: Starthand, Tipps und Zugtabelle.
+    /// Details of a game: opening hand, tips and turn table.
     pub(super) fn game_detail(
         &self,
         ui: &mut egui::Ui,
@@ -193,7 +193,7 @@ impl App {
         turn_table(ui, numbers.of(g), g, db);
     }
 
-    /// Tipps nur für diese Partie, nach Zug sortiert.
+    /// Tips only for this game, sorted by turn.
     fn game_tips(
         &self,
         ui: &mut egui::Ui,
@@ -233,7 +233,7 @@ impl App {
     }
 }
 
-/// Behaltene Starthand mit Länderzahl.
+/// Kept opening hand with land count.
 fn opening_hand(ui: &mut egui::Ui, g: &GameRecord, db: &CardDb) {
     if g.opening_hand.is_empty() {
         return;
@@ -253,7 +253,7 @@ fn opening_hand(ui: &mut egui::Ui, g: &GameRecord, db: &CardDb) {
     ));
 }
 
-/// Karte, die in dieser Partie am meisten Schaden gemacht hat.
+/// Card that dealt the most damage in this game.
 fn biggest_threat(ui: &mut egui::Ui, g: &GameRecord, db: &CardDb) {
     let top = g
         .damage_taken
@@ -265,7 +265,7 @@ fn biggest_threat(ui: &mut egui::Ui, g: &GameRecord, db: &CardDb) {
     }
 }
 
-/// Tabelle aller Züge (Stand am Zugende).
+/// Table of all turns (state at the end of the turn).
 fn turn_table(ui: &mut egui::Ui, i: usize, g: &GameRecord, db: &CardDb) {
     ui.push_id(("turns", i), |ui| {
         TableBuilder::new(ui)
@@ -307,7 +307,7 @@ fn turn_table(ui: &mut egui::Ui, i: usize, g: &GameRecord, db: &CardDb) {
     });
 }
 
-/// Eine Zeile der Zugtabelle.
+/// One row of the turn table.
 fn turn_row(row: &mut egui_extras::TableRow, t: &games::TurnStat, db: &CardDb) {
     let who = if t.mine {
         RichText::new(tr!("game_list.me")).strong()

@@ -1,4 +1,4 @@
-//! Hintergrund-Abrufe (MTGTop8, Scryfall) und Verarbeitung ihrer Ergebnisse.
+//! Background fetches (MTGTop8, Scryfall) and processing of their results.
 
 use super::*;
 
@@ -16,16 +16,16 @@ pub(super) enum Job {
         deck_id: u32,
         urgent: bool,
     },
-    /// magic.gg: Events eines Formats.
+    /// magic.gg: events of a format.
     GgEvents {
         format: Format,
         force: bool,
     },
-    /// magic.gg: Decks eines Events.
+    /// magic.gg: decks of an event.
     GgDecks {
         slug: String,
     },
-    /// Bereits heruntergeladene Decks aus dem Cache wiederherstellen (ohne Netz).
+    /// Restore already downloaded decks from the cache (without network).
     Restore {
         format: Format,
         archetypes: Vec<Archetype>,
@@ -41,25 +41,25 @@ pub(super) enum Msg {
     GgEvents(Format, Result<Vec<GgEvent>, String>),
     GgDecks(String, Result<Vec<GgDeck>, String>),
     Collection(Result<collection::Synced, collection::CollectionError>),
-    /// Wiederherstellung aus dem Cache ist abgeschlossen.
+    /// Restoring from the cache is finished.
     Restored(Format),
-    /// Partien aus den Arena-Logs; `bool` = „Detaillierte Logs“ ist aus.
+    /// Games from the Arena logs; `bool` = "Detailed Logs" are off.
     Games(games::Synced, bool),
-    /// Kartenbild von Scryfall (None = keins gefunden).
+    /// Card image from Scryfall (None = none found).
     Image(String, images::Fetched),
     Pending(usize),
-    /// Probehände fertig.
+    /// Sample hands done.
     Trial(SimTarget, Box<sim::Trial>),
-    /// Deckvorschläge aus der Sammlung fertig.
+    /// Deck suggestions from the collection done.
     Built(Vec<Built>),
 }
 
-/// Arbeitet Web-Abrufe nacheinander ab (MTGTop8 erlaubt nur eine Anfrage alle 5 s).
+/// Works through web fetches one after another (MTGTop8 allows only one request every 5 s).
 pub(super) fn worker(rx: Receiver<Job>, tx: Sender<Msg>, ctx: egui::Context, mut fetcher: Fetcher) {
     let mut queue: VecDeque<Job> = VecDeque::new();
     loop {
-        // „Clear“ wirkt sofort beim Eintreffen – es darf nie in der Warteschlange
-        // landen, sonst löscht es später eingereihte Aufträge.
+        // "Clear" takes effect immediately on arrival – it must never end up in
+        // the queue, otherwise it deletes jobs queued later.
         let intake = |job: Job, queue: &mut VecDeque<Job>| match job {
             Job::Clear => queue.clear(),
             Job::Decks { urgent: true, .. } | Job::List { urgent: true, .. } => {
@@ -96,7 +96,7 @@ pub(super) fn worker(rx: Receiver<Job>, tx: Sender<Msg>, ctx: egui::Context, mut
                 let decks = fetcher.decks(format.code(), &arch).map_err(err);
                 let top = decks.as_ref().ok().and_then(|d| d.first()).map(|d| d.id);
                 send(Msg::Decks(format, arch.id, decks));
-                // Das neueste Deck gleich mitladen, damit der Archetyp bewertet werden kann.
+                // Load the newest deck right away so the archetype can be rated.
                 if let Some(deck_id) = top {
                     send(Msg::List(deck_id, fetcher.decklist(deck_id).map_err(err)));
                 }
@@ -128,7 +128,7 @@ pub(super) fn worker(rx: Receiver<Job>, tx: Sender<Msg>, ctx: egui::Context, mut
                         send(Msg::List(deck_id, Ok(text)));
                     }
                 }
-                // Schon geöffnete magic.gg-Events ebenfalls wiederherstellen.
+                // Also restore magic.gg events that are already open.
                 for (event, decks) in fetcher.cached_gg(format.scryfall()) {
                     send(Msg::GgDecks(event.slug, Ok(decks)));
                 }
@@ -142,8 +142,8 @@ pub(super) fn worker(rx: Receiver<Job>, tx: Sender<Msg>, ctx: egui::Context, mut
 impl App {
     pub(super) fn handle_messages(&mut self) {
         while let Ok(msg) = self.rx_msg.try_recv() {
-            // Neue Daten: zwischengespeicherte Auswertungen neu berechnen
-            // (Kartenbilder, Probehände und Fortschrittsmeldungen ändern daran nichts).
+            // New data: recompute cached analyses (card images, sample hands
+            // and progress messages don't change them).
             if !matches!(msg, Msg::Image(..) | Msg::Trial(..) | Msg::Pending(..)) {
                 self.data_gen = self.data_gen.wrapping_add(1);
             }
@@ -175,7 +175,7 @@ impl App {
                     Err(e) => self.status = e,
                 },
                 Msg::GgDecks(slug, result) => self.on_gg_decks(slug, result),
-                // Nachrichten zu einem inzwischen gewechselten Format.
+                // Messages for a format that has changed in the meantime.
                 _ => {}
             }
         }
@@ -218,7 +218,7 @@ impl App {
                 self.built.decks = None;
             }
             Err(e) => {
-                // Beim nächsten Laden des Formats erneut versuchen.
+                // Try again the next time the format is loaded.
                 self.tour.legal_requested.remove(&format);
                 self.status = tr!("worker.format_legality_available_replacement", e = e);
             }
@@ -241,7 +241,7 @@ impl App {
         }
     }
 
-    /// Gemerkte Auswahl, deren Decks nicht (mehr) im Cache liegen, nachladen.
+    /// Load a remembered selection whose decks aren't (any longer) in the cache.
     fn on_restored(&mut self, format: Format) {
         let Some(id) = self
             .tour
@@ -277,8 +277,8 @@ impl App {
             images::Fetched::NotFound => {
                 self.images.missing.insert(name);
             }
-            // Beim nächsten Überfahren erneut anfragen.
-            // Später erneut anfragen (siehe `card_hover`), nicht sofort.
+            // Request again on the next hover.
+            // Request again later (see `card_hover`), not right away.
             images::Fetched::Failed => {
                 self.images
                     .failed

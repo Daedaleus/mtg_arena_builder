@@ -1,8 +1,8 @@
-//! Wiederverwendbare Anzeige-Bausteine: Probehände und Wildcard-Plan.
+//! Reusable display building blocks: sample hands and wildcard plan.
 
 use super::*;
 
-/// Ergebnis der Probehände: Empfehlungen und Kennzahlen.
+/// Result of the sample hands: recommendations and key figures.
 pub(super) fn sim_view(ui: &mut egui::Ui, t: &sim::Trial) {
     let r = &t.fast;
     egui::CollapsingHeader::new(RichText::new(tr!("widgets.sample_hands")).strong())
@@ -34,7 +34,7 @@ pub(super) fn sim_view(ui: &mut egui::Ui, t: &sim::Trial) {
         });
 }
 
-/// Probehände gegen die eigenen Gegner: mit Zugvorschlag und so, wie man spielt.
+/// Sample hands against the own opponents: with the turn suggestion and the way you play.
 fn personal_view(ui: &mut egui::Ui, t: &sim::Trial) {
     let pct = |x: f32| format!("{:.0} %", x * 100.0);
     let Some(best) = &t.mine else {
@@ -108,7 +108,7 @@ fn personal_view(ui: &mut egui::Ui, t: &sim::Trial) {
     );
 }
 
-/// Fehlende Wildcards als Text, z. B. „2 Rare, 1 Mythic“.
+/// Missing wildcards as text, e.g. "2 Rare, 1 Mythic".
 pub(super) fn wildcards_text(short: &[u32; 4]) -> String {
     let parts: Vec<String> = short
         .iter()
@@ -123,7 +123,7 @@ pub(super) fn wildcards_text(short: &[u32; 4]) -> String {
     }
 }
 
-/// Wildcard-Plan: jetzt herstellbar und die Reihenfolge für den Rest.
+/// Wildcard plan: craftable now and the order for the rest.
 pub(super) fn wildcard_plan_view(ui: &mut egui::Ui, plan: &budget::WildcardPlan, db: &CardDb) {
     egui::CollapsingHeader::new(RichText::new(tr!("widgets.wildcard_plan")).strong())
         .id_salt("wildcard_plan")

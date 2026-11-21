@@ -1,10 +1,10 @@
-//! Reiter „Meine Partien“: Kopfzeile, Filter und Auswahl der Unterseite.
+//! Tab "My games": header, filters and choice of the sub page.
 
 use super::*;
 
 impl App {
     pub(super) fn games_tab(&mut self, ui: &mut egui::Ui) {
-        // Beim Öffnen des Reiters automatisch nachladen (höchstens einmal pro Minute).
+        // Reload automatically when the tab opens (at most once per minute).
         if self
             .games
             .scanned
@@ -21,7 +21,7 @@ impl App {
             toned(ui, Tone::Warn, tr!("games_tab.detailed_logs_turned_off"));
         }
         let Some(db) = self.db.clone() else { return };
-        // Zwischengespeichert; neu nur bei neuen Daten, Filter oder Sprache.
+        // Cached; recomputed only for new data, filter or language.
         let Some(a) = self.games_analysis() else {
             return;
         };
@@ -36,7 +36,7 @@ impl App {
             self.games.cache = Some(a);
             return;
         }
-        // Index in `a.games` der angeklickten Partie.
+        // Index in `a.games` of the clicked game.
         let mut clicked: Option<usize> = None;
         let mut open: Option<u32> = None;
 
@@ -54,7 +54,7 @@ impl App {
                         &a.recs,
                         a.loaded,
                     );
-                    // Fundstellen nennen die feste Nummer, nicht die Listenposition.
+                    // Findings name the fixed number, not the list position.
                     clicked =
                         number.and_then(|n| a.games.iter().position(|g| a.numbers.of(g) == n));
                 } else {
@@ -72,13 +72,13 @@ impl App {
         }
         if let Some(i) = clicked {
             self.games.sel = Some(i);
-            // Auf die Seite der angeklickten Partie springen.
+            // Jump to the page of the clicked game.
             self.games.page.set(i / present::PAGE_SIZE);
             self.games.view = 1;
         }
     }
 
-    /// Einlesen, Filter nach Arena-Event und Anzahl gespeicherter Partien.
+    /// Reading, filters and number of stored games.
     fn games_toolbar(&mut self, ui: &mut egui::Ui) {
         if ui
             .add_enabled(
@@ -108,8 +108,8 @@ impl App {
         );
     }
 
-    /// Beim ersten Öffnen Modus und Deck der letzten Partie wählen, damit sich
-    /// verschiedene Modi und Decks nicht in einer Auswertung mischen.
+    /// On first opening choose mode and deck of the last game, so different
+    /// modes and decks don't mix in one analysis.
     fn preset_games_filter(&mut self) {
         if self.games.filter_set {
             return;
@@ -121,7 +121,7 @@ impl App {
         self.games.filter_set = true;
     }
 
-    /// Auswahl der Modus-Gruppe; bei Wechsel gilt wieder „alle Decks“.
+    /// Choice of the mode group; on change "all decks" applies again.
     fn mode_choice(&mut self, ui: &mut egui::Ui) {
         let mut modes: Vec<games::GameMode> = self
             .games
@@ -147,7 +147,7 @@ impl App {
         }
     }
 
-    /// Auswahl des Decks unter den Decks des gewählten Modus.
+    /// Choice of the deck among the decks of the chosen mode.
     fn deck_choice(&mut self, ui: &mut egui::Ui) {
         let decks = self
             .games
@@ -174,7 +174,7 @@ impl App {
         self.games.filter.deck = deck;
     }
 
-    /// Unterseiten: Übersicht, Partienliste, Verlauf.
+    /// Sub pages: overview, game list, progress.
     fn games_views(&mut self, ui: &mut egui::Ui) {
         ui.selectable_value(
             &mut self.games.view,

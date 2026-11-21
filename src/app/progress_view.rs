@@ -1,13 +1,13 @@
-//! „Meine Partien“ > „Verlauf“: Rang und Siegquote über die Zeit.
+//! "My games" > "Progress": rank and win rate over time.
 
 use super::*;
 
-/// Gleitendes Fenster der Siegquote im Verlauf.
+/// Moving window of the win rate in the progress view.
 const TREND_WINDOW: usize = 10;
 
-/// „Meine Partien“ > „Verlauf“: Rang und Siegquote über die Zeit.
+/// "My games" > "Progress": rank and win rate over time.
 pub(super) fn progress_view(ui: &mut egui::Ui, games: &[GameRecord], db: &CardDb) {
-    // Farben vorab: in den Diagrammen ist `ui` ausgeliehen.
+    // Colors beforehand: `ui` is borrowed in the charts.
     let good = theme::tone(ui.ctx(), Tone::Good);
     let warn = theme::tone(ui.ctx(), Tone::Warn);
     let bad = theme::tone(ui.ctx(), Tone::Bad);
@@ -16,7 +16,7 @@ pub(super) fn progress_view(ui: &mut egui::Ui, games: &[GameRecord], db: &CardDb
         .id_salt("progress_scroll")
         .auto_shrink([false, false])
         .show(ui, |ui| {
-            // --- Rang ---
+            // --- Rank ---
             ui.heading(tr!("progress_view.rank"));
             let latest = games
                 .iter()
@@ -58,7 +58,7 @@ pub(super) fn progress_view(ui: &mut egui::Ui, games: &[GameRecord], db: &CardDb
                     });
             }
 
-            // --- Siegquote ---
+            // --- Win rate ---
             ui.add_space(8.0);
             ui.heading(tr!("progress_view.win_rate"));
             if let Some((recent, before)) = progress::trend(games, TREND_WINDOW) {

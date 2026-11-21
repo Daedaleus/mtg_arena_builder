@@ -1,8 +1,8 @@
-//! Deckansicht mit fehlenden Karten, Ersatzvorschlägen und Kartenbildern.
+//! Deck view with missing cards, replacement suggestions and card images.
 
 use super::*;
 
-/// Angeklickte Knöpfe der Deckansicht.
+/// Clicked buttons of the deck view.
 #[derive(Default)]
 struct DeckActions {
     budget: bool,
@@ -11,7 +11,7 @@ struct DeckActions {
 }
 
 impl App {
-    /// Berechnet (einmalig) Ersatzvorschläge für alle fehlenden Karten eines Decks.
+    /// Computes (once) replacement suggestions for all missing cards of a deck.
     pub(super) fn ensure_suggestions(&mut self, deck_id: DeckId, eval: &DeckEval) {
         let Some(db) = &self.db else { return };
         if self.owned.is_empty() {
@@ -73,7 +73,7 @@ impl App {
             self.status = tr!("deck_view.replacements_reset");
         }
         if clicked.budget {
-            // Neu planen: bisherige Ersetzungen zählen dabei nicht.
+            // Plan anew: existing replacements don't count.
             self.repl.retain(|k, _| k.0 != deck_id);
             self.apply_budget(deck_id, &eval);
         }
@@ -82,7 +82,7 @@ impl App {
         self.card_table(ui, deck_id, &eval);
     }
 
-    /// Baubar? Vorhandene Karten und benötigte Wildcards.
+    /// Buildable? Owned cards and required wildcards.
     fn summary_section(&self, ui: &mut egui::Ui, summary: &Summary, wc: [u32; 4]) {
         ui.horizontal_wrapped(|ui| {
             if self.collection.is_none() {
@@ -140,7 +140,7 @@ impl App {
         }
     }
 
-    /// Knöpfe unter der Zusammenfassung; Klicks werden danach angewandt.
+    /// Buttons below the summary; clicks are applied afterwards.
     fn deck_actions(
         &mut self,
         ui: &mut egui::Ui,
@@ -204,7 +204,7 @@ impl App {
         clicked
     }
 
-    /// Probehände mit dem Deck, wie es mit den gewählten Ersatzkarten aussieht.
+    /// Sample hands with the deck as it looks with the chosen replacement cards.
     fn simulate_deck(&mut self, deck_id: DeckId, eval: &DeckEval) {
         let Some(db) = &self.db else { return };
         let entries: Vec<(String, u32)> = eval
@@ -226,7 +226,7 @@ impl App {
         self.start_trial(SimTarget::Deck(deck_id, self.sims.list_gen(deck_id)), deck);
     }
 
-    /// Kartenliste mit Besitz, Fehlendem und Ersatzauswahl.
+    /// Card list with ownership, missing cards and replacement selection.
     fn card_table(&mut self, ui: &mut egui::Ui, deck_id: DeckId, eval: &DeckEval) {
         let lines: Vec<&LineEval> = eval
             .lines
@@ -302,7 +302,7 @@ impl App {
             let shown = card.map_or_else(|| line.name.clone(), |c| c.display_name().to_string());
             let label = ui.label(&shown);
             if let Some(c) = card {
-                // Den Namen in der anderen Sprache zusätzlich zeigen.
+                // Also show the name in the other language.
                 let other = [Some(c.name.as_str()), c.name_de.as_deref()]
                     .into_iter()
                     .flatten()

@@ -1,20 +1,20 @@
-//! Karten in der Oberfläche: Name in der eingestellten Sprache und Kartenbild
-//! beim Überfahren mit der Maus.
+//! Cards in the interface: name in the selected language and card image on
+//! mouse hover.
 
 use super::*;
 
-/// So viele Kartenbilder zeigt ein Hinweis höchstens nebeneinander.
+/// At most this many card images are shown side by side for a hint.
 const MAX_HOVER_CARDS: usize = 3;
 
 impl App {
-    /// Kartenname in der eingestellten Sprache.
+    /// Card name in the selected language.
     pub(super) fn shown(&self, name: &str) -> String {
         self.db
             .as_ref()
             .map_or_else(|| name.to_string(), |db| db.display_name(name))
     }
 
-    /// Zeigt beim Überfahren eines Kartennamens das Kartenbild (lädt es bei Bedarf).
+    /// Shows the card image when hovering a card name (loads it if needed).
     pub(super) fn card_hover(
         &self,
         resp: egui::Response,
@@ -33,8 +33,8 @@ impl App {
         })
     }
 
-    /// Zeigt beim Überfahren die Bilder mehrerer Karten nebeneinander
-    /// (höchstens [`MAX_HOVER_CARDS`]); ohne Karten bleibt `resp` unverändert.
+    /// Shows the images of several cards side by side on hover (at most
+    /// [`MAX_HOVER_CARDS`]); without cards `resp` stays unchanged.
     pub(super) fn cards_hover(&self, resp: egui::Response, cards: &[GrpId]) -> egui::Response {
         let Some(db) = self.db.as_ref() else {
             return resp;
@@ -57,8 +57,8 @@ impl App {
         })
     }
 
-    /// Fordert ein Kartenbild an, falls es weder da ist noch fehlt; nach einem
-    /// gescheiterten Abruf erst nach einer Pause erneut.
+    /// Requests a card image if it is neither there nor missing; after a failed
+    /// fetch only again after a pause.
     fn request_image(&self, key: &str) {
         if self.images.textures.contains_key(key) || self.images.missing.contains(key) {
             return;
@@ -78,7 +78,7 @@ impl App {
         }
     }
 
-    /// Kartenbild oder ein Hinweis, warum es (noch) fehlt.
+    /// Card image or a hint why it is missing (so far).
     fn card_image(&self, ui: &mut egui::Ui, key: &str) {
         if let Some(tex) = self.images.textures.get(key) {
             ui.add(

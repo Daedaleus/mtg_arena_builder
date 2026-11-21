@@ -1,10 +1,10 @@
-//! „Meine Partien“ > „Übersicht & Tipps“: Bilanz, Verbesserungen, Gegner.
+//! "My games" > "Overview & tips": record, improvements, opponents.
 
 use super::*;
 
 impl App {
-    /// Übersicht; liefert die feste Nummer der angeklickten Partie und das angeklickte
-    /// empfohlene Deck.
+    /// Overview; returns the fixed number of the clicked game and the clicked
+    /// recommended deck.
     pub(super) fn games_overview(
         &self,
         ui: &mut egui::Ui,
@@ -30,8 +30,8 @@ impl App {
         (clicked, open)
     }
 
-    /// Spielstil, Empfehlung und passende Turnierdecks. Liefert das
-    /// angeklickte Deck.
+    /// Play style, recommendation and matching tournament decks. Returns the
+    /// clicked deck.
     fn style_section(
         &self,
         ui: &mut egui::Ui,
@@ -102,7 +102,7 @@ impl App {
         open
     }
 
-    /// Wer am meisten Schaden gemacht hat und häufige Gegnerkarten.
+    /// Who dealt the most damage and common opponent cards.
     fn card_lists(&self, ui: &mut egui::Ui, r: &games::Report) {
         egui::CollapsingHeader::new(tr!(
             "games_overview.what_dealt_most_damage",
@@ -134,7 +134,7 @@ impl App {
     }
 }
 
-/// Siege, Niederlagen, Anfangen/Ziehen und Partielänge.
+/// Wins, losses, play/draw and game length.
 fn balance(ui: &mut egui::Ui, r: &games::Report) {
     ui.horizontal_wrapped(|ui| {
         let color = if r.wins >= r.losses {
@@ -159,7 +159,7 @@ fn balance(ui: &mut egui::Ui, r: &games::Report) {
     ui.label(tr!("games_overview.play_draw_games_last", v = ratio(r.on_play.0, r.on_play.1), v2 = ratio(r.on_draw.0, r.on_draw.1), avg_turns = r.avg_turns : {:.0}));
 }
 
-/// Die drei häufigsten Fehlerarten mit Rat.
+/// The three most frequent kinds of mistakes with advice.
 fn top_mistakes(ui: &mut egui::Ui, r: &games::Report) {
     ui.heading(tr!("games_overview.what_improve_next"));
     let top: Vec<&games::Category> = r
@@ -205,8 +205,8 @@ fn top_mistakes(ui: &mut egui::Ui, r: &games::Report) {
     }
 }
 
-/// Alle Fehlerarten mit allen Fundstellen (Kartenbilder beim Überfahren).
-/// Liefert die feste Nummer der angeklickten Partie.
+/// All kinds of mistakes with all findings (card images on hover).
+/// Returns the fixed number of the clicked game.
 fn all_findings(app: &App, ui: &mut egui::Ui, r: &games::Report) -> Option<usize> {
     let mut clicked = None;
     ui.strong(tr!("games_overview.findings"));
@@ -256,7 +256,7 @@ fn all_findings(app: &App, ui: &mut egui::Ui, r: &games::Report) -> Option<usize
     clicked
 }
 
-/// Bilanz gegen die erkannten Gegnerdecks.
+/// Record against the recognised opponent decks.
 fn opponents_section(ui: &mut egui::Ui, opp_groups: &[opponents::OppGroup]) {
     egui::CollapsingHeader::new(RichText::new(tr!("games_overview.who_win_lose_against")).strong())
         .id_salt("opponents")

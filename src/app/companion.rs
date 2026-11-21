@@ -1,12 +1,12 @@
-//! Begleitfenster als eigenes, immer sichtbares Fenster.
+//! Companion as its own, always visible window.
 
 use super::*;
 
 impl App {
-    /// Öffnet bzw. pflegt das Begleitfenster (eigenes Fenster, immer im Vordergrund).
+    /// Opens or maintains the companion (own window, always on top).
     pub(super) fn companion(&mut self, ctx: &egui::Context) {
         if !self.settings.companion {
-            // Fenster aus: Mitlesen beenden.
+            // Window off: stop following.
             if let Some(shared) = self.live.take() {
                 shared
                     .stop
@@ -28,7 +28,7 @@ impl App {
         let Some(shared) = self.live.clone() else {
             return;
         };
-        // Turnierlisten für die Gegner-Erkennung weitergeben, wenn neue geladen wurden.
+        // Pass on tournament lists for opponent recognition when new ones were loaded.
         if self.lists.len() != self.live_meta_lists
             && let Some(db) = &self.db
         {
@@ -71,7 +71,7 @@ impl App {
     }
 }
 
-/// Zeichnet das Begleitfenster.
+/// Draws the companion window.
 pub(super) fn draw(ui: &mut egui::Ui, view: &live::CompanionView) {
     let green = theme::tone(ui.ctx(), Tone::Good);
     let yellow = theme::tone(ui.ctx(), Tone::Warn);

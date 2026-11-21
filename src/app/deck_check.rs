@@ -1,9 +1,9 @@
-//! Reiter „Deck verbessern“.
+//! Tab "Improve deck".
 
 use super::*;
 
-/// Was der Nutzer im Reiter angeklickt hat; wird nach dem Zeichnen angewandt
-/// (dann sind die Borrows auf `self` frei).
+/// What the user clicked in the tab; applied after drawing (then the borrows
+/// on `self` are free).
 #[derive(Default)]
 struct Clicks {
     adopt: bool,
@@ -20,7 +20,7 @@ impl App {
             self.scan_games();
         }
         let Some(db) = self.db.clone() else { return };
-        // Zwischengespeichert; neu nur bei neuen Daten, anderem Deck oder Sprache.
+        // Cached; recomputed only for new data, another deck or language.
         let Some(a) = self.deck_analysis(self.sel_deck_group) else {
             return;
         };
@@ -79,13 +79,13 @@ impl App {
             self.set_list(DeckId::Pasted, deck::parse(&self.paste_text));
             self.tab = Tab::Paste;
         }
-        // Für den Vergleich alle Turnierlisten des passenden Archetyps nachladen.
+        // Load all tournament lists of the matching archetype for the comparison.
         if let Some(id) = match_id {
             self.queue_variants(id);
         }
     }
 
-    /// Tausch-Vorschläge: raus mit Grund, rein mit Ersatz aus der Sammlung.
+    /// Swap suggestions: out with a reason, in with a replacement from the collection.
     fn swaps_section(&self, ui: &mut egui::Ui, swaps: &[deckcheck::Swap]) {
         section(ui, &tr!("deck_check.swap_suggestions"));
         if swaps.is_empty() {
@@ -115,7 +115,7 @@ impl App {
         }
     }
 
-    /// Tabelle aller Karten im Deck mit Nutzung, Schaden und Turnier-Anteil.
+    /// Table of all cards in the deck with usage, damage and tournament share.
     fn cards_section(&self, ui: &mut egui::Ui, r: &deckcheck::DeckCheck, sel: usize) {
         section(ui, &tr!("deck_check.cards_deck"));
         note(ui, tr!("deck_check.drawn_played_how_many"));
@@ -164,7 +164,7 @@ impl App {
         });
     }
 
-    /// Eine Zeile der Kartentabelle; „–“, wo es keine Daten gibt.
+    /// One row of the card table; "–" where there is no data.
     fn usage_row(
         &self,
         row: &mut egui_extras::TableRow,
@@ -224,7 +224,7 @@ fn section(ui: &mut egui::Ui, title: &str) {
     ui.heading(title);
 }
 
-/// Bilanz des Decks und Hinweis, ab wann Gewinnraten je Karte erscheinen.
+/// Record of the deck and a hint from when on win rates per card appear.
 fn summary(ui: &mut egui::Ui, group: &deckcheck::DeckGroup, r: &deckcheck::DeckCheck) {
     if group.fixed {
         toned(ui, Tone::Warn, tr!("deck_check.deck_set_event_cannot"));
@@ -257,7 +257,7 @@ fn summary(ui: &mut egui::Ui, group: &deckcheck::DeckGroup, r: &deckcheck::DeckC
     }
 }
 
-/// Länder-Urteil und Probehände. Liefert, ob „Probehände testen“ geklickt wurde.
+/// Land verdict and sample hands. Returns whether "Test sample hands" was clicked.
 fn lands_section(
     ui: &mut egui::Ui,
     m: &deckcheck::ManaCheck,
@@ -295,7 +295,7 @@ fn lands_section(
     clicked
 }
 
-/// Vergleich mit dem ähnlichsten Turnier-Archetyp.
+/// Comparison with the most similar tournament archetype.
 fn meta_section(ui: &mut egui::Ui, meta: Option<&deckcheck::MetaMatch>, db: &CardDb) {
     section(ui, &tr!("deck_check.comparison_tournament_decks"));
     let Some(m) = meta else {

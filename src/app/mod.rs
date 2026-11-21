@@ -1,16 +1,16 @@
-//! Oberfläche (egui) und Hintergrund-Abrufe.
+//! Interface (egui) and background fetches.
 //!
-//! Aufgeteilt nach Bereichen: `worker` (Hintergrund-Abrufe), `chrome`
-//! (Kopfzeile, Seitenleiste, Einstellungen, Erste Schritte), `lists` (Turnierdecks,
-//! Aus meiner Sammlung, Eigene Liste), `deck_view` (Deckansicht mit Ersatzkarten),
-//! `games_tab` (Meine Partien, Verlauf), `deck_check` (Deck verbessern) und
-//! `companion` (Begleitfenster). Logik gehört in die Fachmodule der Bibliothek.
+//! Split by area: `worker` (background fetches), `chrome` (top bar, side
+//! panel, settings, getting started), `lists` (tournament decks, from my
+//! collection, own list), `deck_view` (deck view with replacement cards),
+//! `games_tab` (my games, progress), `deck_check` (improve deck) and
+//! `companion` (companion window). Logic belongs in the library's domain modules.
 //!
-//! Gestaltung nach Atomic Design: `theme` hält alle Gestaltungswerte
-//! (Farben für dunkles und helles Design, Abstände, Bildgrößen), `atoms` die
-//! kleinsten Bausteine (Hinweistext, farbiger Text, Seltenheit), `widgets`
-//! größere Bausteine (Probehände, Wildcard-Plan); die Reiter setzen sie nur
-//! zusammen. Farben nie direkt eintragen, sondern über `theme::Tone`.
+//! Design follows Atomic Design: `theme` holds all design values (colors for
+//! dark and light mode, spacing, image sizes), `atoms` the smallest building
+//! blocks (hint text, colored text, rarity), `widgets` larger building blocks
+//! (sample hands, wildcard plan); the tabs only put them together. Never
+//! hard-code colors, use `theme::Tone`.
 
 use compute::{DeckAnalysis, GamesAnalysis, SimTarget};
 use parts::{BuiltState, GamesState, GgState, ImageCache, SimState, TourState};
@@ -42,21 +42,21 @@ use crate::sim;
 use crate::similar::{self, Suggestion};
 use crate::style;
 
-/// Woher ein Deck in den Deck-Tabellen (`lists`, `evals`, Ersatzkarten) stammt.
+/// Where a deck in the deck tables (`lists`, `evals`, replacement cards) comes from.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub(super) enum DeckId {
-    /// Selbst eingefügte Liste.
+    /// Pasted list.
     Pasted,
-    /// Das `i`-te aus der Sammlung gebaute Deck.
+    /// The `i`-th deck built from the collection.
     Built(u8),
-    /// MTGTop8-Deck (Decknummer).
+    /// MTGTop8 deck (deck number).
     Top8(u32),
-    /// magic.gg-Liste (Kennung aus [`magicgg::deck_id`], immer ab 2³¹).
+    /// magic.gg list (id from [`magicgg::deck_id`], always from 2³¹ on).
     Gg(u32),
 }
 
 impl DeckId {
-    /// Turnierliste (MTGTop8 oder magic.gg)?
+    /// Tournament list (MTGTop8 or magic.gg)?
     pub fn is_tournament(self) -> bool {
         matches!(self, DeckId::Top8(_) | DeckId::Gg(_))
     }
@@ -65,8 +65,8 @@ impl DeckId {
         matches!(self, DeckId::Built(_))
     }
 
-    /// Zahl für `settings.json` (der frühere gemeinsame Zahlenraum: 0 eingefügt,
-    /// 1–99 gebaut, darüber MTGTop8, ab 2³¹ magic.gg).
+    /// Number for `settings.json` (the former shared number range: 0 pasted,
+    /// 1–99 built, above that MTGTop8, from 2³¹ magic.gg).
     pub fn to_raw(self) -> u32 {
         match self {
             DeckId::Pasted => 0,
@@ -124,7 +124,7 @@ enum Tab {
 }
 
 impl Tab {
-    /// Reihenfolge wie in `settings.json` gespeichert (Index = gespeicherte Zahl).
+    /// Order as stored in `settings.json` (index = stored number).
     const SAVED: [Tab; 6] = [
         Tab::Meta,
         Tab::Paste,
@@ -145,13 +145,13 @@ impl Tab {
 
 pub struct App {
     data_dir: PathBuf,
-    /// Hintergrundaufgaben (ein Thread, siehe `tasks`).
+    /// Background tasks (one thread, see `tasks`).
     tasks: Tasks,
-    /// Gemeinsamer Netzabruf (siehe `http::shared`).
+    /// Shared network access (see `http::shared`).
     net: std::sync::Arc<dyn crate::http::Http>,
     settings: Settings,
     db: Option<std::sync::Arc<CardDb>>,
-    /// Fehler beim Laden der Kartendatenbank (Text für die Anzeige).
+    /// Error while loading the card database (text for the display).
     db_error: String,
     collection: Option<Collection>,
     owned: HashMap<String, u32>,
@@ -161,7 +161,7 @@ pub struct App {
     evals: HashMap<DeckId, DeckEval>,
     tab: Tab,
     paste_text: String,
-    /// (Deck, Kartenschlüssel) -> gewählte Ersatzkarte
+    /// (deck, card key) -> chosen replacement card
     repl: HashMap<(DeckId, String), String>,
     subs: HashMap<(DeckId, String), Vec<Suggestion>>,
     status: String,
@@ -169,14 +169,14 @@ pub struct App {
     sort_by_fit: bool,
     settings_file: SettingsFile,
     ctx: egui::Context,
-    /// Gewähltes Deck im Reiter „Deck verbessern“.
+    /// Chosen deck in the tab "Improve deck".
     sel_deck_group: usize,
-    /// Steigt mit jeder eingetroffenen Nachricht (siehe `compute`).
+    /// Rises with every incoming message (see `compute`).
     data_gen: u64,
     deck_cache: Option<DeckAnalysis>,
-    /// Geteilter Zustand des Begleitfensters (läuft, sobald es einmal geöffnet wurde).
+    /// Shared state of the companion (running once it was opened).
     live: Option<std::sync::Arc<live::Shared>>,
-    /// Anzahl Turnierlisten beim letzten Abgleich mit dem Begleitfenster.
+    /// Number of tournament lists at the last sync with the companion.
     live_meta_lists: usize,
     show_settings: bool,
     games: GamesState,
@@ -185,7 +185,7 @@ pub struct App {
     sims: SimState,
     built: BuiltState,
     tour: TourState,
-    /// Fotomodus für das README (`--screenshots`), sonst `None`.
+    /// Screenshot mode for the README (`--screenshots`), otherwise `None`.
     shooter: Option<screenshots::Shooter>,
 }
 
@@ -194,8 +194,8 @@ impl App {
         App::start(cc, None)
     }
 
-    /// Startet im Fotomodus: englische Oberfläche, Bilder nach `dir`, danach
-    /// schließt das Fenster (siehe `screenshots`).
+    /// Starts in screenshot mode: English interface, images into `dir`, then
+    /// the window closes (see `screenshots`).
     pub fn for_screenshots(cc: &eframe::CreationContext<'_>, dir: PathBuf) -> App {
         App::start(cc, Some(dir))
     }
@@ -205,15 +205,15 @@ impl App {
         let (settings_file, settings) = SettingsFile::load(&data_dir);
         let load_problem = settings_file.problem.clone();
         crate::i18n::set(match shots {
-            // Vor allem anderen, damit auch Hintergrundrechnungen englisch sind.
+            // Before everything else, so background computations are English too.
             Some(_) => crate::i18n::Locale::English,
             None => settings.language.resolve(),
         });
 
-        // Abstände und die gewählte Textgröße (siehe `theme`).
+        // Spacing and the chosen text size (see `theme`).
         theme::apply(&cc.egui_ctx, settings.zoom());
 
-        // Ein Netzabruf für alle Threads: Mindestabstände gelten gemeinsam.
+        // One network access for all threads: minimum gaps apply jointly.
         let net = crate::http::shared();
         let (tx_job, rx_job) = channel();
         let (tx_msg, rx_msg) = channel();
@@ -279,7 +279,7 @@ impl App {
         };
         app.load_db();
         app.load_format(false);
-        // Auswahl und eingefügte Liste der letzten Sitzung wiederherstellen.
+        // Restore the selection and pasted list of the last session.
         app.tour.sel_arch = app.settings.sel_arch;
         app.tour.sel_deck = app.settings.sel_deck;
         if !app.paste_text.trim().is_empty() {
@@ -294,7 +294,7 @@ impl App {
 }
 
 impl eframe::App for App {
-    /// Wird von eframe regelmäßig und beim Beenden aufgerufen.
+    /// Called by eframe regularly and on exit.
     fn save(&mut self, _storage: &mut dyn eframe::Storage) {
         self.save_settings();
     }
