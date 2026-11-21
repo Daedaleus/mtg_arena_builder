@@ -198,7 +198,7 @@ fn check_concede(r: &mut Report, found: &mut Findings, g: &GameRecord, nr: usize
                 game: nr,
                 turn: g.last_turn(),
                 text: tr!(
-                    "games_report.aufgegeben_leben_gegner",
+                    "games_report.conceded_life_opponent",
                     life_me = life_me,
                     life_opp = life_opp
                 ),
@@ -234,7 +234,7 @@ fn check_keep(r: &mut Report, found: &mut Findings, g: &GameRecord, db: &CardDb,
                 game: nr,
                 turn: 0,
                 text: tr!(
-                    "games_report.karten_laendern_behalten",
+                    "games_report.kept_cards_lands",
                     hand_n = hand.len(),
                     lands = lands
                 ),
@@ -269,7 +269,7 @@ fn check_turns(r: &mut Report, found: &mut Findings, g: &GameRecord, db: &CardDb
                 game: nr,
                 turn: h.last_turn,
                 text: tr!(
-                    "games_report.lag_eigene_zuege_bezahlbar",
+                    "games_report.castable_hand_turns",
                     name = h.card.display_name(),
                     turns = h.turns
                 ),
@@ -289,7 +289,7 @@ fn check_opp_turn(found: &mut Findings, t: &TurnStat, lost: i32, nr: usize) {
                 game: nr,
                 turn: t.turn,
                 text: tr!(
-                    "games_report.schaden_bei_leben_genommen",
+                    "games_report.took_damage_life_creature",
                     lost = lost,
                     before = before,
                     my_untapped_creatures = t.my_untapped_creatures
@@ -315,7 +315,7 @@ fn check_my_turn(found: &mut Findings, t: &TurnStat, db: &CardDb, nr: usize) {
         found.push(
             Mistake::MissedLand,
             find(
-                tr!("games_report.lag_hand", name = land.display_name()),
+                tr!("games_report.hand", name = land.display_name()),
                 vec![land.grp_id],
             ),
         );
@@ -327,7 +327,7 @@ fn check_my_turn(found: &mut Findings, t: &TurnStat, db: &CardDb, nr: usize) {
             Mistake::SkippedAttack,
             find(
                 tr!(
-                    "games_report.haette_n_gefahrlos_angreifen",
+                    "games_report.could_attacked_safely",
                     v = names(db, &skipped)
                 ),
                 skipped.clone(),
@@ -347,7 +347,7 @@ fn check_my_turn(found: &mut Findings, t: &TurnStat, db: &CardDb, nr: usize) {
                 Mistake::UnusedMana,
                 find(
                     tr!(
-                        "games_report.laender_frei_hand",
+                        "games_report.lands_free_hand",
                         untapped_lands = t.untapped_lands,
                         name = c.display_name(),
                         mana_cost = c.mana_cost
@@ -360,7 +360,10 @@ fn check_my_turn(found: &mut Findings, t: &TurnStat, db: &CardDb, nr: usize) {
     if (3..=6).contains(&t.turn) && t.creatures_me == 0 {
         found.push(
             Mistake::EmptyBoard,
-            find(tr!("games_report.keine_eigene_kreatur_feld"), Vec::new()),
+            find(
+                tr!("games_report.no_creature_yours_battlefield"),
+                Vec::new(),
+            ),
         );
     }
 }

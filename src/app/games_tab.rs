@@ -18,9 +18,7 @@ impl App {
         ui.separator();
         let overview = self.games.view == 0;
         if self.games.logs_disabled {
-            ui.label(
-                RichText::new(tr!("games_tab.arena_detaillierte_logs_ausgeschaltet")).color(YELLOW),
-            );
+            ui.label(RichText::new(tr!("games_tab.detailed_logs_turned_off")).color(YELLOW));
         }
         let Some(db) = self.db.clone() else { return };
         // Zwischengespeichert; neu nur bei neuen Daten, Filter oder Sprache.
@@ -29,7 +27,7 @@ impl App {
         };
         if a.games.is_empty() {
             ui.add_space(10.0);
-            ui.label(tr!("games_tab.noch_keine_partien_spiel"));
+            ui.label(tr!("games_tab.no_games_yet_play"));
             self.games.cache = Some(a);
             return;
         }
@@ -85,7 +83,7 @@ impl App {
         if ui
             .add_enabled(
                 !self.games.loading,
-                egui::Button::new(tr!("games_tab.logs_neu_einlesen")),
+                egui::Button::new(tr!("games_tab.re_read_logs")),
             )
             .clicked()
         {
@@ -103,7 +101,7 @@ impl App {
         }
         ui.label(
             RichText::new(tr!(
-                "games_tab.partien_gespeichert",
+                "games_tab.games_saved",
                 games_n = self.games.list.len()
             ))
             .weak(),
@@ -133,9 +131,8 @@ impl App {
             .collect();
         modes.sort();
         modes.dedup();
-        let label = |m: Option<games::GameMode>| {
-            m.map_or_else(|| tr!("games_tab.alle_modi"), |m| m.label())
-        };
+        let label =
+            |m: Option<games::GameMode>| m.map_or_else(|| tr!("games_tab.modes"), |m| m.label());
         let mut mode = self.games.filter.mode;
         egui::ComboBox::from_id_salt("games_mode")
             .selected_text(label(mode))
@@ -164,12 +161,12 @@ impl App {
             .deck
             .as_ref()
             .and_then(|k| decks.iter().find(|(_, key)| key == k))
-            .map_or_else(|| tr!("games_tab.alle_decks"), |(label, _)| label.clone());
+            .map_or_else(|| tr!("games_tab.decks"), |(label, _)| label.clone());
         let mut deck = self.games.filter.deck.clone();
         egui::ComboBox::from_id_salt("games_deck")
             .selected_text(shown)
             .show_ui(ui, |ui| {
-                ui.selectable_value(&mut deck, None, tr!("games_tab.alle_decks"));
+                ui.selectable_value(&mut deck, None, tr!("games_tab.decks"));
                 for (label, key) in decks {
                     ui.selectable_value(&mut deck, Some(key), label);
                 }
@@ -182,17 +179,17 @@ impl App {
         ui.selectable_value(
             &mut self.games.view,
             0,
-            RichText::new(tr!("games_tab.uebersicht_tipps")).strong(),
+            RichText::new(tr!("games_tab.overview_tips")).strong(),
         );
         ui.selectable_value(
             &mut self.games.view,
             1,
-            RichText::new(tr!("games_tab.partienliste")).strong(),
+            RichText::new(tr!("games_tab.game_list")).strong(),
         );
         ui.selectable_value(
             &mut self.games.view,
             2,
-            RichText::new(tr!("games_tab.verlauf")).strong(),
+            RichText::new(tr!("games_tab.progress")).strong(),
         );
     }
 }

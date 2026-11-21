@@ -86,13 +86,13 @@ impl App {
                     .fit_to_exact_size(egui::vec2(244.0, 340.0)),
             );
         } else if self.images.failed.borrow().contains_key(key) {
-            ui.label(RichText::new(tr!("card_info.bild_gerade_nicht_erreichbar")).weak());
+            ui.label(RichText::new(tr!("card_info.image_reachable_right_now")).weak());
         } else if self.images.missing.contains(key) {
-            ui.label(RichText::new(tr!("deck_view.kein_bild_verfuegbar")).weak());
+            ui.label(RichText::new(tr!("deck_view.no_image_available")).weak());
         } else {
             ui.horizontal(|ui| {
                 ui.spinner();
-                ui.label(tr!("deck_view.bild_geladen"));
+                ui.label(tr!("deck_view.loading_image"));
             });
         }
     }

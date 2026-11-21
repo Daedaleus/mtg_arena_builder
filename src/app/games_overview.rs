@@ -40,7 +40,7 @@ impl App {
         loaded: usize,
     ) -> Option<u32> {
         let mut open = None;
-        egui::CollapsingHeader::new(RichText::new(tr!("games_overview.spielstil")).strong())
+        egui::CollapsingHeader::new(RichText::new(tr!("games_overview.play_style")).strong())
             .id_salt("player_style")
             .default_open(true)
             .show(ui, |ui| {
@@ -50,21 +50,21 @@ impl App {
                         .iter()
                         .map(|s| {
                             tr!(
-                                "games_overview.partien_siege",
+                                "games_overview.games_wins",
                                 style = s.style.name(),
                                 games = s.games,
                                 wins = s.wins
                             )
                         })
                         .collect();
-                    ui.label(tr!("games_overview.gespielt", v = played.join(" · ")));
+                    ui.label(tr!("games_overview.played", v = played.join(" · ")));
                 }
                 for t in &player.traits {
                     ui.label(t);
                 }
                 ui.label(
                     RichText::new(tr!(
-                        "games_overview.empfehlung",
+                        "games_overview.recommendation",
                         recommended = player.recommended.name(),
                         v = player.recommended.description()
                     ))
@@ -74,10 +74,10 @@ impl App {
                 ui.label(RichText::new(&player.reason).weak());
                 if recs.is_empty() {
                     let text = if loaded == 0 {
-                        tr!("games_overview.passende_decks_schlaegt_app")
+                        tr!("games_overview.app_suggests_matching_decks")
                     } else {
                         tr!(
-                            "games_overview.unter_geladenen_turnierlisten_kein",
+                            "games_overview.no_deck_among_loaded",
                             loaded = loaded,
                             recommended = player.recommended.name()
                         )
@@ -85,9 +85,7 @@ impl App {
                     ui.label(RichText::new(text).weak());
                     return;
                 }
-                ui.label(tr!(
-                    "games_overview.passende_turnierdecks_sammlung_guenstigste"
-                ));
+                ui.label(tr!("games_overview.matching_tournament_decks_cheapest"));
                 egui::Grid::new("style_recs").num_columns(3).show(ui, |ui| {
                     for c in recs {
                         if ui.link(&c.label).clicked() {
@@ -107,15 +105,15 @@ impl App {
     /// Wer am meisten Schaden gemacht hat und häufige Gegnerkarten.
     fn card_lists(&self, ui: &mut egui::Ui, r: &games::Report) {
         egui::CollapsingHeader::new(tr!(
-            "games_overview.was_dir_meisten_schaden",
+            "games_overview.what_dealt_most_damage",
             damage_sources_n = r.damage_sources.len()
         ))
         .id_salt("damage_sources")
         .show(ui, |ui| {
-            ui.label(RichText::new(tr!("games_overview.gegen_diese_karten_lohnt")).weak());
+            ui.label(RichText::new(tr!("games_overview.against_these_cards_pays")).weak());
             for (name, dmg) in &r.damage_sources {
                 let resp = ui.label(tr!(
-                    "games_overview.schaden",
+                    "games_overview.damage",
                     name = self.shown(name),
                     dmg = dmg
                 ));
@@ -123,17 +121,13 @@ impl App {
             }
         });
         egui::CollapsingHeader::new(tr!(
-            "games_overview.haeufigste_karten_deiner_gegner",
+            "games_overview.most_common_cards_opponents",
             opp_cards_n = r.opp_cards.len()
         ))
         .id_salt("opp_cards")
         .show(ui, |ui| {
             for (name, n) in &r.opp_cards {
-                let resp = ui.label(tr!(
-                    "games_overview.partie_n",
-                    name = self.shown(name),
-                    n = n
-                ));
+                let resp = ui.label(tr!("games_overview.game_2", name = self.shown(name), n = n));
                 self.card_hover(resp, name, None);
             }
         });
@@ -146,27 +140,24 @@ fn balance(ui: &mut egui::Ui, r: &games::Report) {
         let color = if r.wins >= r.losses { GREEN } else { RED };
         ui.label(
             RichText::new(tr!(
-                "games_overview.siege_niederlagen",
+                "games_overview.wins_losses",
                 wins = r.wins,
                 losses = r.losses
             ))
             .color(color)
             .strong(),
         );
-        ui.label(tr!("games_overview.aus_partien", games = r.games));
+        ui.label(tr!("games_overview.games", games = r.games));
         if r.conceded > 0 {
-            ui.label(tr!(
-                "games_overview.davon_aufgegeben",
-                conceded = r.conceded
-            ));
+            ui.label(tr!("games_overview.them_conceded", conceded = r.conceded));
         }
     });
-    ui.label(tr!("games_overview.als_erster_als_zweiter", v = ratio(r.on_play.0, r.on_play.1), v2 = ratio(r.on_draw.0, r.on_draw.1), avg_turns = r.avg_turns : {:.0}));
+    ui.label(tr!("games_overview.play_draw_games_last", v = ratio(r.on_play.0, r.on_play.1), v2 = ratio(r.on_draw.0, r.on_draw.1), avg_turns = r.avg_turns : {:.0}));
 }
 
 /// Die drei häufigsten Fehlerarten mit Rat.
 fn top_mistakes(ui: &mut egui::Ui, r: &games::Report) {
-    ui.heading(tr!("games_overview.was_als_naechstes_verbessern"));
+    ui.heading(tr!("games_overview.what_improve_next"));
     let top: Vec<&games::Category> = r
         .categories
         .iter()
@@ -174,7 +165,7 @@ fn top_mistakes(ui: &mut egui::Ui, r: &games::Report) {
         .take(3)
         .collect();
     if top.is_empty() {
-        ui.label(RichText::new(tr!("games_overview.keine_typischen_fehler_gefunden")).color(GREEN));
+        ui.label(RichText::new(tr!("games_overview.no_typical_mistakes_found")).color(GREEN));
     }
     for (n, c) in top.iter().enumerate() {
         let in_games: HashSet<usize> = c.items.iter().map(|f| f.game).collect();
@@ -185,7 +176,7 @@ fn top_mistakes(ui: &mut egui::Ui, r: &games::Report) {
                     .color(YELLOW),
             );
             ui.label(tr!(
-                "games_overview.partien",
+                "games_overview.games_2",
                 items_n = c.items.len(),
                 in_games_n = in_games.len(),
                 games = r.games
@@ -197,7 +188,7 @@ fn top_mistakes(ui: &mut egui::Ui, r: &games::Report) {
     if r.good_keeps.1 + r.bad_keeps.1 > 0 {
         ui.label(
             RichText::new(tr!(
-                "games_overview.starthand_2_4_laendern",
+                "games_overview.opening_hand_2_4",
                 v = ratio(r.good_keeps.0, r.good_keeps.1),
                 v2 = ratio(r.bad_keeps.0, r.bad_keeps.1)
             ))
@@ -210,10 +201,10 @@ fn top_mistakes(ui: &mut egui::Ui, r: &games::Report) {
 /// Liefert die feste Nummer der angeklickten Partie.
 fn all_findings(app: &App, ui: &mut egui::Ui, r: &games::Report) -> Option<usize> {
     let mut clicked = None;
-    ui.strong(tr!("games_overview.alle_auffaelligkeiten"));
+    ui.strong(tr!("games_overview.findings"));
     ui.label(
         RichText::new(tr!(
-            "games_overview.zug_auswertung_ueber_eigene",
+            "games_overview.turn_analysis_over_turns",
             my_turns = r.my_turns
         ))
         .weak(),
@@ -228,12 +219,12 @@ fn all_findings(app: &App, ui: &mut egui::Ui, r: &games::Report) -> Option<usize
             ui.label(RichText::new(c.advice()).weak());
             for f in &c.items {
                 let when = if f.turn == 0 {
-                    tr!("games_overview.starthand")
+                    tr!("games_overview.opening_hand")
                 } else {
-                    tr!("games_overview.zug", turn = f.turn)
+                    tr!("games_overview.turn", turn = f.turn)
                 };
                 let link = ui.link(tr!(
-                    "games_overview.partie",
+                    "games_overview.game",
                     game = f.game,
                     when = when,
                     text = f.text
@@ -246,7 +237,7 @@ fn all_findings(app: &App, ui: &mut egui::Ui, r: &games::Report) -> Option<usize
     }
     if r.discards > 0 {
         ui.label(tr!(
-            "games_overview.abgeworfene_karten_weil_hand",
+            "games_overview.discarded_cards_e_g",
             discards = r.discards
         ));
     }
@@ -255,50 +246,48 @@ fn all_findings(app: &App, ui: &mut egui::Ui, r: &games::Report) -> Option<usize
 
 /// Bilanz gegen die erkannten Gegnerdecks.
 fn opponents_section(ui: &mut egui::Ui, opp_groups: &[opponents::OppGroup]) {
-    egui::CollapsingHeader::new(
-        RichText::new(tr!("games_overview.gegen_wen_gewinnst_verlierst")).strong(),
-    )
-    .id_salt("opponents")
-    .default_open(true)
-    .show(ui, |ui| {
-        ui.label(RichText::new(tr!("games_overview.gegnerische_deck_erkennt_app")).weak());
-        egui::Grid::new("opp_grid")
-            .striped(true)
-            .num_columns(4)
-            .show(ui, |ui| {
-                for t in [
-                    tr!("game_list.gegner"),
-                    tr!("games_overview.bilanz"),
-                    tr!("games_overview.zuege"),
-                    tr!("games_overview.hat_dir_meisten_schaden"),
-                ] {
-                    ui.strong(t);
-                }
-                ui.end_row();
-                for o in opp_groups {
-                    ui.label(&o.name);
-                    let color = if o.wins >= o.losses() { GREEN } else { RED };
-                    ui.label(
-                        RichText::new(tr!(
-                            "games_overview.siege_niederlagen_2",
-                            wins = o.wins,
-                            v = o.losses()
-                        ))
-                        .color(color),
-                    );
-                    ui.label(format!("{:.0}", o.avg_turns));
-                    let threats: Vec<String> = o
-                        .threats
-                        .iter()
-                        .map(|(n, d)| format!("{n} ({d})"))
-                        .collect();
-                    ui.label(if threats.is_empty() {
-                        "–".into()
-                    } else {
-                        threats.join(", ")
-                    });
+    egui::CollapsingHeader::new(RichText::new(tr!("games_overview.who_win_lose_against")).strong())
+        .id_salt("opponents")
+        .default_open(true)
+        .show(ui, |ui| {
+            ui.label(RichText::new(tr!("games_overview.app_recognizes_opponents_deck")).weak());
+            egui::Grid::new("opp_grid")
+                .striped(true)
+                .num_columns(4)
+                .show(ui, |ui| {
+                    for t in [
+                        tr!("game_list.opponent"),
+                        tr!("games_overview.record"),
+                        tr!("games_overview.turns"),
+                        tr!("games_overview.dealt_most_damage"),
+                    ] {
+                        ui.strong(t);
+                    }
                     ui.end_row();
-                }
-            });
-    });
+                    for o in opp_groups {
+                        ui.label(&o.name);
+                        let color = if o.wins >= o.losses() { GREEN } else { RED };
+                        ui.label(
+                            RichText::new(tr!(
+                                "games_overview.wins_losses_2",
+                                wins = o.wins,
+                                v = o.losses()
+                            ))
+                            .color(color),
+                        );
+                        ui.label(format!("{:.0}", o.avg_turns));
+                        let threats: Vec<String> = o
+                            .threats
+                            .iter()
+                            .map(|(n, d)| format!("{n} ({d})"))
+                            .collect();
+                        ui.label(if threats.is_empty() {
+                            "–".into()
+                        } else {
+                            threats.join(", ")
+                        });
+                        ui.end_row();
+                    }
+                });
+        });
 }

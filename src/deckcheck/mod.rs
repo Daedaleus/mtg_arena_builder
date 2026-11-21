@@ -98,15 +98,15 @@ impl LandVerdict {
     pub fn advice(self) -> String {
         match self {
             LandVerdict::TooFewGames => {
-                tr!("deckcheck.aussage_ueber_laenderzahl_braucht")
+                tr!("deckcheck.statement_about_land_count")
             }
             LandVerdict::TooFew => {
-                tr!("deckcheck.dir_fehlten_oft_laender")
+                tr!("deckcheck.often_short_lands_play")
             }
             LandVerdict::TooMany => {
-                tr!("deckcheck.hattest_oft_viele_laender")
+                tr!("deckcheck.often_had_too_many")
             }
-            LandVerdict::Fine => tr!("deckcheck.laenderzahl_passt_deinen_bisherigen"),
+            LandVerdict::Fine => tr!("deckcheck.land_count_fits_games"),
         }
     }
 }

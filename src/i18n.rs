@@ -3,7 +3,7 @@
 //! Text in der aktuellen Sprache, Platzhalter heißen `%{name}`:
 //!
 //! ```ignore
-//! tr!("deck_check.siege_aus_partien", wins = 3, games = 5)
+//! tr!("deck_check.wins_games", wins = 3, games = 5)
 //! ```
 //!
 //! Die Sprache kommt aus den Einstellungen ([`Language`]); „wie das

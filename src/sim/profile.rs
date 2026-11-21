@@ -46,7 +46,7 @@ impl Opponent {
         Opponent {
             power: OPP_CURVE.map(|(p, _)| p as f32),
             toughness: OPP_CURVE.map(|(_, t)| t as f32),
-            label: tr!("sim_profile.schneller_gegner"),
+            label: tr!("sim_profile.fast_opponent"),
             games: 0,
             turns: FAST_TURNS,
             removal: 0.0,
@@ -158,7 +158,7 @@ pub fn opponent_from(history: &[GameRecord], db: &CardDb) -> Option<Opponent> {
     }
     by_name.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
     let top: Vec<String> = by_name.iter().take(2).map(|(n, _)| n.clone()).collect();
-    opp.label = tr!("sim_profile.gegner_meist", v = top.join(", "));
+    opp.label = tr!("sim_profile.opponents_mostly", v = top.join(", "));
     Some(opp)
 }
 

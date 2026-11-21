@@ -51,7 +51,7 @@ impl App {
         if self.trial_running(&SimTarget::Deck(deck_id, self.sims.list_gen(deck_id))) {
             ui.horizontal(|ui| {
                 ui.spinner();
-                ui.label(tr!("common.rechne"));
+                ui.label(tr!("common.calculating"));
             });
         }
         if let Some(report) = self.sims.decks.get(&deck_id) {
@@ -70,7 +70,7 @@ impl App {
         }
         if clicked.reset {
             self.repl.retain(|k, _| k.0 != deck_id);
-            self.status = tr!("deck_view.ersetzungen_zurueckgesetzt");
+            self.status = tr!("deck_view.replacements_reset");
         }
         if clicked.budget {
             // Neu planen: bisherige Ersetzungen zählen dabei nicht.
@@ -87,34 +87,34 @@ impl App {
         ui.horizontal_wrapped(|ui| {
             if self.collection.is_none() {
                 ui.label(
-                    RichText::new(tr!("deck_view.ohne_gelesene_sammlung_gilt")).color(YELLOW),
+                    RichText::new(tr!("deck_view.without_read_collection_everything")).color(YELLOW),
                 );
             } else if summary.complete() {
                 ui.label(
-                    RichText::new(tr!("deck_view.kannst_dieses_deck_komplett"))
+                    RichText::new(tr!("deck_view.build_deck_completely"))
                         .color(GREEN)
                         .strong(),
                 );
             } else if summary.craftable(wc) {
                 ui.label(
-                    RichText::new(tr!("deck_view.deinen_wildcards_baubar"))
+                    RichText::new(tr!("deck_view.buildable_wildcards"))
                         .color(YELLOW)
                         .strong(),
                 );
             } else {
-                ui.label(RichText::new(tr!("deck_view.noch_nicht_baubar")).color(RED).strong());
+                ui.label(RichText::new(tr!("deck_view.buildable_yet")).color(RED).strong());
             }
-            ui.label(tr!("deck_view.karten_vorhanden", missing = summary.total - summary.missing, total = summary.total, v = summary.percent().floor() : {:.0}));
+            ui.label(tr!("deck_view.cards_owned", missing = summary.total - summary.missing, total = summary.total, v = summary.percent().floor() : {:.0}));
         });
         if summary.missing > 0 {
             ui.horizontal_wrapped(|ui| {
-                ui.label(tr!("deck_view.benoetigte_wildcards"));
+                ui.label(tr!("deck_view.required_wildcards"));
                 for i in 0..4 {
                     if summary.need[i] > 0 {
                         let enough = summary.need[i] <= wc[i];
                         ui.label(
                             RichText::new(tr!(
-                                "deck_view.hast",
+                                "deck_view.you_have",
                                 need = summary.need[i],
                                 rarity_names = Rarity::WILDCARDS[i].label(),
                                 wc = wc[i]
@@ -126,7 +126,7 @@ impl App {
                 if summary.unavailable > 0 {
                     ui.label(
                         RichText::new(tr!(
-                            "deck_view.karten_gibt_arena_nicht",
+                            "deck_view.cards_available_arena",
                             unavailable = summary.unavailable
                         ))
                         .color(RED),
@@ -149,22 +149,20 @@ impl App {
         ui.horizontal(|ui| {
             if summary.missing > 0 || has_repl {
                 clicked.budget = ui
-                    .button(tr!("deck_view.budget_version_bauen"))
-                    .on_hover_text(tr!("deck_view.stellt_wichtigsten_fehlenden_karten"))
+                    .button(tr!("deck_view.build_budget_version"))
+                    .on_hover_text(tr!("deck_view.crafts_most_important_missing"))
                     .clicked();
             }
             if has_repl {
-                clicked.reset = ui
-                    .button(tr!("deck_view.ersetzungen_zuruecksetzen"))
-                    .clicked();
+                clicked.reset = ui.button(tr!("deck_view.reset_replacements")).clicked();
             }
             clicked.simulate = ui
-                .button(tr!("deck_view.probehaende_testen"))
-                .on_hover_text(tr!("deck_view.spielt_deck_1000_mal"))
+                .button(tr!("deck_view.test_sample_hands"))
+                .on_hover_text(tr!("deck_view.plays_deck_1000_times"))
                 .clicked();
             if ui
-                .button(tr!("deck_view.arena_kopieren"))
-                .on_hover_text(tr!("deck_view.arena_decks_importieren"))
+                .button(tr!("deck_view.copy_arena"))
+                .on_hover_text(tr!("deck_view.arena_decks_import"))
                 .clicked()
                 && let Some(db) = &self.db
             {
@@ -180,20 +178,20 @@ impl App {
                     },
                 );
                 ui.ctx().copy_text(text);
-                self.status = tr!("deck_view.deck_zwischenablage_kopiert_arena");
+                self.status = tr!("deck_view.deck_copied_clipboard_paste");
             }
             let mut changed = ui
                 .checkbox(
                     &mut self.settings.include_side,
-                    tr!("deck_view.sideboard_einbeziehen"),
+                    tr!("deck_view.include_sideboard"),
                 )
                 .changed();
             changed |= ui
                 .checkbox(
                     &mut self.settings.with_sets,
-                    tr!("deck_view.set_kuerzeln_exportieren"),
+                    tr!("deck_view.export_set_codes"),
                 )
-                .on_hover_text(tr!("deck_view.empfohlen_wenn_arena_nicht"))
+                .on_hover_text(tr!("deck_view.recommended_arena_running_english"))
                 .changed();
             if changed {
                 self.save_settings();
@@ -243,12 +241,12 @@ impl App {
                 .column(Column::remainder().at_least(220.0))
                 .header(20.0, |mut h| {
                     for title in [
-                        tr!("deck_check.anz"),
-                        tr!("deck_view.karte"),
-                        tr!("deck_view.seltenheit"),
-                        tr!("deck_view.besitz"),
-                        tr!("deck_view.fehlt"),
-                        tr!("deck_view.ersatz_aus_deiner_sammlung"),
+                        tr!("deck_check.qty"),
+                        tr!("deck_view.card"),
+                        tr!("deck_view.rarity"),
+                        tr!("deck_view.owned"),
+                        tr!("deck_view.missing"),
+                        tr!("deck_view.replacement_collection"),
                     ] {
                         h.col(|ui| {
                             ui.strong(title);
@@ -337,26 +335,26 @@ impl App {
                 return;
             }
             let Some(key) = &line.key else {
-                ui.label(RichText::new(tr!("deck_view.nicht_arena_verfuegbar")).color(RED));
+                ui.label(RichText::new(tr!("deck_view.available_arena")).color(RED));
                 return;
             };
             let slot = (deck_id, key.clone());
             let options = self.subs.get(&slot).map(Vec::as_slice).unwrap_or(&[]);
             if options.is_empty() {
-                ui.label(RichText::new(tr!("deck_view.kein_vorschlag")).weak());
+                ui.label(RichText::new(tr!("deck_view.no_suggestion")).weak());
                 return;
             }
             let current = self.repl.get(&slot);
             let shown = current
                 .and_then(|k| options.iter().find(|o| &o.key == k))
                 .map(|o| o.name.clone())
-                .unwrap_or_else(|| tr!("deck_view.vorschlaege", options_n = options.len()));
+                .unwrap_or_else(|| tr!("deck_view.suggestions", options_n = options.len()));
             egui::ComboBox::from_id_salt(("rep", deck_id, key, line.side))
                 .selected_text(shown)
                 .width(210.0)
                 .show_ui(ui, |ui| {
                     if ui
-                        .selectable_label(current.is_none(), tr!("deck_view.wildcard_nutzen"))
+                        .selectable_label(current.is_none(), tr!("deck_view.use_wildcard"))
                         .clicked()
                     {
                         *new_choice = Some((key.clone(), None));

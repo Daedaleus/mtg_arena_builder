@@ -201,7 +201,7 @@ pub fn replaced_qty(db: &CardDb, owned: &HashMap<String, u32>, rep: &str, missin
 pub fn plan_text(plan: &BudgetPlan) -> String {
     let c = plan.crafted;
     let mut text = tr!(
-        "budget.budget_version_karten_durch",
+        "budget.budget_version_cards_replaced",
         replaced = plan.replaced,
         v = c[0],
         v2 = c[1],
@@ -210,7 +210,7 @@ pub fn plan_text(plan: &BudgetPlan) -> String {
     );
     if !plan.unresolved.is_empty() {
         text.push_str(&tr!(
-            "budget.ohne_passenden_ersatz",
+            "budget.no_suitable_replacement",
             v = plan.unresolved.join(", ")
         ));
     }

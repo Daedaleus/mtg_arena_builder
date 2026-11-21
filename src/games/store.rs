@@ -37,20 +37,23 @@ fn load_store(store: &Path) -> (Store, Option<String>, bool) {
         Err(LoadError::Corrupt(e)) => match backup_corrupt(store) {
             Ok(backup) => {
                 let text = tr!(
-                    "games_store.beschaedigt_gesichert",
+                    "games_store.games_json_corrupt_saved",
                     e = e,
                     backup = backup.display()
                 );
                 (Store::default(), Some(text), true)
             }
             Err(io) => {
-                let text = tr!("games_store.nicht_lesbar", e = format!("{e}; {io}"));
+                let text = tr!(
+                    "games_store.games_json_cannot_read",
+                    e = format!("{e}; {io}")
+                );
                 (Store::default(), Some(text), false)
             }
         },
         Err(LoadError::Unreadable(e)) => (
             Store::default(),
-            Some(tr!("games_store.nicht_lesbar", e = e)),
+            Some(tr!("games_store.games_json_cannot_read", e = e)),
             false,
         ),
     }
@@ -99,7 +102,7 @@ pub fn sync(store: &Path, logs: &[PathBuf]) -> Synced {
         .map_err(|e| e.to_string())
         .and_then(|json| crate::paths::write_atomic(store, &json).map_err(|e| e.to_string()))
         .err()
-        .map(|e| tr!("games_store.speichern_fehlgeschlagen", e = e));
+        .map(|e| tr!("games_store.could_save_games", e = e));
     Synced {
         games: out.games,
         problem: problem.or(save_error),

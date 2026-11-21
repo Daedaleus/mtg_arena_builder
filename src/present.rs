@@ -17,10 +17,10 @@ pub fn cost_key(s: &Summary, wildcards: [u32; 4]) -> (u32, bool, u32, u32, u32) 
 
 /// Ausführliche Kosten eines Decks für den Tooltip.
 pub fn cost_tooltip(s: &Summary) -> String {
-    let mut text = tr!("present.vorhanden_karten_fehlt_common", v = s.percent().floor() : {:.0}, missing = s.total - s.missing, total = s.total, need = s.need[0], need2 = s.need[1], need3 = s.need[2], need4 = s.need[3]);
+    let mut text = tr!("present.owned_cards_nmissing_common", v = s.percent().floor() : {:.0}, missing = s.total - s.missing, total = s.total, need = s.need[0], need2 = s.need[1], need3 = s.need[2], need4 = s.need[3]);
     if s.unavailable > 0 {
         text.push_str(&tr!(
-            "present.karten_gibt_arena_nicht",
+            "present.n_cards_available_arena",
             unavailable = s.unavailable
         ));
     }
@@ -44,12 +44,12 @@ pub fn fit(s: &Summary, have_collection: bool, wildcards: [u32; 4]) -> (Fit, Str
         return (Fit::Unknown, "–".into());
     }
     if s.complete() {
-        return (Fit::Complete, tr!("present.komplett"));
+        return (Fit::Complete, tr!("present.complete"));
     }
     let mut text = if s.need[2] + s.need[3] > 0 {
         format!("{} R / {} M", s.need[2], s.need[3])
     } else {
-        tr!("present.nur_c_u", need = s.need[0] + s.need[1])
+        tr!("present.only_c_u", need = s.need[0] + s.need[1])
     };
     if s.unavailable > 0 {
         text.push_str(&format!(" (+{} n. v.)", s.unavailable));
@@ -66,14 +66,16 @@ pub fn fit(s: &Summary, have_collection: bool, wildcards: [u32; 4]) -> (Fit, Str
 pub fn event_label(name: &str) -> String {
     use crate::games::arena::event;
     match name {
-        event::LADDER => tr!("present.rangliste"),
-        event::LADDER_BO3 => tr!("present.rangliste_bo3"),
-        event::PLAY => tr!("present.spielen"),
-        event::PLAY_BO3 => tr!("present.spielen_bo3"),
-        event::STARTER_DECKS => tr!("present.starterdecks"),
+        event::LADDER => tr!("present.ranked"),
+        event::LADDER_BO3 => tr!("present.ranked_bo3"),
+        event::PLAY => tr!("present.play"),
+        event::PLAY_BO3 => tr!("present.play_bo3"),
+        event::STARTER_DECKS => tr!("present.starter_decks"),
         "" => "?".into(),
-        e if e.starts_with(event::WELCOME_DUELS_PREFIX) => tr!("present.willkommens_duelle"),
-        e if e.starts_with(event::COLOR_CHALLENGE_PREFIX) => tr!("deckcheck_groups.farb_challenge"),
+        e if e.starts_with(event::WELCOME_DUELS_PREFIX) => tr!("present.welcome_duels"),
+        e if e.starts_with(event::COLOR_CHALLENGE_PREFIX) => {
+            tr!("deckcheck_groups.color_challenge")
+        }
         e => e.replace('_', " "),
     }
 }
@@ -82,10 +84,10 @@ pub fn event_label(name: &str) -> String {
 pub fn ago_at(now_ms: u64, ms: u64) -> String {
     let secs = now_ms.saturating_sub(ms) / 1000;
     match secs {
-        0..=89 => tr!("present.gerade_eben"),
-        90..=5399 => tr!("present.vor_min", v = secs / 60),
-        5400..=172_799 => tr!("present.vor_std", v = secs / 3600),
-        _ => tr!("present.vor_tagen", _400 = secs / 86_400),
+        0..=89 => tr!("present.just_now"),
+        90..=5399 => tr!("present.min_ago", v = secs / 60),
+        5400..=172_799 => tr!("present.h_ago", v = secs / 3600),
+        _ => tr!("present.days_ago", _400 = secs / 86_400),
     }
 }
 
@@ -115,7 +117,7 @@ pub fn ratio(won: usize, total: usize) -> String {
     if total == 0 {
         "–".into()
     } else {
-        tr!("present.gewonnen", won = won, total = total)
+        tr!("present.won", won = won, total = total)
     }
 }
 

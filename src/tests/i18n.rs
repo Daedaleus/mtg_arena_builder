@@ -36,15 +36,15 @@ fn settings_roundtrip() {
 fn texts_in_both_languages() {
     // Standard in Tests: Deutsch.
     assert_eq!(current(), Locale::German);
-    assert_eq!(tr!("game_list.sieg"), "Sieg");
+    assert_eq!(tr!("game_list.win"), "Sieg");
     assert_eq!(
-        rust_i18n::t!("game_list.sieg", locale = "en"),
+        rust_i18n::t!("game_list.win", locale = "en"),
         "Win",
         "englischer Text"
     );
     assert_eq!(
         rust_i18n::t!(
-            "games_overview.siege_niederlagen",
+            "games_overview.wins_losses",
             locale = "en",
             wins = 3,
             losses = 2
@@ -52,11 +52,11 @@ fn texts_in_both_languages() {
         "3 wins, 2 losses"
     );
     assert_eq!(
-        tr!("games_overview.siege_niederlagen", wins = 3, losses = 2),
+        tr!("games_overview.wins_losses", wins = 3, losses = 2),
         "3 Siege, 2 Niederlagen"
     );
     assert_eq!(
-        tr!("deck_check.aehnlichsten_geladene_turnierlisten_uebereinstimmung", archetype = "X", lists = 2, v = 12.6 : {:.0}),
+        tr!("deck_check.most_similar_loaded_tournament", archetype = "X", lists = 2, v = 12.6 : {:.0}),
         "Am ähnlichsten: X (2 geladene Turnierlisten, 13 % Übereinstimmung der Nichtland-Karten)"
     );
 }

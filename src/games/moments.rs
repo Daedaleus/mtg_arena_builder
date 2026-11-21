@@ -95,10 +95,10 @@ pub fn key_moment(t: &TurnStat, db: &CardDb) -> Option<KeyMoment> {
         .map(|c| c.display_name().to_string())
         .collect();
     let text = tr!(
-        "games_moments.mana_genutzt_moeglich_mana",
+        "games_moments.mana_used_possible_mana",
         used = used,
         mana_total = plan.mana_total,
-        v = names.join(&tr!("common.dann")),
+        v = names.join(&tr!("common.then")),
         mana_used = plan.mana_used
     );
     Some(KeyMoment {

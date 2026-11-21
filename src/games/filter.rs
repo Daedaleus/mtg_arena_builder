@@ -54,11 +54,11 @@ impl GameMode {
 
     pub fn label(self) -> String {
         match self {
-            GameMode::Ranked => tr!("games_filter.rangliste"),
-            GameMode::Play => tr!("games_filter.spielen"),
+            GameMode::Ranked => tr!("games_filter.ranked"),
+            GameMode::Play => tr!("games_filter.play"),
             GameMode::Brawl => tr!("games_filter.brawl"),
-            GameMode::Limited => tr!("games_filter.limited"),
-            GameMode::Event => tr!("games_filter.events"),
+            GameMode::Limited => tr!("games_filter.limited_draft_sealed"),
+            GameMode::Event => tr!("games_filter.events_starter_decks"),
         }
     }
 }

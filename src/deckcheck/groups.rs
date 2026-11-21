@@ -6,14 +6,16 @@ use crate::games::arena::event;
 
 pub(super) fn event_label(name: &str) -> String {
     match name {
-        event::LADDER | event::LADDER_BO3 => tr!("deckcheck_groups.rangliste"),
-        event::PLAY | event::PLAY_BO3 => tr!("deckcheck_groups.spielen"),
-        event::STARTER_DECKS => tr!("deckcheck_groups.starterdeck"),
+        event::LADDER | event::LADDER_BO3 => tr!("deckcheck_groups.ranked"),
+        event::PLAY | event::PLAY_BO3 => tr!("deckcheck_groups.play"),
+        event::STARTER_DECKS => tr!("deckcheck_groups.starter_deck"),
         e if e.starts_with(event::WELCOME_DUELS_PREFIX) => {
-            tr!("deckcheck_groups.willkommens_duell")
+            tr!("deckcheck_groups.welcome_duel")
         }
-        e if e.starts_with(event::COLOR_CHALLENGE_PREFIX) => tr!("deckcheck_groups.farb_challenge"),
-        _ => tr!("deckcheck_groups.sonstiges"),
+        e if e.starts_with(event::COLOR_CHALLENGE_PREFIX) => {
+            tr!("deckcheck_groups.color_challenge")
+        }
+        _ => tr!("deckcheck_groups.other"),
     }
 }
 
@@ -64,7 +66,7 @@ pub fn group_decks(games: &[GameRecord], db: &CardDb) -> Vec<DeckGroup> {
             .map(|c| c.name.clone())
             .unwrap_or_default();
         grp.label = tr!(
-            "deckcheck_groups.karten_partien",
+            "deckcheck_groups.cards_games",
             v = if colors.is_empty() {
                 "?"
             } else {

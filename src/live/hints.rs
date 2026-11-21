@@ -9,28 +9,28 @@ pub(super) fn block_hints(v: &mut CompanionView, ls: &LiveState, db: &CardDb) {
     let mut parts: Vec<String> = Vec::new();
     for b in &plan.blocks {
         let how = match b.kind {
-            BlockKind::Win => tr!("live_hints.gewinnt"),
-            BlockKind::Safe => tr!("live_hints.haelt_ueberlebt"),
-            BlockKind::Trade => tr!("live_hints.tausch"),
-            BlockKind::Chump => tr!("live_hints.opfern_sonst_toedlich"),
+            BlockKind::Win => tr!("live_hints.wins"),
+            BlockKind::Safe => tr!("live_hints.holds_survives"),
+            BlockKind::Trade => tr!("live_hints.trade"),
+            BlockKind::Chump => tr!("live_hints.chump_otherwise_lethal"),
         };
         let who: Vec<String> = b
             .blockers
             .iter()
             .map(|g| card_name(db, GrpId(*g)))
             .collect();
-        let blockers = who.join(&tr!("common.und"));
+        let blockers = who.join(&tr!("common.and"));
         let attacker = card_name(db, GrpId(b.attacker));
         parts.push(if who.len() > 1 {
             tr!(
-                "live_hints.block_many",
+                "live_hints.block",
                 blockers = blockers,
                 attacker = attacker,
                 how = how
             )
         } else {
             tr!(
-                "live_hints.block_one",
+                "live_hints.blocks",
                 blockers = blockers,
                 attacker = attacker,
                 how = how
@@ -41,7 +41,7 @@ pub(super) fn block_hints(v: &mut CompanionView, ls: &LiveState, db: &CardDb) {
         v.hints.push((
             Level::Warn,
             tr!(
-                "live_hints.achtung_selbst_allen_blocks",
+                "live_hints.careful_even_blocks_damage",
                 damage = plan.damage,
                 life_me = ls.life_me
             ),
@@ -51,10 +51,7 @@ pub(super) fn block_hints(v: &mut CompanionView, ls: &LiveState, db: &CardDb) {
         if !plan.lethal && plan.damage > 0 {
             v.hints.push((
                 Level::Info,
-                tr!(
-                    "live_hints.kein_lohnender_block_nicht",
-                    damage = plan.damage
-                ),
+                tr!("live_hints.no_worthwhile_block_dont", damage = plan.damage),
             ));
         }
         return;
@@ -63,7 +60,7 @@ pub(super) fn block_hints(v: &mut CompanionView, ls: &LiveState, db: &CardDb) {
     v.hints.push((
         if chump { Level::Warn } else { Level::Good },
         tr!(
-            "live_hints.blocken_nimmst_statt_schaden",
+            "live_hints.block_take_instead_damage",
             v = parts.join("; "),
             damage = plan.damage,
             damage_unblocked = plan.damage_unblocked
@@ -93,10 +90,10 @@ pub(super) fn turn_hints(v: &mut CompanionView, ls: &LiveState, db: &CardDb) {
     let mut steps: Vec<String> = Vec::new();
     if let Some(land) = plan.land {
         steps.push(tr!(
-            "live_hints.legen",
+            "live_hints.play",
             v = card_name(db, land),
             v2 = if plan.land_tapped {
-                tr!("live_hints.kommt_getappt")
+                tr!("live_hints.enters_tapped")
             } else {
                 String::new()
             }
@@ -111,7 +108,7 @@ pub(super) fn turn_hints(v: &mut CompanionView, ls: &LiveState, db: &CardDb) {
                 .get(g)
                 .is_some_and(|c| c.has_role(crate::carddb::ROLE_REMOVAL) && !c.is_creature())
         {
-            text.push_str(&tr!("live_hints.auf", v = card_name(db, t)));
+            text.push_str(&tr!("live_hints.on", v = card_name(db, t)));
         }
         steps.push(text);
     }
@@ -120,7 +117,7 @@ pub(super) fn turn_hints(v: &mut CompanionView, ls: &LiveState, db: &CardDb) {
     }
     let mana = if plan.spells.is_empty() {
         if plan.mana_total > 0 {
-            tr!("live_hints.nichts_sinnvolles_bezahlbar")
+            tr!("live_hints.nothing_useful_castable")
         } else {
             String::new()
         }
@@ -135,8 +132,8 @@ pub(super) fn turn_hints(v: &mut CompanionView, ls: &LiveState, db: &CardDb) {
     v.hints.push((
         if late { Level::Warn } else { Level::Good },
         tr!(
-            "live_hints.vorschlag",
-            v = steps.join(&tr!("common.dann")),
+            "live_hints.suggestion",
+            v = steps.join(&tr!("common.then")),
             mana = mana
         ),
     ));
@@ -144,7 +141,7 @@ pub(super) fn turn_hints(v: &mut CompanionView, ls: &LiveState, db: &CardDb) {
         v.hints.push((
             Level::Info,
             tr!(
-                "live_hints.danach_mana_offen_lassen",
+                "live_hints.keep_mana_open_during",
                 v = names(db, &plan.hold, 2)
             ),
         ));
@@ -154,6 +151,6 @@ pub(super) fn turn_hints(v: &mut CompanionView, ls: &LiveState, db: &CardDb) {
         && crate::turnplan::creatures_after_combat(db, &plan)
     {
         v.hints
-            .push((Level::Info, tr!("live_hints.tipp_erst_angreifen_kreaturen")));
+            .push((Level::Info, tr!("live_hints.tip_attack_first_cast")));
     }
 }

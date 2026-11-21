@@ -184,7 +184,7 @@ fn swaps(
                 (
                     sug.name,
                     tr!(
-                        "deckcheck_analysis.aehnliche_karte_aus_deiner",
+                        "deckcheck_analysis.similar_card_collection",
                         owned = sug.owned
                     ),
                 )
@@ -208,20 +208,20 @@ fn swap_reasons(s: &CardStat) -> (u32, Vec<String>) {
     let mut weight = 0;
     if s.seen >= 2 && s.cast == 0 {
         reasons.push(tr!(
-            "deckcheck_analysis.partien_gezogen_aber_nie",
+            "deckcheck_analysis.drawn_games_but_never",
             seen = s.seen
         ));
         weight += 3;
     }
     if s.held >= 2 {
         reasons.push(tr!(
-            "deckcheck_analysis.partien_lange_ungespielt_hand",
+            "deckcheck_analysis.long_unplayed_hand_games",
             held = s.held
         ));
         weight += 2;
     }
     if s.meta_share.is_some_and(|m| m < 0.1) {
-        reasons.push(tr!("deckcheck_analysis.spielt_turnier_archetyp_kaum"));
+        reasons.push(tr!("deckcheck_analysis.hardly_anyone_plays_tournament"));
         weight += 1;
     }
     (weight, reasons)

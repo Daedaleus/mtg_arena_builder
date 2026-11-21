@@ -34,13 +34,13 @@ impl Style {
     pub fn description(self) -> String {
         match self {
             Style::Aggro => {
-                tr!("style.viele_guenstige_kreaturen_frueh")
+                tr!("style.many_cheap_creatures_attack")
             }
             Style::Midrange => {
-                tr!("style.solide_kreaturen_etwas_entfernung")
+                tr!("style.solid_creatures_some_removal")
             }
             Style::Control => {
-                tr!("style.entfernung_konter_kartenziehen_spiel")
+                tr!("style.removal_counterspells_card_draw")
             }
         }
     }
@@ -230,23 +230,25 @@ fn attack_rate(games: &[GameRecord]) -> Option<f32> {
 fn traits(attack_rate: Option<f32>, avg_turns: f32, habits: &Habits) -> Vec<String> {
     let mut traits = Vec::new();
     if let Some(rate) = attack_rate {
-        traits.push(tr!("style.greifst_deiner_zuege_ab", v = rate * 100.0 : {:.0}));
+        traits.push(tr!("style.attack_turns_turn_3", v = rate * 100.0 : {:.0}));
     }
     if avg_turns > 0.0 {
         let length = if avg_turns >= 14.0 {
-            tr!("style.eher_lange_partien")
+            tr!("style.rather_long_games")
         } else if avg_turns <= 9.0 {
-            tr!("style.eher_kurze_partien")
+            tr!("style.rather_short_games")
         } else {
             String::new()
         };
-        traits.push(tr!("style.partien_dauern_schnitt_zuege", avg_turns = avg_turns : {:.0}, length = length));
+        traits.push(
+            tr!("style.games_last_turns_average", avg_turns = avg_turns : {:.0}, length = length),
+        );
     }
     if habits.passive >= HABIT_SHARE {
-        traits.push(tr!("style.laesst_oft_mana_ungenutzt"));
+        traits.push(tr!("style.often_leave_mana_unused"));
     }
     if habits.skipped_attacks >= HABIT_SHARE {
-        traits.push(tr!("style.laesst_gefahrlose_angriffe_oefter"));
+        traits.push(tr!("style.often_skip_safe_attacks"));
     }
     traits
 }
@@ -269,19 +271,19 @@ fn recommend_style(records: &[StyleRecord], habits: &Habits) -> (Style, String) 
         Some(b) if b.rate() >= others_best(b.style) + 0.1 => (
             b.style,
             tr!(
-                "style.decks_gewinnst_haeufigsten_partien",
+                "style.win_most_often_decks",
                 style = b.style.name(),
                 wins = b.wins,
                 games = b.games
             ),
         ),
-        _ if habits.noticeable() => (Style::Aggro, tr!("style.aggro_decks_einfachsten_spielen")),
+        _ if habits.noticeable() => (Style::Aggro, tr!("style.aggro_decks_easiest_play")),
         _ => match records.first() {
             Some(r) => (
                 r.style,
-                tr!("style.spielst_liebsten_noch_wenige", style = r.style.name()),
+                tr!("style.like_playing_best_too", style = r.style.name()),
             ),
-            None => (Style::Aggro, tr!("style.noch_keine_partien_bekanntem")),
+            None => (Style::Aggro, tr!("style.no_games_known_deck")),
         },
     }
 }

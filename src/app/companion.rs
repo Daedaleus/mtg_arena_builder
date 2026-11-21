@@ -45,7 +45,7 @@ impl App {
             return;
         }
         let mut builder = egui::ViewportBuilder::default()
-            .with_title(tr!("companion.mtg_begleiter"))
+            .with_title(tr!("companion.mtg_companion"))
             .with_inner_size([360.0, 330.0])
             .with_min_inner_size([260.0, 180.0])
             .with_always_on_top();
@@ -79,11 +79,11 @@ pub(super) fn draw(ui: &mut egui::Ui, view: &live::CompanionView) {
     if let Some((me, opp)) = view.life {
         ui.horizontal(|ui| {
             ui.label(
-                egui::RichText::new(tr!("live_draw.du", me = me))
+                egui::RichText::new(tr!("live_draw.you", me = me))
                     .strong()
                     .size(18.0),
             );
-            ui.label(egui::RichText::new(tr!("live_draw.gegner", opp = opp)).size(18.0));
+            ui.label(egui::RichText::new(tr!("live_draw.opponent", opp = opp)).size(18.0));
         });
     }
     if !view.board.is_empty() {
@@ -100,7 +100,9 @@ pub(super) fn draw(ui: &mut egui::Ui, view: &live::CompanionView) {
     }
     if !view.opponent.is_empty() {
         ui.separator();
-        ui.label(egui::RichText::new(tr!("live_draw.gegner_2", opponent = view.opponent)).strong());
+        ui.label(
+            egui::RichText::new(tr!("live_draw.opponent_2", opponent = view.opponent)).strong(),
+        );
         if !view.opp_cards.is_empty() {
             ui.label(egui::RichText::new(view.opp_cards.join(", ")).weak());
         }

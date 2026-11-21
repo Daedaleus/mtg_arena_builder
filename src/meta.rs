@@ -148,7 +148,7 @@ impl Fetcher {
             .http
             .get(url, "*/*")
             .map_err(|e| anyhow::anyhow!(e.user_text()))
-            .with_context(|| tr!("meta.abruf_fehlgeschlagen", url = url))?;
+            .with_context(|| tr!("meta.fetching_failed", url = url))?;
         let text: String = if latin1 {
             bytes.iter().map(|&b| b as char).collect()
         } else {
@@ -181,7 +181,7 @@ impl Fetcher {
         let html = self.gg("decklists", "gg_index.html", max_age)?;
         let list = magicgg::parse_index(&html, format);
         if list.is_empty() {
-            anyhow::bail!(tr!("meta.magic_gg_wurden_dieses"));
+            anyhow::bail!(tr!("meta.no_decklists_found_magic"));
         }
         Ok(list)
     }
@@ -210,7 +210,7 @@ impl Fetcher {
         let decks = magicgg::parse_event(&html);
         if decks.is_empty() {
             let _ = fs::remove_file(self.cache.join(&file));
-            anyhow::bail!(tr!("meta.magic_gg_hat_dieses"));
+            anyhow::bail!(tr!("meta.magic_gg_returned_no"));
         }
         Ok(decks)
     }
@@ -234,7 +234,7 @@ impl Fetcher {
         )?;
         let list = parse_archetypes(&html);
         if list.is_empty() {
-            anyhow::bail!(tr!("meta.mtgtop8_wurden_dieses_format"));
+            anyhow::bail!(tr!("meta.no_archetypes_found_mtgtop8"));
         }
         Ok(list)
     }
@@ -272,7 +272,7 @@ impl Fetcher {
         )?;
         if text.contains("<html") || text.trim().is_empty() {
             let _ = fs::remove_file(self.cache.join(format!("deck_{deck_id}.txt")));
-            anyhow::bail!(tr!("meta.mtgtop8_hat_keine_deckliste"));
+            anyhow::bail!(tr!("meta.mtgtop8_returned_no_decklist"));
         }
         Ok(text)
     }
@@ -305,7 +305,7 @@ impl Fetcher {
             }
         }
         if names.is_empty() {
-            anyhow::bail!(tr!("meta.scryfall_kennt_dieses_format"));
+            anyhow::bail!(tr!("meta.scryfall_knows_no_arena"));
         }
         // Cache-Schreibfehler unkritisch (siehe `download`).
         let _ = fs::write(self.cache.join(&file), serde_json::to_string(&names)?);

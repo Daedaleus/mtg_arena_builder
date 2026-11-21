@@ -181,7 +181,7 @@ pub fn find_card_db(user_override: Option<&str>) -> Result<PathBuf> {
     mtga_data_candidates(user_override)
         .iter()
         .find_map(|c| card_db_in(c))
-        .ok_or_else(|| anyhow::anyhow!(tr!("paths.arena_kartendatenbank_nicht_gefunden")))
+        .ok_or_else(|| anyhow::anyhow!(tr!("paths.arena_card_database_found")))
 }
 
 #[cfg(test)]

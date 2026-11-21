@@ -159,22 +159,24 @@ impl CollectionError {
     /// Meldung für die Oberfläche, in der eingestellten Sprache.
     pub fn user_text(&self) -> String {
         match self {
-            CollectionError::NotRunning => tr!("state.mtg_arena_laeuft_nicht"),
-            CollectionError::AccessDenied => tr!("collection.kein_zugriff"),
-            CollectionError::NotInMenu => tr!("collection.nicht_im_hauptmenue"),
-            CollectionError::NoCards => tr!("collection.arena_hat_keine_karten"),
-            CollectionError::ReaderPanicked => tr!("collection.speicher_mtg_arena_konnte"),
-            CollectionError::Unsupported => tr!("collection.plattform_nicht_unterstuetzt"),
-            CollectionError::Reader(e) => tr!("collection.speicherleser", e = e),
+            CollectionError::NotRunning => tr!("state.mtg_arena_running_please"),
+            CollectionError::AccessDenied => tr!("collection.no_access_arena_process"),
+            CollectionError::NotInMenu => tr!("collection.arena_main_menu_please"),
+            CollectionError::NoCards => tr!("collection.arena_returned_no_cards"),
+            CollectionError::ReaderPanicked => tr!("collection.could_read_mtg_arenas"),
+            CollectionError::Unsupported => tr!("collection.platform_supported"),
+            CollectionError::Reader(e) => tr!("collection.memory_reader_reports", e = e),
             CollectionError::ElevationCancelled => {
-                tr!("collection.lesen_administratorrechten_wurde_abgebrochen")
+                tr!("collection.reading_administrator_rights_cancelled")
             }
-            CollectionError::Helper(e) => tr!("collection.helfer", e = e),
+            CollectionError::Helper(e) => {
+                tr!("collection.reading_administrator_rights_failed", e = e)
+            }
             CollectionError::HelperStart(e) => {
-                tr!("collection.powershell_konnte_nicht_gestartet", e = e)
+                tr!("collection.could_start_powershell", e = e)
             }
-            CollectionError::SavedUnreadable => tr!("collection.gespeicherte_sammlung_unlesbar"),
-            CollectionError::Save(e) => tr!("collection.speichern_fehlgeschlagen", e = e),
+            CollectionError::SavedUnreadable => tr!("collection.saved_collection_unreadable"),
+            CollectionError::Save(e) => tr!("collection.collection_read_but_saved", e = e),
         }
     }
 }
