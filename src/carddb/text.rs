@@ -170,10 +170,19 @@ pub(super) fn tap_cost_of(text: &str) -> bool {
         .is_some_and(|(cost, _)| cost.contains("{ot}"))
 }
 
-/// Colors of a mana ability like "{oT}: Add {oG}." (0 = colorless), otherwise `None`.
+/// Colors of a mana ability like "{oT}: Add {oG}." or "{oT}, Sacrifice
+/// CARDNAME: Add one mana of any color." (Treasure) – 0 = colorless, otherwise
+/// `None`. Only abilities whose cost is tapping and/or sacrificing the
+/// permanent itself count; abilities that cost mana (filter lands) don't.
 pub(super) fn mana_of(text: &str) -> Option<u8> {
     let t = strip_tags(text).to_lowercase();
-    let (_, add) = t.split_once("{ot}: add ")?;
+    let (cost, add) = t.split_once(": add ")?;
+    let free = cost.split(", ").all(|part| {
+        part == "{ot}" || part == "sacrifice cardname" || part == "sacrifice this artifact"
+    });
+    if !free {
+        return None;
+    }
     if add.contains("any color") {
         return Some(0x1F);
     }

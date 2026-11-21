@@ -99,6 +99,11 @@ impl CardBuilder {
         self.0.mana = Some(colors_of(&symbols));
         self
     }
+    /// Token (only found by grpId, not by name).
+    pub fn token(mut self) -> Self {
+        self.0.token = true;
+        self
+    }
     pub fn legendary(mut self) -> Self {
         self.0.legendary = true;
         self
@@ -153,6 +158,7 @@ pub const GROWTH: GrpId = GrpId(26);
 pub const DRAGON: GrpId = GrpId(30);
 pub const ANGEL: GrpId = GrpId(31);
 pub const LEGEND: GrpId = GrpId(32);
+pub const TREASURE: GrpId = GrpId(40);
 
 /// Small but versatile card selection for tests.
 pub fn std_cards() -> Vec<Card> {
@@ -237,6 +243,7 @@ pub fn std_cards() -> Vec<Card> {
             .abilities(&[8, crate::carddb::keyword::VIGILANCE])
             .rarity(4)
             .build(),
+        card(TREASURE, "Treasure").mana("WUBRG").token().build(),
         card(LEGEND, "Isamaru, Hound of Konda")
             .cost("{W}")
             .creature(2, 2)

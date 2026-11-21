@@ -198,13 +198,14 @@ fn arena_db(dir: &TempDir, with_de: bool) -> std::path::PathBuf {
             (5, 1, ''), (6, 1, 'Grizzly Bears'),
             (50, 1, 'CARDNAME deals 2 damage to any target.'),
             (51, 1, 'CARDNAME enters tapped.'),
-            (52, 1, '{oT}: Add {oG}.');
-         INSERT INTO Abilities VALUES (500, 50), (501, 51), (502, 52);
+            (52, 1, '{oT}: Add {oG}.'),
+            (53, 1, '{oT}, Sacrifice CARDNAME: Add one mana of any color.');
+         INSERT INTO Abilities VALUES (500, 50), (501, 51), (502, 52), (503, 53);
          INSERT INTO Cards VALUES
             (100, 1, 2, 'M21', '159', 1, 'oR', '4', '', '', '4', 0, '500:50', '', '', NULL, 0),
             (101, 2, 3, 'MKM', '262', 1, '', '5', '10,11', '', '2,5', 0, '501:51', '', '', NULL, 0),
             (102, 3, 1, 'FDN', '280', 1, '', '5', '11', '1', '5', 0, '', '', '', NULL, 0),
-            (103, 4, 0, 'TKN', '1', 1, '', '2', '', '', '', 0, '', '1', '1', NULL, 1),
+            (103, 4, 0, 'TKN', '1', 1, '', '1', '', '', '', 0, '503:53', '', '', NULL, 1),
             (104, 5, 2, 'X', '1', 1, 'o1', '2', '', '', '', 0, '', '1', '1', NULL, 0),
             (105, 6, 2, 'Y22', '7', 1, 'o1oG', '2', '', '2', '5', 1, '502:52', '2', '2', 'Y22', 0);",
     );
@@ -223,8 +224,14 @@ fn loads_arena_database() {
     let dir = TempDir::new("carddb");
     let db = CardDb::load(&arena_db(&dir, true)).unwrap();
     assert_eq!(db.version, "2026.11");
-    // Tokens and cards without names are missing.
-    assert_eq!(db.cards.len(), 4);
+    // Cards without names are missing; tokens are loaded, but don't count as
+    // cards and can't be found by name (many share a name with a real card).
+    assert_eq!((db.cards.len(), db.card_count()), (5, 4));
+    let token = &db.cards[&GrpId(103)];
+    assert!(token.token);
+    assert_eq!(db.resolve("Token"), None);
+    // Treasure: "{oT}, Sacrifice CARDNAME: Add one mana of any color."
+    assert_eq!(token.mana, Some(0x1F));
     let shock = &db.cards[&GrpId(100)];
     assert_eq!(shock.name, "Shock");
     assert_eq!(shock.name_de.as_deref(), Some("Schock"));
@@ -247,6 +254,26 @@ fn loads_arena_database() {
     // Supertype 2 = legendary; "{oT}: …" is a tap ability.
     assert!(bears.legendary && bears.tap_ability);
     assert!(!shock.legendary && !shock.tap_ability && !forest.legendary);
+}
+
+#[test]
+fn mana_abilities_with_tap_or_sacrifice() {
+    assert_eq!(text::mana_of("{oT}: Add {oG}."), Some(1 << 4));
+    // Treasure and Gold: sacrifice (with or without tapping), any color.
+    assert_eq!(
+        text::mana_of("{oT}, Sacrifice CARDNAME: Add one mana of any color."),
+        Some(0x1F)
+    );
+    assert_eq!(
+        text::mana_of("Sacrifice CARDNAME: Add one mana of any color."),
+        Some(0x1F)
+    );
+    // Eldrazi Spawn: colorless.
+    assert_eq!(text::mana_of("Sacrifice CARDNAME: Add {oC}."), Some(0));
+    // Costs with mana (filter lands) or other permanents don't count.
+    assert_eq!(text::mana_of("{o1}, {oT}: Add {oW}{oU}."), None);
+    assert_eq!(text::mana_of("Sacrifice a creature: Add {oB}."), None);
+    assert_eq!(text::mana_of("Flying"), None);
 }
 
 #[test]

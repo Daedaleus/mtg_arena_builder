@@ -191,6 +191,17 @@ fn mana_creatures_count_as_sources() {
 }
 
 #[test]
+fn treasures_count_as_mana_sources() {
+    let db = std_db();
+    // A forest and a Treasure: the ogre (2 + red) becomes affordable via the
+    // Treasure's any-color mana.
+    let p = plan(&db, &[OGRE], &[FOREST, FOREST], &[TREASURE], true, &[], 0);
+    assert_eq!(p.spells, vec![OGRE]);
+    assert_eq!(p.mana_total, 3);
+    assert_eq!(db.resolve("Treasure"), None, "tokens aren't found by name");
+}
+
+#[test]
 fn legend_rule_allows_one_copy() {
     let db = std_db();
     assert_eq!(

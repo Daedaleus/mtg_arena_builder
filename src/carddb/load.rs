@@ -83,11 +83,11 @@ fn cards_query(conn: &Connection) -> String {
         "SELECT c.GrpId, en.Loc, {de_col}, c.Rarity, c.ExpansionCode, c.CollectorNumber,
                 c.IsPrimaryCard, c.OldSchoolManaText, c.Types, c.Subtypes, c.Supertypes,
                 c.ColorIdentity, c.LinkedFaceType, c.AbilityIds, c.Power, c.Toughness,
-                c.DigitalReleaseSet
+                c.DigitalReleaseSet, c.IsToken
          FROM Cards c
          JOIN Localizations_enUS en ON en.LocId = c.TitleId AND en.Formatted = 1
          {de_join}
-         WHERE c.IsToken = 0 AND c.Rarity > 0"
+         WHERE (c.IsToken = 0 AND c.Rarity > 0) OR c.IsToken = 1"
     )
 }
 
@@ -134,6 +134,7 @@ fn card_from_row(r: &rusqlite::Row) -> rusqlite::Result<Card> {
         power: text(r, 14),
         toughness: text(r, 15),
         regular: text(r, 16).is_empty(),
+        token: r.get::<_, i64>(17).unwrap_or(0) == 1,
         roles: 0,
         burn: 0,
         enters_tapped: false,
