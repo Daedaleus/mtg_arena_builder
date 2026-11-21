@@ -8,10 +8,10 @@ fn atomic_write_and_json_read() {
     write_atomic(&file, b"[1,2]").unwrap();
     assert!(!dir.path("a.json.tmp").exists(), "Zwischendatei entfernt");
     assert_eq!(read_json::<Vec<u32>>(&file), Some(vec![1, 2]));
-    // Überschreiben ersetzt den Inhalt vollständig.
+    // Overwriting replaces the content completely.
     write_atomic(&file, b"[3]").unwrap();
     assert_eq!(read_json::<Vec<u32>>(&file), Some(vec![3]));
-    // UTF-8-BOM (z. B. aus Windows-Editoren) wird ignoriert.
+    // A UTF-8 BOM (e.g. from Windows editors) is ignored.
     std::fs::write(&file, b"\xEF\xBB\xBF[4]").unwrap();
     assert_eq!(read_json::<Vec<u32>>(&file), Some(vec![4]));
     std::fs::write(&file, b"kaputt").unwrap();
@@ -42,7 +42,7 @@ fn finds_newest_card_database() {
     let found = card_db_in(&dir.0.join("MTGA_Data")).unwrap();
     assert!(found.ends_with("Raw_CardDatabase_old.mtga"));
 
-    // Eigene Angabe: Installationsordner oder direkt MTGA_Data.
+    // Own setting: install folder or MTGA_Data directly.
     let install = dir.0.to_string_lossy().to_string();
     assert_eq!(find_card_db(Some(&install)).unwrap(), found);
     let data = dir.0.join("MTGA_Data").to_string_lossy().to_string();
@@ -56,7 +56,7 @@ fn platform_locations() {
     let logs = player_log_candidates();
     assert!(!logs.is_empty());
     assert!(logs.iter().all(|p| p.ends_with("Player.log")));
-    // Nur vorhandene Logs werden geliefert.
+    // Only existing logs are returned.
     assert!(player_logs().iter().all(|p| p.is_file()));
     let data = data_dir();
     assert!(data.is_dir());

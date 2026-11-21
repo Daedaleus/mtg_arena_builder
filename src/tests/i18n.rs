@@ -8,7 +8,7 @@ fn locale_from_system_tag() {
     assert_eq!(Locale::from_tag("en-US"), Locale::English);
     assert_eq!(Locale::from_tag("fr-FR"), Locale::English, "sonst Englisch");
     assert_eq!(Locale::from_tag(""), Locale::English);
-    // Die Systemsprache ist eine der beiden.
+    // The system language is one of the two.
     assert!(Locale::ALL.contains(&Locale::system()));
     assert_eq!(Language::Fixed(Locale::English).resolve(), Locale::English);
     assert!(Locale::ALL.contains(&Language::System.resolve()));
@@ -34,7 +34,7 @@ fn settings_roundtrip() {
 
 #[test]
 fn texts_in_both_languages() {
-    // Standard in Tests: Deutsch.
+    // Default in tests: German.
     assert_eq!(current(), Locale::German);
     assert_eq!(tr!("game_list.win"), "Sieg");
     assert_eq!(
@@ -61,7 +61,7 @@ fn texts_in_both_languages() {
     );
 }
 
-/// Schlüssel aus `locales/app.yml` mit ihren Sprachen.
+/// Keys from `locales/app.yml` with their languages.
 fn locale_file() -> Vec<(String, Vec<(String, String)>)> {
     let text =
         std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/locales/app.yml")).unwrap();
@@ -123,7 +123,7 @@ fn every_used_key_exists() {
             }
             let text = std::fs::read_to_string(&path).unwrap();
             for (i, _) in text.match_indices("tr!(\"") {
-                // Nur das Makro `tr!`, nicht z. B. `include_str!`.
+                // Only the macro `tr!`, not e.g. `include_str!`.
                 if text[..i].ends_with(|c: char| c.is_alphanumeric() || c == '_') {
                     continue;
                 }

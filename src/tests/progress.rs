@@ -36,7 +36,7 @@ fn rank_names_and_points() {
         "Schritt bleibt in der Stufe"
     );
     assert_eq!(rank_points(&rank("Unbekannt", 9, 0)), 0.0);
-    // Aufsteigend über alle Klassen
+    // Ascending over all classes
     let order: Vec<f64> = CLASSES
         .iter()
         .map(|c| rank_points(&rank(c, 4, 0)))
@@ -52,7 +52,7 @@ fn rank_names_and_points() {
 
 #[test]
 fn series_are_chronological() {
-    // Gespeichert neueste zuerst – der Verlauf läuft andersherum.
+    // Stored newest first – the progress runs the other way.
     let games = vec![
         game(300, Some(true), Some(rank("Bronze", 3, 1))),
         game(200, None, None),
@@ -62,7 +62,7 @@ fn series_are_chronological() {
         rank_series(&games),
         vec![[1.0, 4.0 / 12.0], [3.0, 1.0 + 1.0 / 6.0]]
     );
-    // Unentschieden/abgebrochen zählt nicht, die Nummerierung läuft weiter.
+    // Draws/aborted games don't count, the numbering continues.
     assert_eq!(
         winrate_series(&games, 10, |_| true),
         vec![[1.0, 0.0], [3.0, 50.0]]
@@ -80,7 +80,7 @@ fn rolling_window_and_decks() {
     let s = winrate_series(&games, 2, |_| true);
     let rates: Vec<f64> = s.iter().map(|p| p[1]).collect();
     assert_eq!(rates, vec![100.0, 50.0, 0.0, 50.0, 100.0, 100.0]);
-    // Fenster 0 wird wie 1 behandelt.
+    // Window 0 is treated like 1.
     assert_eq!(winrate_series(&games, 0, |_| true)[1][1], 0.0);
 
     let groups = vec![

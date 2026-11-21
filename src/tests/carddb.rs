@@ -99,7 +99,7 @@ fn pips_and_types() {
 fn names_are_normalized() {
     assert_eq!(name_key("  Lightning   Bolt "), "lightning bolt");
     assert_eq!(name_key("Urza\u{2019}s Saga"), "urza's saga");
-    // Ohne Leerzeichen bleibt der Schrägstrich (z. B. in Kartennamen) erhalten.
+    // Without spaces the slash (e.g. in card names) is kept.
     assert_eq!(name_key("Fire/Ice"), "fire/ice");
     assert_eq!(name_key("Fire//Ice"), "fire // ice");
     assert_eq!(name_key("Fire / Ice"), "fire // ice");
@@ -130,11 +130,11 @@ fn lookup_and_printings() {
     assert_eq!(db.resolve("Unbekannt"), None);
     assert_eq!(db.printings("opt"), &[GrpId(11), GrpId(12), GrpId(13)]);
     assert!(db.printings("nix").is_empty());
-    // Neuester regulärer Druck wird bevorzugt.
+    // The newest regular printing is preferred.
     assert_eq!(db.representative("opt").unwrap().set, "NEW");
     assert_eq!(db.representative("back").unwrap().grp_id, GrpId(14));
     assert!(db.representative("nix").is_none());
-    // Günstigste Seltenheit über alle Drucke.
+    // Cheapest rarity over all printings.
     assert_eq!(db.craft_rarity("opt"), Rarity::Common);
     assert_eq!(db.craft_rarity("nix"), Rarity::Token);
     assert_eq!(db.names().count(), 3);
@@ -153,7 +153,7 @@ fn abilities_set_roles_burn_tapped_and_mana() {
     assert_eq!(spell.roles, ROLE_REMOVAL | ROLE_DRAW);
     assert_eq!(spell.burn, 3);
     assert_eq!(spell.mana, None);
-    // Kreaturen bekommen keinen Brandschaden, aber ihre Manafähigkeit.
+    // Creatures get no burn damage, but their mana ability.
     let mut guy = card(2, "Guy")
         .creature(1, 1)
         .abilities(&[100, 300, 301])
@@ -180,7 +180,7 @@ fn mana_abilities_from_text() {
     assert_eq!(mana_of("Flying"), None);
 }
 
-/// Legt eine kleine Datenbank im Format von Arena an.
+/// Creates a small database in Arena's format.
 fn arena_db(dir: &TempDir, with_de: bool) -> std::path::PathBuf {
     let path = dir.path("Raw_CardDatabase_test.mtga");
     let conn = Connection::open(&path).unwrap();
@@ -223,7 +223,7 @@ fn loads_arena_database() {
     let dir = TempDir::new("carddb");
     let db = CardDb::load(&arena_db(&dir, true)).unwrap();
     assert_eq!(db.version, "2026.11");
-    // Token und Karten ohne Namen fehlen.
+    // Tokens and cards without names are missing.
     assert_eq!(db.cards.len(), 4);
     let shock = &db.cards[&GrpId(100)];
     assert_eq!(shock.name, "Shock");
@@ -244,7 +244,7 @@ fn loads_arena_database() {
     assert!(bears.back_face);
     assert!(!bears.regular);
     assert_eq!((bears.power.as_str(), bears.toughness.as_str()), ("2", "2"));
-    // Supertyp 2 = legendär; „{oT}: …“ ist eine Tapp-Fähigkeit.
+    // Supertype 2 = legendary; "{oT}: …" is a tap ability.
     assert!(bears.legendary && bears.tap_ability);
     assert!(!shock.legendary && !shock.tap_ability && !forest.legendary);
 }
@@ -287,7 +287,7 @@ fn display_names_follow_language() {
     cards[0].name_de = Some("Ebene".into());
     let db = CardDb::from_cards(cards, "t");
     let plains = db.representative("plains").unwrap();
-    // Tests laufen auf Deutsch.
+    // Tests run in German.
     assert_eq!(plains.display_name(), "Ebene");
     assert_eq!(db.display_name("Plains"), "Ebene");
     assert_eq!(

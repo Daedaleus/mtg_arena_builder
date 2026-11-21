@@ -1,7 +1,7 @@
 use super::*;
 use crate::testutil::card;
 
-/// Sammlung mit genug roten und grünen Karten für je ein Deck.
+/// Collection with enough red and green cards for one deck each.
 fn collection() -> (CardDb, HashMap<String, u32>) {
     let mut cards = vec![
         card(1, "Plains").land("W").basic().build(),
@@ -104,20 +104,20 @@ fn builds_decks_for_owned_colors() {
         let total: u32 = b.deck.main.iter().map(|e| e.qty).sum();
         assert_eq!(total, DECK_SIZE, "{}", b.label);
         assert!(b.creatures >= 12);
-        // Höchstens 4 Exemplare je Karte (außer Standardländern).
+        // At most 4 copies per card (except basic lands).
         assert!(
             b.deck
                 .main
                 .iter()
                 .all(|e| e.qty <= 4 || crate::carddb::color::BASIC_LANDS.contains(&e.name.as_str()))
         );
-        // Flächenräumer und Rückseiten kommen nicht ins Deck.
+        // Board wipes and back faces don't go into the deck.
         assert_eq!(count(b, "Wrath"), 0);
         assert_eq!(count(b, "Back Face"), 0);
         assert!(b.avg_cmc > 0.0);
     }
     let gruul = built.iter().find(|b| b.label == "Rot-Grün").unwrap();
-    // Eigene Zweifarbländer, seltenere zuerst, dazu Standardländer.
+    // Own dual lands, rarer ones first, plus basic lands.
     assert_eq!(count(gruul, "Rootbound Crag"), 4);
     assert_eq!(count(gruul, "Cinder Glade"), 4);
     assert_eq!(count(gruul, "Mountain") + count(gruul, "Forest"), 16);
@@ -131,7 +131,7 @@ fn builds_decks_for_owned_colors() {
 #[test]
 fn respects_legality_and_meta() {
     let (db, owned) = collection();
-    // Nur grüne Karten legal: kein rotes Deck.
+    // Only green cards legal: no red deck.
     let legal: HashSet<String> = owned
         .keys()
         .filter(|k| k.starts_with("green"))
@@ -140,7 +140,7 @@ fn respects_legality_and_meta() {
     let built = build_all(&db, &owned, Some(&legal), &HashMap::new());
     assert!(built.iter().all(|b| !b.label.contains("Rot")));
     assert!(built.iter().any(|b| b.label == "Mono-Grün"));
-    // Turnierkarten werden bevorzugt und gezählt.
+    // Tournament cards are preferred and counted.
     let mut meta = HashMap::new();
     meta.insert("red trick 0".to_string(), 12);
     let built = build_all(&db, &owned, None, &meta);

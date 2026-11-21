@@ -67,13 +67,13 @@ fn suggests_similar_cards_in_colors() {
     let red = 1 << 3;
     let s = suggest(&db, &all, Some(&legal), red, &in_deck, "ogre", 5);
     let names: Vec<&str> = s.iter().map(|x| x.name.as_str()).collect();
-    // Gleiche Werte und Kosten zuerst; andere Kartentypen, Farben, Standardländer,
-    // zu teure, illegale und schon gespielte Karten fallen weg.
+    // Same stats and costs first; other card types, colors, basic lands, too
+    // expensive, illegal and already played cards drop out.
     assert_eq!(names, vec!["Brute", "Goblin"]);
     assert_eq!(s[0].owned, 2);
     assert_eq!(s[0].info, "{2}{R}");
     assert!(s[0].score > s[1].score);
-    // Ohne Legalitätsliste ist auch die illegale Karte erlaubt.
+    // Without a legality list the illegal card is allowed too.
     let s = suggest(&db, &all, None, red, &in_deck, "ogre", 1);
     assert_eq!(s.len(), 1);
     assert!(suggest(&db, &all, None, red, &in_deck, "unbekannt", 5).is_empty());

@@ -49,10 +49,10 @@ fn shares_and_matching() {
     let seen = seen_keys(&[BEAR, OGRE, FOREST], &db);
     assert_eq!(seen.len(), 2, "Länder zählen nicht");
     assert_eq!(match_archetype(&seen, &shares).unwrap().name, "Gruul");
-    // Eine einzelne passende Karte reicht nicht.
+    // A single fitting card isn't enough.
     let one = seen_keys(&[BEAR], &db);
     assert!(match_archetype(&one, &shares).is_none());
-    // Drei Treffer reichen auch bei vielen anderen Karten.
+    // Three hits are enough even with many other cards.
     let many = seen_keys(
         &[COUNTER, DIVINATION, MURDER, SHOCK, SPIKE, DRAGON, ANGEL],
         &db,
@@ -118,7 +118,7 @@ fn labels_unnamed_decks() {
         }],
         &db,
     );
-    // Gleiche Karten: Archetyp erkannt.
+    // Same cards: archetype recognised.
     let deck = parse(
         "4 Grizzly Bears
 4 Hill Ogre
@@ -127,7 +127,7 @@ fn labels_unnamed_decks() {
 ",
     );
     assert_eq!(deck_label(&deck, &db, &shares), "Gruul");
-    // Kaum Übereinstimmung: Farben und seltenste Karte.
+    // Hardly any overlap: colors and rarest card.
     let other = parse(
         "4 Serra Angel
 4 Shock
@@ -140,7 +140,7 @@ fn labels_unnamed_decks() {
         "Weiß-Rot-Grün – Serra Angel"
     );
     assert_eq!(deck_label(&other, &db, &[]), "Weiß-Rot-Grün – Serra Angel");
-    // Nur Länder oder Unbekanntes
+    // Only lands or unknown cards
     assert_eq!(
         deck_label(
             &parse(

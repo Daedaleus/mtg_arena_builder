@@ -29,15 +29,15 @@ fn keeps_gaps_per_host_without_real_waiting() {
     let scry = "https://api.scryfall.com/b";
     p.get(top8, "*/*").unwrap();
     p.get(scry, "*/*").unwrap();
-    // Zweite MTGTop8-Anfrage wartet 5 s; Scryfall (0,5 s) danach ist längst frei.
+    // The second MTGTop8 request waits 5 s; Scryfall (0.5 s) is free long before.
     p.get(top8, "*/*").unwrap();
     p.get(scry, "*/*").unwrap();
     assert_eq!(clock.sleeps(), vec![Duration::from_secs(5)]);
-    // Ist die Zeit schon vergangen, wird nicht gewartet.
+    // If the time has already passed, there is no waiting.
     clock.advance(Duration::from_secs(10));
     p.get(top8, "*/*").unwrap();
     assert_eq!(clock.sleeps().len(), 1);
-    // Unbekannte Hosts (z. B. das Bild-CDN) ohne Abstand.
+    // Unknown hosts (e.g. the image CDN) without a gap.
     p.get("https://cards.scryfall.io/x.jpg", "image/*").unwrap();
     p.get("https://cards.scryfall.io/y.jpg", "image/*").unwrap();
     assert_eq!(clock.sleeps().len(), 1);
@@ -49,7 +49,7 @@ fn gaps_hold_across_threads() {
     let clock = Arc::new(FakeClock::default());
     let (p, _) = polite(&clock);
     let p: Arc<dyn Http> = Arc::new(p);
-    // Zwei Threads (z. B. Bilder und Legalität) teilen sich den Scryfall-Abstand.
+    // Two threads (e.g. images and legality) share the Scryfall gap.
     let handles: Vec<_> = (0..2)
         .map(|_| {
             let p = p.clone();
@@ -64,7 +64,7 @@ fn gaps_hold_across_threads() {
     for h in handles {
         h.join().unwrap();
     }
-    // Sechs Anfragen: alle außer der ersten haben einen Platz im 500-ms-Raster.
+    // Six requests: all except the first get a slot in the 500 ms grid.
     let waited: Duration = clock.sleeps().iter().sum();
     assert!(waited >= Duration::from_millis(2500), "{waited:?}");
 }
@@ -82,16 +82,16 @@ fn rate_limit_blocks_host_for_all_threads() {
         p.get(scry, "*/*"),
         Err(FetchError::RateLimited(30))
     ));
-    // Während der Sperre geht keine Anfrage mehr hinaus.
+    // During the block no request goes out.
     clock.advance(Duration::from_secs(10));
     assert!(matches!(
         p.get(scry, "*/*"),
         Err(FetchError::RateLimited(20))
     ));
     assert_eq!(fake.calls(), 1);
-    // Andere Seiten sind nicht betroffen.
+    // Other sites are not affected.
     assert!(p.get("https://magic.gg/decklists", "*/*").is_ok());
-    // Nach Ablauf wird wieder gefragt.
+    // After it expires, requests are made again.
     clock.advance(Duration::from_secs(21));
     let _ = p.get(scry, "*/*");
     assert_eq!(fake.calls(), 3);
@@ -105,11 +105,11 @@ fn real_clock_moves() {
     assert!(c.now() > before);
 }
 
-/// Vertragstest gegen die echte Scryfall-API: nur von Hand mit
-/// `cargo test -- --ignored`, damit die normale Testsuite ohne Netz läuft.
-/// Schonend: eine Suchseite und zwei Bilder (rund 5 Anfragen, je 0,5 s
-/// Abstand) statt der ganzen Format-Legalität. Meldet, wenn sich die
-/// Antworten so ändern, dass die App sie nicht mehr versteht.
+/// Contract test against the real Scryfall API: only by hand with
+/// `cargo test -- --ignored`, so the normal test suite runs without network.
+/// Gentle: one search page and two images (about 5 requests, 0.5 s apart)
+/// instead of the whole format legality. Reports when the answers change so
+/// that the app no longer understands them.
 #[test]
 #[ignore = "braucht Netz (Scryfall)"]
 fn contract_with_real_scryfall() {
@@ -146,7 +146,7 @@ fn fetch_errors_read_well() {
         "{texts:?}"
     );
     assert!(texts.iter().all(|t| !t.contains('%')), "{texts:?}");
-    // Technischer Text bleibt englisch.
+    // Technical text stays English.
     assert_eq!(
         FetchError::RateLimited(42).to_string(),
         "rate limited, retry after 42 s"

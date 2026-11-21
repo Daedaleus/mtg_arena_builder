@@ -73,7 +73,7 @@ fn expensive_curve() {
 
 #[test]
 fn mana_creatures_and_tapped_lands_are_used() {
-    // Elfen bringen Mana für den Riesen früher.
+    // Elves bring mana for the giant earlier.
     let r = run(&[(FOREST, 22), (TAPLAND_UR, 2), (ELF, 20), (GIANT, 16)]);
     assert!(
         r.mana_avail[3] > 4.0,
@@ -101,11 +101,11 @@ fn deck_from_names() {
     assert_eq!(d, vec![FOREST, FOREST, BEAR]);
 }
 
-// ---------------------------------------------------------- Gegner-Druck ----
+// ------------------------------------------------------ opponent pressure ----
 
 #[test]
 fn slow_decks_get_run_over() {
-    // Nur teure Riesen: der Gegner greift ungestört an.
+    // Only expensive giants: the opponent attacks undisturbed.
     let slow = run(&[(FOREST, 24), (GIANT, 36)]);
     assert!(slow.pressure.low >= 0.4, "{:?}", slow.pressure);
     assert!(slow.pressure.life[5] < slow.pressure.life[1]);
@@ -116,7 +116,7 @@ fn slow_decks_get_run_over() {
         "{:?}",
         slow.advice
     );
-    // Günstige Kreaturen halten dagegen und besiegen Angreifer.
+    // Cheap creatures hold against it and defeat attackers.
     let fast = run(&[(FOREST, 24), (BEAR, 20), (ELF, 16)]);
     assert!(
         fast.pressure.life[5] > slow.pressure.life[5],
@@ -125,7 +125,7 @@ fn slow_decks_get_run_over() {
         slow.pressure
     );
     assert!(fast.pressure.kills > 0.5);
-    // Entfernung hilft ebenfalls.
+    // Removal helps as well.
     let removal = run(&[(SWAMP, 24), (MURDER, 20), (GIANT, 16)]);
     assert!(removal.pressure.kills > 1.0, "{:?}", removal.pressure);
     assert!(removal.pressure.life[5] > slow.pressure.life[5]);
@@ -145,14 +145,14 @@ fn board_rules() {
     let db = std_db();
     let card = |g: GrpId| &db.cards[&g];
     let mut b = pressure::Board::new();
-    // Zug 1 des Gegners: Kreatur kommt, greift aber noch nicht an.
+    // Opponent's turn 1: a creature arrives, but doesn't attack yet.
     assert!(b.opp_turn(1).is_empty());
     assert_eq!(b.life, START_LIFE);
     assert_eq!(b.opp_creatures().len(), 1);
-    // Zug 2: die 2/1 greift an, kein Blocker – 2 Schaden.
+    // Turn 2: the 2/1 attacks, no blocker – 2 damage.
     b.opp_turn(2);
     assert_eq!(b.life, START_LIFE - 2);
-    // Eigener Bär (neu, nicht bereit) blockt die 2/1 und tötet sie.
+    // Own bear (new, not ready) blocks the 2/1 and kills it.
     b.start_my_turn();
     b.cast(card(BEAR));
     assert_eq!(b.mine.len(), 1);
@@ -160,19 +160,19 @@ fn board_rules() {
     assert!(b.my_attack().is_empty(), "noch nicht bereit");
     b.opp_turn(3);
     assert_eq!(b.kills, 1, "2/1 stirbt am Bären");
-    // Brandzauber Shock (2) tötet nur Kreaturen mit Widerstand bis 2.
+    // The burn spell Shock (2) only kills creatures with toughness up to 2.
     let before = b.opp.len();
     b.cast(card(SHOCK));
     assert_eq!(b.opp.len(), before - 1);
-    // Murder trifft die stärkste.
+    // Murder hits the strongest.
     b.opp_turn(4);
     let strongest = b.opp.iter().map(|u| u.c.power).max().unwrap();
     b.cast(card(MURDER));
     assert!(b.opp.iter().all(|u| u.c.power <= strongest));
-    // Flächenzauber räumt alles ab.
+    // A board wipe clears everything.
     b.cast(card(WRATH));
     assert!(b.opp.is_empty() && b.mine.is_empty());
-    // Ohne Ziel passiert nichts.
+    // Without a target nothing happens.
     let kills = b.kills;
     b.cast(card(MURDER));
     assert_eq!(b.kills, kills);
@@ -182,28 +182,28 @@ fn board_rules() {
 fn racing_rules() {
     let db = std_db();
     let card = |g: GrpId| &db.cards[&g];
-    // Gefahrloser Angriff: kein Blocker, Gegenschlag überlebbar.
+    // Safe attack: no blocker, counterattack survivable.
     let mut b = pressure::Board::new();
     b.cast(card(OGRE));
     b.start_my_turn();
     assert!(b.my_attack().is_empty());
     assert_eq!(b.opp_life, START_LIFE - 3);
     assert!(b.mine[0].tapped, "Angreifer ist getappt");
-    // Getappte Angreifer blocken im Gegnerzug nicht.
+    // Tapped attackers don't block in the opponent's turn.
     b.opp_turn(1);
     b.opp_turn(2);
     assert_eq!(b.life, START_LIFE - 2, "2/1 kam ungeblockt durch");
 
-    // Ein Blocker, der den Angreifer tötet und überlebt, hält ihn zu Hause …
+    // A blocker that kills the attacker and survives keeps it at home …
     let mut b = pressure::Board::new();
     b.cast(card(ELF));
     b.opp_turn(1);
-    b.opp_turn(2); // 2/1 greift an und wird getappt, 2/2 kommt ungetappt
+    b.opp_turn(2); // 2/1 attacks and gets tapped, 2/2 comes in untapped
     b.start_my_turn();
     let life = b.opp_life;
     b.my_attack();
     assert_eq!(b.opp_life, life, "2/2 tötet den Elf und überlebt");
-    // … ein möglicher Tausch nicht.
+    // … a possible trade doesn't.
     let mut b = pressure::Board::new();
     b.cast(card(BEAR));
     b.opp_turn(1);
@@ -215,38 +215,38 @@ fn racing_rules() {
         "Bär greift in den 2/2 an"
     );
 
-    // Tödlich: alles greift an, auch wenn der Gegenschlag tödlich wäre.
+    // Lethal: everything attacks, even if the counterattack would be lethal.
     let mut b = pressure::Board::new();
     b.cast(card(OGRE));
     b.cast(card(BEAR));
-    b.opp_turn(1); // 2/1 bleibt ungetappt und kann blocken
+    b.opp_turn(1); // 2/1 stays untapped and can block
     b.life = 1;
     b.opp_life = 2;
     b.start_my_turn();
     b.my_attack();
     assert!(b.opp_life <= 0, "einer kommt durch: {}", b.opp_life);
     assert!(b.over());
-    // Nach Spielende passiert nichts mehr.
+    // After the end of the game nothing happens any more.
     let life = b.life;
     assert!(b.opp_turn(2).is_empty());
     assert_eq!(b.life, life);
     assert!(b.my_attack().is_empty());
 
-    // Brand: tödlich ins Gesicht, ohne Ziel ebenfalls ins Gesicht.
+    // Burn: lethal to the face, without a target also to the face.
     let mut b = pressure::Board::new();
     b.cast(card(SPIKE));
     assert_eq!(b.opp_life, START_LIFE - 3, "kein Ziel");
-    b.opp_turn(1); // 2/1 – Shock würde sie töten …
+    b.opp_turn(1); // 2/1 – Shock would kill it …
     b.opp_life = 2;
     b.cast(card(SHOCK));
     assert!(b.over(), "… aber tödlicher Brand geht ins Gesicht");
 
-    // Wenig Leben: zu Hause bleiben und blocken.
+    // Little life: stay home and block.
     let mut b = pressure::Board::new();
     b.cast(card(OGRE));
     b.opp_turn(1);
     b.opp_turn(2);
-    // Der Oger hat die 2/1 geblockt; übrig ist die 2/2 – Gegenschlag 2.
+    // The ogre blocked the 2/1; the 2/2 is left – counterattack 2.
     assert_eq!(b.opp_creatures().len(), 1);
     b.life = 2;
     b.start_my_turn();
@@ -257,7 +257,7 @@ fn racing_rules() {
 
 #[test]
 fn fast_decks_win_races() {
-    // Flieger kommen am Gegner vorbei und drücken sein Leben – anders als teure Riesen.
+    // Flyers get past the opponent and press their life – unlike expensive giants.
     let fast = run(&[(ISLAND, 24), (SPIRIT, 36)]);
     let slow = run(&[(FOREST, 24), (GIANT, 36)]);
     assert!(
@@ -270,7 +270,7 @@ fn fast_decks_win_races() {
     assert!(fast.pressure.opp_life[5] < 16.0, "{:?}", fast.pressure);
     assert_eq!(slow.pressure.won, 0.0);
     assert!(fast.pressure.won <= fast.pressure.ahead);
-    // Wer meist vorne liegt, bekommt keinen „zu langsam“-Hinweis.
+    // Whoever is mostly ahead gets no "too slow" hint.
     if fast.pressure.ahead >= fast.pressure.low {
         assert!(
             !fast
@@ -295,11 +295,11 @@ fn creatures_from_cards() {
     assert_eq!((c.power, c.toughness), (0, 1), "Sternchen-Werte als 0/1");
 }
 
-// ------------------------------------------------- persönliche Probehände ----
+// ------------------------------------------------- personal sample hands ----
 
 use crate::games::{GameRecord, TurnStat};
 
-/// Partie mit Gegnerkraft am Ende jedes Gegnerzugs und eigenen Zügen.
+/// Game with opponent power at the end of each opponent turn and own turns.
 fn history_game(opp_power: &[i32], my_turn: TurnStat) -> GameRecord {
     let mut turns = Vec::new();
     for (k, p) in opp_power.iter().enumerate() {
@@ -343,11 +343,11 @@ fn opponent_profile_from_history() {
     let mut games: Vec<GameRecord> = (0..6)
         .map(|_| history_game(&[0, 2, 2, 5, 5, 6], ok.clone()))
         .collect();
-    // Ein Ausreißer mit riesigem Feld in Zug 2 verzerrt den Schnitt kaum.
+    // One outlier with a huge battlefield on turn 2 hardly distorts the average.
     games[0] = history_game(&[0, 30, 2, 5, 5, 6], ok.clone());
     let o = opponent_from(&games, &db).unwrap();
     assert_eq!(o.games, 6);
-    // Zug 2: Ausreißer zählt nur mit 6 statt 30 – (6 + 5 × 2) / 6.
+    // Turn 2: the outlier only counts as 6 instead of 30 – (6 + 5 × 2) / 6.
     assert!((o.power[1] - 16.0 / 6.0).abs() < 0.01, "{:?}", o.power);
     let mut rest = o.power;
     rest[1] = 0.0;
@@ -358,13 +358,13 @@ fn opponent_profile_from_history() {
     );
     assert!(o.toughness.iter().zip(&o.power).all(|(t, p)| t >= p));
     assert_eq!(o.label, "deine Gegner (meist Mono-Rot)");
-    // Je Partie ein Shock bei 6 Gegnerzügen; ein Giant Growth insgesamt.
+    // One Shock per game over 6 opponent turns; one Giant Growth in total.
     assert!((o.removal - 1.0 / 6.0).abs() < 0.01, "{}", o.removal);
     assert_eq!(o.tricks, 0.0);
     games[1].opp_cards.insert(GROWTH, 1);
     let o = opponent_from(&games, &db).unwrap();
     assert!((o.tricks - 1.0 / 36.0).abs() < 0.01, "{}", o.tricks);
-    // Fester Gegner zum Vergleich
+    // Fixed opponent for comparison
     let fast = Opponent::fast();
     assert_eq!(fast.games, 0);
     assert_eq!(fast.power[0], 2.0);
@@ -373,7 +373,7 @@ fn opponent_profile_from_history() {
 #[test]
 fn habits_from_history() {
     let db = std_db();
-    // Oger auf der Hand, 4 Länder, nichts gespielt: besserer Zug möglich.
+    // Ogre in hand, 4 lands, nothing cast: better play possible.
     let lazy = my_turn(
         &[OGRE, ELF],
         &[MOUNTAIN, MOUNTAIN, FOREST, FOREST],
@@ -416,7 +416,7 @@ fn personal_simulation() {
         best.pressure,
         fast.pressure
     );
-    // Gewohnheiten: oft schwächer spielen und Angriffe auslassen kostet.
+    // Habits: often playing weaker and skipping attacks costs.
     let bad = Habits {
         weaker_turn: 0.8,
         skip_attack: 0.9,
@@ -431,7 +431,7 @@ fn personal_simulation() {
         best.pressure
     );
     assert!(yours.mana_used.iter().sum::<f32>() < best.mana_used.iter().sum::<f32>());
-    // Entfernung und Tricks des Gegners kosten Partien.
+    // The opponent's removal and tricks cost games.
     let hard = Opponent {
         removal: 0.5,
         tricks: 0.5,
@@ -450,7 +450,7 @@ fn personal_simulation() {
 fn opponent_removal_and_tricks() {
     let db = std_db();
     let card = |g: GrpId| &db.cards[&g];
-    // Entfernung trifft die stärkste eigene Kreatur.
+    // Removal hits the strongest own creature.
     let mut b = pressure::Board::new();
     b.cast(card(ELF));
     b.cast(card(OGRE));
@@ -458,7 +458,7 @@ fn opponent_removal_and_tricks() {
     assert_eq!(b.mine.len(), 1);
     assert_eq!(b.mine[0].card, ELF);
 
-    // Ohne Trick stirbt die angreifende 2/2 am Oger, mit Trick der Oger.
+    // Without a trick the attacking 2/2 dies to the ogre, with a trick the ogre.
     for (trick, ogre_lives) in [(false, true), (true, false)] {
         let mut b = pressure::Board::new();
         b.cast(card(OGRE));
@@ -469,13 +469,13 @@ fn opponent_removal_and_tricks() {
         assert_eq!(b.life, START_LIFE);
     }
 
-    // Ungeblockt bringt der Trick Zusatzschaden.
+    // Unblocked, the trick brings extra damage.
     let mut b = pressure::Board::new();
     b.opp_turn_with(Some((2, 1)), false, false);
     b.opp_turn_with(None, false, true);
     assert_eq!(b.life, START_LIFE - 2 - pressure::TRICK_BONUS);
 
-    // Trick für den Blocker: die 2/2 hält den tödlichen Oger auf und überlebt.
+    // Trick for the blocker: the 2/2 stops the lethal ogre and survives.
     let mut b = pressure::Board::new();
     b.cast(card(OGRE));
     b.opp_turn_with(Some((2, 2)), false, false);
@@ -501,14 +501,14 @@ fn random_rounding() {
 fn trial_runs_all_variants() {
     let db = std_db();
     let d = deck(&[(FOREST, 24), (BEAR, 20), (ELF, 16)]);
-    // Ohne Verlauf: nur der feste Gegner.
+    // Without history: only the fixed opponent.
     let t = trial(&d, &db, &[], 50, 1);
     assert!(t.mine.is_none() && t.mine_habits.is_none() && t.habits.is_none());
     assert_eq!(t.profile_games, 0);
     assert_eq!(t.fast.opponent, "schneller Gegner");
     assert_eq!(t.fast.turns, FAST_TURNS, "Stresstest nur für den Start");
     assert_eq!(t.fast.mana_avail[FAST_TURNS], 0.0, "danach nicht gespielt");
-    // Mit Verlauf: alle drei Varianten.
+    // With history: all three variants.
     let lazy = my_turn(
         &[OGRE],
         &[MOUNTAIN, MOUNTAIN, FOREST, FOREST],

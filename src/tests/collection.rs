@@ -27,7 +27,7 @@ fn builds_from_reader_output() {
 #[test]
 fn reader_errors() {
     let err = |text: &str| from_reader(&json!({ "error": text }), &json!({}), 0).unwrap_err();
-    // Meldungen des Speicherlesers werden Fehlerarten zugeordnet.
+    // Messages of the memory reader are assigned to kinds of errors.
     assert!(matches!(
         err("could not open MTGA process (run elevated)"),
         CollectionError::AccessDenied
@@ -56,7 +56,7 @@ fn reader_errors() {
         from_reader(&json!({ "cards": [] }), &json!({}), 0).unwrap_err(),
         CollectionError::NoCards
     ));
-    // Fehler beim Inventar: Karten bleiben, Wildcards leer.
+    // Error with the inventory: cards stay, wildcards empty.
     let c = from_reader(
         &json!({ "cards": [ { "grpId": 1, "qty": 1 } ] }),
         &json!({ "error": "x" }),
@@ -111,11 +111,11 @@ fn save_load_roundtrip() {
 fn collection_files_carry_a_version() {
     let dir = TempDir::new("collection");
     let path = dir.path("collection.json");
-    // Gespeichert wird immer mit der aktuellen Nummer.
+    // Always saved with the current number.
     Collection::default().save(&path).unwrap();
     let saved: serde_json::Value = serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
     assert_eq!(saved["version"], json!(COLLECTION_VERSION));
-    // Eine alte Datei ohne Nummer wird gelesen und auf den Stand gebracht.
+    // An old file without a number is read and brought up to date.
     let old = json!({
         "cards": { "7": 4 },
         "wildcards": { "common": 1, "uncommon": 2, "rare": 3, "mythic": 4 },
@@ -168,7 +168,7 @@ fn error_texts_follow_the_language() {
         CollectionError::Save("w".into()),
     ];
     for e in &all {
-        // Anzeige deutsch (Tests laufen auf Deutsch), technischer Text englisch.
+        // Display German (tests run in German), technical text English.
         let shown = e.user_text();
         assert!(!shown.is_empty() && !shown.contains('%'), "{shown}");
         assert!(e.to_string().is_ascii(), "{e}");

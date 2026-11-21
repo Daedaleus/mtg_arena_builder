@@ -1,9 +1,9 @@
-//! Künstliche Arena-Lognachrichten (Spielzustände, Annotationen, Räume).
+//! Synthetic Arena log messages (game states, annotations, rooms).
 
 use crate::carddb::GrpId;
 use serde_json::{Value, json};
 
-/// Eine `greToClientEvent`-Zeile mit den angegebenen Nachrichten.
+/// A `greToClientEvent` line with the given messages.
 pub fn gre(ts: u64, messages: Vec<Value>) -> String {
     json!({
         "transactionId": "t",
@@ -13,7 +13,7 @@ pub fn gre(ts: u64, messages: Vec<Value>) -> String {
     .to_string()
 }
 
-/// Spielzustand (`GameStateMessage`) für Sitz `seat`.
+/// Game state (`GameStateMessage`) for seat `seat`.
 pub fn state(seat: u32, state: Value) -> Value {
     json!({
         "type": "GREMessageType_GameStateMessage",
@@ -34,7 +34,7 @@ pub fn mulligan(seat: u32) -> Value {
     json!({ "type": "GREMessageType_MulliganReq", "systemSeatIds": [seat] })
 }
 
-/// Raum-Nachricht mit Event-Kennung für den Spieler auf `seat`.
+/// Room message with event id for the player on `seat`.
 pub fn room(match_id: &str, seat: u32, event: &str) -> String {
     json!({
         "matchGameRoomStateChangedEvent": {
@@ -49,7 +49,7 @@ pub fn room(match_id: &str, seat: u32, event: &str) -> String {
     .to_string()
 }
 
-/// Kartenobjekt im Spiel.
+/// Card object in play.
 #[derive(Clone)]
 pub struct Obj {
     pub id: u32,
@@ -149,14 +149,14 @@ impl Obj {
     }
 }
 
-// Zonen der künstlichen Partie
+// Zones of the synthetic game
 pub const Z_BATTLEFIELD: u32 = 28;
 pub const Z_STACK: u32 = 27;
 pub const Z_HAND_1: u32 = 31;
 pub const Z_HAND_2: u32 = 35;
 pub const Z_GRAVE_2: u32 = 37;
 
-/// Zonenliste: Spielfeld, Stapel, beide Hände und gegnerischer Friedhof.
+/// Zone list: battlefield, stack, both hands and the opponent's graveyard.
 pub fn zones(hand1: &[u32], hand2: &[u32], battlefield: &[u32]) -> Value {
     json!([
         { "zoneId": Z_BATTLEFIELD, "type": "ZoneType_Battlefield", "ownerSeatId": 0, "objectInstanceIds": battlefield },
@@ -178,7 +178,7 @@ pub fn players(life1: i32, life2: i32) -> Value {
     ])
 }
 
-/// Zonenwechsel-Annotation (z. B. `PlayLand`, `CastSpell`, `Discard`).
+/// Zone change annotation (e.g. `PlayLand`, `CastSpell`, `Discard`).
 pub fn zone_transfer(id: u64, instance: u32, category: &str) -> Value {
     json!({
         "id": id,
@@ -202,7 +202,7 @@ pub fn game_info(match_id: &str, game: u32) -> Value {
     json!({ "matchID": match_id, "gameNumber": game, "stage": "GameStage_Play" })
 }
 
-/// Spielende mit Sieger-Team `winner`.
+/// End of the game with winning team `winner`.
 pub fn game_over(match_id: &str, game: u32, winner: u32, reason: &str) -> Value {
     json!({
         "matchID": match_id,

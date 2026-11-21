@@ -18,21 +18,21 @@ fn safe_attack_rules() {
     let wall = creature(0, 4, &[]);
     let ogre = creature(3, 3, &[]);
     let bird = creature(1, 1, &[kw::FLYING]);
-    // Kein Blocker -> gefahrlos
+    // No blocker -> safe
     assert!(safe_attack(&bear, &[]));
-    // Blocker ohne Kraft kann nicht töten
+    // A blocker without power can't kill
     assert!(safe_attack(&bear, &[&wall]));
-    // 3/3 tötet 2/2
+    // 3/3 kills 2/2
     assert!(!safe_attack(&bear, &[&ogre]));
-    // Fliegender Angreifer kann vom Oger nicht geblockt werden
+    // A flying attacker can't be blocked by the ogre
     assert!(safe_attack(&bird, &[&ogre]));
-    // ... wohl aber von einem Blocker mit Reichweite
+    // ... but by a blocker with reach
     assert!(!safe_attack(&bird, &[&creature(1, 3, &[kw::REACH])]));
-    // Todesberührung tötet immer
+    // Deathtouch always kills
     assert!(!safe_attack(&ogre, &[&creature(1, 1, &[kw::DEATHTOUCH])]));
-    // Bedrohlich: ein einzelner Blocker reicht nicht
+    // Menace: a single blocker isn't enough
     assert!(safe_attack(&creature(2, 2, &[kw::MENACE]), &[&ogre]));
-    // ... zwei schwache Blocker zusammen auch nicht, zwei starke schon
+    // ... two weak blockers together aren't either, two strong ones are
     let menace = creature(3, 3, &[kw::MENACE]);
     let elf = creature(1, 1, &[]);
     assert!(safe_attack(&menace, &[&elf, &elf]));
@@ -43,12 +43,12 @@ fn safe_attack_rules() {
     ));
 }
 
-// ------------------------------------------------- künstliche Partie ----
+// ------------------------------------------------------ synthetic game ----
 
 const MATCH: &str = "m-1";
 const MATCH2: &str = "m-2";
 
-/// Objekte der ersten Partie (Sitz 1 = ich, Sitz 2 = Gegner).
+/// Objects of the first game (seat 1 = me, seat 2 = opponent).
 fn mountain(id: u32) -> crate::testutil::Obj {
     obj(id, MOUNTAIN, Z_HAND_1, 1).land()
 }
@@ -61,13 +61,13 @@ fn state_msg(p: &mut LogParser, ts: u64, s: Value) {
     line(p, &gre(ts, vec![state(1, s)]));
 }
 
-/// Spielt die erste Partie bis kurz vor Spielende ein und prüft unterwegs
-/// den Live-Zustand. Ich verliere durch Aufgabe in Zug 4.
+/// Plays the first game up to shortly before its end and checks the live
+/// state on the way. I lose by conceding on turn 4.
 fn play_first_game(p: &mut LogParser) {
     let deck = [MOUNTAIN, MOUNTAIN, OGRE, SHOCK, BEAR, ELF];
     line(p, &room(MATCH, 1, "Ladder"));
     line(p, &gre(1, vec![connect(1, &deck)]));
-    // Starthand: 3 Länder + 4 Zauber
+    // Opening hand: 3 lands + 4 spells
     let hand: Vec<Value> = vec![
         mountain(100).json(),
         mountain(101).json(),
@@ -94,7 +94,7 @@ fn play_first_game(p: &mut LogParser) {
     assert!(live.mulligan);
     assert_eq!(live.hand.len(), 7);
 
-    // Zug 1 (ich): Berg gelegt
+    // Turn 1 (me): mountain played
     let mut m100 = mountain(100);
     m100.zone = Z_BATTLEFIELD;
     state_msg(
@@ -113,7 +113,7 @@ fn play_first_game(p: &mut LogParser) {
     assert_eq!(live.lands_untapped, 1);
     assert_eq!(live.untapped_lands, vec![MOUNTAIN]);
 
-    // Zug 2 (Gegner): Wald und Bär, der Bär greift an und macht 2 Schaden
+    // Turn 2 (opponent): forest and bear, the bear attacks for 2 damage
     state_msg(
         p,
         1200,
@@ -153,7 +153,7 @@ fn play_first_game(p: &mut LogParser) {
         "Oger hat Einsatzverzögerung"
     );
 
-    // Zug 3 (ich): Oger liegt bereit, kein Land gelegt, Shock gewirkt
+    // Turn 3 (me): ogre ready, no land played, Shock cast
     let mut m100_tapped = mountain(100).tapped();
     m100_tapped.zone = Z_BATTLEFIELD;
     state_msg(
@@ -198,7 +198,7 @@ fn play_first_game(p: &mut LogParser) {
             "annotations": [zone_transfer(5, 104, "CastSpell")],
         }),
     );
-    // Veraltete Nachricht (kleinere gameStateId) wird ignoriert.
+    // An outdated message (smaller gameStateId) is ignored.
     state_msg(
         p,
         1550,
@@ -206,7 +206,7 @@ fn play_first_game(p: &mut LogParser) {
     );
     assert_eq!(p.live().unwrap().life_me, 18);
 
-    // Zug 4 (Gegner): Bär greift an, ich könnte mit dem Oger blocken
+    // Turn 4 (opponent): bear attacks, I could block with the ogre
     state_msg(
         p,
         1590,
@@ -240,7 +240,7 @@ fn records_a_complete_game() {
     let mut p = LogParser::default();
     play_first_game(&mut p);
     end_first_game(&mut p);
-    // Danach meldet Arena den Rang.
+    // Then Arena reports the rank.
     line(&mut p, RANK_LINE);
     assert!(p.live().is_none(), "Partie beendet");
     assert_eq!(p.rank.as_ref().unwrap().level, 4);
@@ -323,7 +323,7 @@ fn rank_snapshots() {
     assert!(Rank::parse(r#"{"limitedLevel":4}"#).is_none());
     assert!(Rank::parse("kaputt").is_none());
 
-    // Rang vor jeder Partie (Spielstart) wird keiner Partie zugeordnet.
+    // A rank before any game (game start) is assigned to no game.
     let mut p = LogParser::default();
     line(&mut p, RANK_LINE);
     play_first_game(&mut p);
@@ -335,7 +335,7 @@ fn rank_snapshots() {
 #[test]
 fn key_moments_compare_with_suggestion() {
     let db = std_db();
-    // Zwei Wälder + Berg: Oger und Elf wären gegangen, gespielt wurde nichts.
+    // Two forests + mountain: ogre and elf would have worked, nothing was cast.
     let t = TurnStat {
         turn: 4,
         mine: true,
@@ -344,7 +344,7 @@ fn key_moments_compare_with_suggestion() {
         ..Default::default()
     };
     let moment = key_moment(&t, &db).unwrap();
-    // Die vorgeschlagenen Karten kommen mit, für die Bilder in der Oberfläche.
+    // The suggested cards come along, for the images in the interface.
     assert!(!moment.cards.is_empty() && moment.cards.iter().all(|g| t.hand.contains(g)));
     let text = moment.text;
     assert!(
@@ -352,21 +352,21 @@ fn key_moments_compare_with_suggestion() {
         "{text}"
     );
     assert!(text.ends_with("(4 Mana)"), "{text}");
-    // Gut gespielt: Oger gewirkt, nur 1 Mana übrig.
+    // Played well: ogre cast, only 1 mana left.
     let good = TurnStat {
         hand: vec![ELF, GIANT],
         cast: vec![OGRE],
         ..t.clone()
     };
     assert!(key_moment(&good, &db).is_none());
-    // Farben fehlen: nichts möglich.
+    // Colors missing: nothing possible.
     let wrong = TurnStat {
         hand: vec![SPIRIT, COUNTER],
         lands: vec![MOUNTAIN, MOUNTAIN, MOUNTAIN],
         ..t.clone()
     };
     assert!(key_moment(&wrong, &db).is_none());
-    // Gegnerzug oder ältere Aufzeichnung ohne Länder: keine Aussage.
+    // Opponent's turn or older recording without lands: no statement.
     assert!(
         key_moment(
             &TurnStat {
@@ -388,7 +388,7 @@ fn key_moments_compare_with_suggestion() {
         .is_none()
     );
 
-    // Ein Gegnerzug danach: Der letzte Zug einer Partie wird nicht bewertet.
+    // An opponent turn afterwards: the last turn of a game is not judged.
     let mut g = game("x", Some(false), vec![t.clone(), turn(2, false)]);
     g.turns[0].lands_me = 4;
     let r = report_all(&[g], &db);
@@ -411,16 +411,16 @@ fn next_game_after_leftover_message() {
     let mut p = LogParser::default();
     play_first_game(&mut p);
     end_first_game(&mut p);
-    // Arena meldet das Spielende doppelt und schickt danach noch Zustände ohne Kennung.
+    // Arena reports the end of the game twice and then still sends states without an id.
     end_first_game(&mut p);
-    // Der Rang hängt an der (schlechteren) Doppelmeldung und muss erhalten bleiben.
+    // The rank is attached to the (worse) duplicate report and must be kept.
     line(&mut p, RANK_LINE);
     state_msg(
         &mut p,
         1800,
         json!({ "gameStateId": 10, "turnInfo": turn_info(4, 2, "Phase_Ending", "") }),
     );
-    // Neue Partie: der Zähler beginnt wieder bei 1.
+    // New game: the counter starts at 1 again.
     line(&mut p, &room(MATCH2, 1, "Play"));
     state_msg(
         &mut p,
@@ -475,7 +475,7 @@ fn ignores_noise_and_partial_games() {
     line(&mut p, "{ kein json");
     line(&mut p, r#"{ "andere": "Nachricht" }"#);
     assert!(p.live().is_none());
-    // Mitschnitt beginnt mitten in der Partie (Zug 5): nicht vollständig.
+    // Recording starts in the middle of the game (turn 5): not complete.
     state_msg(
         &mut p,
         1,
@@ -561,20 +561,20 @@ fn parses_log_files_and_syncs_store() {
     assert_eq!(games[0].parser, PARSER_VERSION);
     assert!(store.exists());
     let written = std::fs::metadata(&store).unwrap().modified().unwrap();
-    // Zweiter Abgleich ohne neue Partien schreibt nichts.
+    // A second sync without new games writes nothing.
     let again = sync(&store, std::slice::from_ref(&log)).games;
     assert_eq!(again.len(), 1);
     assert_eq!(
         std::fs::metadata(&store).unwrap().modified().unwrap(),
         written
     );
-    // Ältere Speicherform (nur Liste) wird übernommen und neu berechnet.
+    // The older storage format (list only) is taken over and recomputed.
     let mut legacy = games.clone();
     legacy[0].turns.clear();
     std::fs::write(&store, serde_json::to_vec(&legacy).unwrap()).unwrap();
     let upgraded = sync(&store, std::slice::from_ref(&log)).games;
     assert_eq!(upgraded[0].turns.len(), games[0].turns.len());
-    // Ohne Logs bleiben gespeicherte Partien erhalten – mit ihrer alten Version.
+    // Without logs stored games are kept – with their old version.
     let mut old = games.clone();
     old[0].parser = 0;
     let file = serde_json::json!({ "version": 2, "games": old });
@@ -582,12 +582,12 @@ fn parses_log_files_and_syncs_store() {
     let kept = sync(&store, &[]).games;
     assert_eq!(kept.len(), 1);
     assert_eq!(kept[0].parser, 2, "Version aus der alten Datei");
-    // Mit Log wird sie neu berechnet, auch bei gleicher Qualität.
+    // With a log it is recomputed, even with equal quality.
     assert_eq!(
         sync(&store, std::slice::from_ref(&log)).games[0].parser,
         PARSER_VERSION
     );
-    // Nicht lesbar (Ordner statt Datei): gemeldet, nichts überschrieben.
+    // Unreadable (folder instead of file): reported, nothing overwritten.
     let blocked = dir.path("blocked.json");
     std::fs::create_dir(&blocked).unwrap();
     let failed = sync(&blocked, std::slice::from_ref(&log));
@@ -606,7 +606,7 @@ fn corrupt_store_is_backed_up_not_lost() {
     assert_eq!(synced.games.len(), 1);
     let problem = synced.problem.unwrap();
     assert!(problem.contains("gesichert"), "{problem}");
-    // Die beschädigte Datei liegt daneben, die neue ist gültig.
+    // The damaged file lies next to it, the new one is valid.
     let backups: Vec<_> = std::fs::read_dir(&dir.0)
         .unwrap()
         .filter_map(|e| e.ok())
@@ -621,7 +621,7 @@ fn corrupt_store_is_backed_up_not_lost() {
     assert_eq!(sync(&store, &[]).games.len(), 1, "neu gespeichert");
 }
 
-// ------------------------------------------------------------ Auswertung ----
+// -------------------------------------------------------------- analysis ----
 
 fn turn(n: u32, mine: bool) -> TurnStat {
     TurnStat {
@@ -634,14 +634,14 @@ fn turn(n: u32, mine: bool) -> TurnStat {
     }
 }
 
-/// Auswertung mit Nummern über genau diese Partien.
+/// Analysis with numbers over exactly these games.
 fn report_all(games: &[GameRecord], db: &CardDb) -> Report {
     report(games, &GameNumbers::new(games), db)
 }
 
 #[test]
 fn game_numbers_stay_when_a_newer_game_arrives() {
-    // Gespeichert wird neueste zuerst; die Nummer folgt der Zeit.
+    // Stored newest first; the number follows time.
     let mut first = game("first", Some(false), vec![]);
     first.started_ms = 1_000;
     let mut second = game("second", Some(true), vec![]);
@@ -653,7 +653,7 @@ fn game_numbers_stay_when_a_newer_game_arrives() {
     assert_eq!(after.of(&second), 2);
     assert_eq!(after.of(&game("unbekannt", None, vec![])), 0);
 
-    // Fundstellen tragen die feste Nummer, auch in einer Auswahl.
+    // Findings carry the fixed number, also in a selection.
     let mut t = turn(1, true);
     t.hand = vec![MOUNTAIN];
     t.land_played = false;
@@ -686,8 +686,8 @@ fn game(id: &str, won: Option<bool>, turns: Vec<TurnStat>) -> GameRecord {
 #[test]
 fn report_finds_mistakes() {
     let db = std_db();
-    // Partie 1: Land vergessen, Mana ungenutzt, gefahrloser Angriff ausgelassen,
-    // keine Kreatur in Zug 3, Karte lange gehalten, bei wenig Leben nicht geblockt.
+    // Game 1: land forgotten, mana unused, safe attack skipped, no creature on
+    // turn 3, card held for long, didn't block at low life.
     let mut t1 = turn(1, true);
     t1.hand = vec![OGRE, MOUNTAIN];
     t1.land_played = false;
@@ -716,7 +716,7 @@ fn report_finds_mistakes() {
     g1.damage_taken.insert(BEAR, 14);
     g1.discards_me = 1;
 
-    // Partie 2: gewonnen, gute Starthand, Teil-Mitschnitt (keine Zugauswertung)
+    // Game 2: won, good opening hand, partial recording (no turn analysis)
     let mut g2 = game("b", Some(true), vec![turn(7, true)]);
     g2.complete = false;
     g2.on_play = Some(false);
@@ -758,7 +758,7 @@ fn report_finds_mistakes() {
     assert_eq!(cat(Mistake::MissedLand).items[0].cards, vec![MOUNTAIN]);
     assert!(cat(Mistake::EarlyConcede).items[0].cards.is_empty());
     assert_eq!(cat(Mistake::EarlyConcede).items.len(), 1);
-    // Häufigste Fehlerart zuerst.
+    // Most frequent kind of mistake first.
     assert!(
         r.categories
             .windows(2)
@@ -811,7 +811,7 @@ fn end_reasons_keep_arena_values() {
 
 #[test]
 fn last_turn_of_a_game_is_not_judged() {
-    // Partie endet in meinem Zug 19 (Gegner gibt auf), bevor ich ein Land lege.
+    // The game ends in my turn 19 (opponent concedes) before I play a land.
     let mut t18 = turn(18, false);
     t18.life_me = 12;
     let mut t19 = turn(19, true);
@@ -825,7 +825,7 @@ fn last_turn_of_a_game_is_not_judged() {
     assert!(r.categories.iter().all(|c| c.items.is_empty()));
     assert_eq!(r.my_turns, 1, "der Zug zählt trotzdem als gespielt");
 
-    // Derselbe Zug mitten in der Partie wird bewertet.
+    // The same turn in the middle of the game is judged.
     g.turns.push(turn(20, false));
     let r = report_all(&[g], &std_db());
     let kinds: Vec<Mistake> = r
@@ -840,14 +840,14 @@ fn last_turn_of_a_game_is_not_judged() {
 #[test]
 fn legendary_already_in_play_is_not_suggested() {
     let db = std_db();
-    // Isamaru liegt im Spiel, ein zweites auf der Hand: kein „besserer Zug“.
+    // Isamaru is in play, a second one in hand: no "better play".
     let mut t = turn(3, true);
     t.hand = vec![LEGEND, LEGEND];
     t.lands = vec![PLAINS, PLAINS, PLAINS];
     t.lands_me = 3;
     t.board = vec![LEGEND];
     assert!(key_moment(&t, &db).is_none());
-    // Ohne Isamaru im Spiel wäre es ein Vorschlag (eins, nicht beide).
+    // Without Isamaru in play it would be a suggestion (one, not both).
     t.board.clear();
     t.hand = vec![LEGEND, LEGEND, BEAR];
     t.lands = vec![PLAINS, PLAINS, FOREST];
@@ -856,7 +856,7 @@ fn legendary_already_in_play_is_not_suggested() {
     let text = moment.text;
     assert_eq!(text.matches("Isamaru").count(), 1, "{text}");
 
-    // Auch „lange gehalten“ zählt das zweite Exemplar nicht.
+    // "Held for long" doesn't count the second copy either.
     let mut held = turn(1, true);
     held.hand = vec![LEGEND];
     held.lands_me = 1;
@@ -880,7 +880,7 @@ fn skipped_attacks_respect_blockers_and_tap_abilities() {
     let db = std_db();
     let mut t = turn(5, true);
     t.life_me = 10;
-    // Elf hat eine Tapp-Fähigkeit, der Bär nicht.
+    // The elf has a tap ability, the bear doesn't.
     t.safe_idle = vec![ELF, BEAR];
     t.opp_creatures = vec![(OGRE, 3)];
     let mut g = game("angriff", Some(false), vec![t.clone(), turn(6, false)]);
@@ -896,7 +896,7 @@ fn skipped_attacks_respect_blockers_and_tap_abilities() {
     assert_eq!(found.len(), 1);
     assert!(found[0].text.contains("Grizzly Bears") && !found[0].text.contains("Llanowar"));
     assert_eq!(found[0].cards, vec![BEAR], "Karten für die Bilder");
-    // Droht tödlicher Schaden, ist Zurückhalten richtig.
+    // If lethal damage threatens, holding back is right.
     g.turns[0].opp_creatures = vec![(OGRE, 3), (DRAGON, 7)];
     assert!(skipped(&g).is_empty());
 }
@@ -936,7 +936,7 @@ fn games_filter_by_mode_and_deck() {
     let red = vec![MOUNTAIN, OGRE, SHOCK];
     let brawl = with("b", "Play_Brawl", vec![FOREST, BEAR]);
     let ranked = with("r", "Ladder", red.clone());
-    // Andere Reihenfolge, gleiche Karten = gleiches Deck.
+    // Different order, same cards = same deck.
     let ranked_again = with("r2", "Traditional_Ladder", vec![SHOCK, MOUNTAIN, OGRE]);
     let no_deck = with("x", "Ladder", vec![]);
 

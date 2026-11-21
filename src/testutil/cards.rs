@@ -1,11 +1,11 @@
-//! Kartenbaukasten und eine kleine Standard-Kartendatenbank.
+//! Card builder and a small default card database.
 
 use crate::carddb::{
     Card, CardDb, GrpId, ROLE_COUNTER, ROLE_DRAW, ROLE_REMOVAL, ROLE_WIPE, Rarity, TYPE_CREATURE,
     TYPE_INSTANT, TYPE_LAND, TYPE_SORCERY,
 };
 
-/// Bitmaske der Farben, die in Manakosten wie `{1}{U}{U}` vorkommen.
+/// Bit mask of the colors that appear in mana costs like `{1}{U}{U}`.
 fn colors_of(cost: &str) -> u8 {
     "WUBRG"
         .chars()
@@ -14,7 +14,7 @@ fn colors_of(cost: &str) -> u8 {
         .fold(0, |m, (i, _)| m | (1 << i))
 }
 
-/// Baukasten für eine Karte.
+/// Builder for a card.
 pub struct CardBuilder(Card);
 
 pub fn card(grp: impl Into<GrpId>, name: &str) -> CardBuilder {
@@ -53,7 +53,7 @@ impl CardBuilder {
         self.0.types.push(TYPE_SORCERY);
         self
     }
-    /// Land, das die Farben aus `colors` (z. B. „UG“) liefert.
+    /// Land that produces the colors from `colors` (e.g. "UG").
     pub fn land(mut self, colors: &str) -> Self {
         self.0.types.push(TYPE_LAND);
         let symbols: String = colors.chars().map(|c| format!("{{{c}}}")).collect();
@@ -93,7 +93,7 @@ impl CardBuilder {
         self.0.enters_tapped = true;
         self
     }
-    /// Manafähigkeit eines Nichtlands, z. B. „G“ (leer = farblos).
+    /// Mana ability of a non-land, e.g. "G" (empty = colorless).
     pub fn mana(mut self, colors: &str) -> Self {
         let symbols: String = colors.chars().map(|c| format!("{{{c}}}")).collect();
         self.0.mana = Some(colors_of(&symbols));
@@ -103,7 +103,7 @@ impl CardBuilder {
         self.0.legendary = true;
         self
     }
-    /// Aktivierte Fähigkeit, die Tappen kostet.
+    /// Activated ability that costs tapping.
     pub fn tap_ability(mut self) -> Self {
         self.0.tap_ability = true;
         self
@@ -130,7 +130,7 @@ impl CardBuilder {
     }
 }
 
-// grpIds der Standard-Testkarten
+// grpIds of the default test cards
 pub const PLAINS: GrpId = GrpId(1);
 pub const ISLAND: GrpId = GrpId(2);
 pub const SWAMP: GrpId = GrpId(3);
@@ -154,7 +154,7 @@ pub const DRAGON: GrpId = GrpId(30);
 pub const ANGEL: GrpId = GrpId(31);
 pub const LEGEND: GrpId = GrpId(32);
 
-/// Kleine, aber vielseitige Kartenauswahl für Tests.
+/// Small but versatile card selection for tests.
 pub fn std_cards() -> Vec<Card> {
     vec![
         card(PLAINS, "Plains").land("W").basic().build(),

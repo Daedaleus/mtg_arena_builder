@@ -7,7 +7,7 @@ code changes please open an issue first so we can agree on the approach.
 Project conventions (structure, domain types, network rules, pitfalls) are in
 [CLAUDE.md](CLAUDE.md). In short: interface texts only in `locales/app.yml` in
 both languages, logic outside `src/app/`, tests without network access.
-Code comments are German, documentation and commit messages English.
+Code comments, documentation and commit messages are English.
 
 ## Building
 

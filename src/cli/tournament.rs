@@ -1,9 +1,9 @@
-//! Turnierdecks: Rangliste der Archetypen, Varianten, Deckbau, Budget-Version, magic.gg.
+//! Tournament decks: ranking of the archetypes, variants, deck building, budget version, magic.gg.
 
 use super::*;
 
-/// `--report [FORMAT]`: bewertet alle Archetypen gegen die gespeicherte Sammlung
-/// und gibt eine Rangliste auf der Konsole aus.
+/// `--report [FORMAT]`: rates all archetypes against the saved collection and
+/// prints a ranking on the console.
 pub fn report(format: &str) -> anyhow::Result<()> {
     use std::collections::HashSet;
     let db = carddb::CardDb::load(&paths::find_card_db(None)?)?;
@@ -93,7 +93,7 @@ pub fn report(format: &str) -> anyhow::Result<()> {
     Ok(())
 }
 
-/// `--variants FORMAT NAME`: bewertet alle Turnierlisten eines Archetyps.
+/// `--variants FORMAT NAME`: rates all tournament lists of an archetype.
 pub fn variants(format: &str, name: &str) -> anyhow::Result<()> {
     let db = carddb::CardDb::load(&paths::find_card_db(None)?)?;
     let col = collection::Collection::load(&paths::data_dir().join("collection.json"))
@@ -129,7 +129,7 @@ pub fn variants(format: &str, name: &str) -> anyhow::Result<()> {
     Ok(())
 }
 
-/// `--build [FORMAT]`: Deckvorschläge aus der gespeicherten Sammlung.
+/// `--build [FORMAT]`: deck suggestions from the saved collection.
 pub fn build(format: &str) -> anyhow::Result<()> {
     let db = carddb::CardDb::load(&paths::find_card_db(None)?)?;
     let col = collection::Collection::load(&paths::data_dir().join("collection.json"))
@@ -140,7 +140,7 @@ pub fn build(format: &str) -> anyhow::Result<()> {
         .unwrap_or_default()
         .scryfall();
     let legal = fetcher.legal_names(scry).ok();
-    // Turnier-Präsenz aus allen bereits heruntergeladenen Listen
+    // Tournament presence from all lists already downloaded
     let mut meta_use = std::collections::HashMap::new();
     for arch in fetcher.archetypes(format, false)? {
         for d in fetcher.cached_decks(format, &arch).unwrap_or_default() {
@@ -188,7 +188,7 @@ pub fn build(format: &str) -> anyhow::Result<()> {
     Ok(())
 }
 
-/// `--budget FORMAT NAME`: Budget-Version und Wildcard-Plan des neuesten Decks eines Archetyps.
+/// `--budget FORMAT NAME`: budget version and wildcard plan of the newest deck of an archetype.
 pub fn budget(format: &str, name: &str) -> anyhow::Result<()> {
     let db = carddb::CardDb::load(&paths::find_card_db(None)?)?;
     let col = collection::Collection::load(&paths::data_dir().join("collection.json"))
@@ -239,7 +239,7 @@ pub fn budget(format: &str, name: &str) -> anyhow::Result<()> {
     Ok(())
 }
 
-/// `--gg FORMAT`: Events und Decks von magic.gg.
+/// `--gg FORMAT`: events and decks from magic.gg.
 pub fn gg(code: &str) -> anyhow::Result<()> {
     let fmt = meta::Format::from_code(code).ok_or_else(|| anyhow!("Unbekanntes Format {code}"))?;
     let db = carddb::CardDb::load(&paths::find_card_db(None)?)?;

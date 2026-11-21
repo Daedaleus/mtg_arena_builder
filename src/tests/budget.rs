@@ -13,10 +13,10 @@ fn crafts_within_budget_and_replaces_the_rest() {
     let mine = owned(&[("hill ogre", 4), ("shivan dragon", 4)]);
     let eval = evaluate(&deck, &db, &mine);
 
-    // Genug Rare-Wildcards: Engel herstellen, Hedge Maze (Uncommon) fehlt.
+    // Enough rare wildcards: craft the angel, Hedge Maze (uncommon) is missing.
     let p = plan(&eval, &db, &mine, None, [0, 0, 4, 0], true);
     assert_eq!(p.crafted, [0, 0, 4, 0]);
-    // Kein passendes eigenes Land: Standardland der Hauptfarbe (Weiß).
+    // No fitting own land: basic land of the main color (white).
     assert_eq!(
         p.replacements,
         vec![("hedge maze".to_string(), "plains".to_string())]
@@ -24,7 +24,7 @@ fn crafts_within_budget_and_replaces_the_rest() {
     assert_eq!(p.replaced, 4);
     assert!(p.unresolved.is_empty());
 
-    // Keine Wildcards: Engel durch den eigenen Drachen ersetzen.
+    // No wildcards: replace the angel with the own dragon.
     let p = plan(&eval, &db, &mine, None, [0; 4], true);
     assert_eq!(p.crafted, [0; 4]);
     assert!(
@@ -44,7 +44,7 @@ fn reports_missing_replacements() {
     let mine = owned(&[("divination", 2)]);
     let eval = evaluate(&deck, &db, &mine);
     let p = plan(&eval, &db, &mine, None, [0; 4], false);
-    // Nebendeck wird ignoriert; ohne passenden Ersatz bleiben die Karten offen.
+    // The sideboard is ignored; without a fitting replacement the cards stay open.
     assert_eq!(p.unresolved.len(), 2);
     assert!(!p.unresolved.contains(&"Murder".to_string()));
     assert!(plan_text(&p).contains("Ohne passenden Ersatz: "));
@@ -105,19 +105,19 @@ fn replacement_quantities() {
 #[test]
 fn wildcard_plan_in_stages() {
     let db = std_db();
-    // 4 Engel (Rare), 2 Drachen (Mythic), 4 Riesen (Uncommon), 4 Oger (Common) fehlen.
+    // 4 angels (rare), 2 dragons (mythic), 4 giants (uncommon), 4 ogres (common) missing.
     let deck = parse(
         "4 Serra Angel\n2 Shivan Dragon\n4 Stone Giant\n4 Hill Ogre\n16 Plains\nSideboard\n2 Shock\n",
     );
     let eval = evaluate(&deck, &db, &HashMap::new());
     let p = wildcard_plan(&eval, &db, [4, 4, 2, 0], false);
     assert!((p.complete - 16.0 / 30.0 * 100.0).abs() < 0.01);
-    // Jetzt: Riesen (U) und Oger (C); Engel brauchen 4 Rare, nur 2 da.
+    // Now: giants (U) and ogres (C); angels need 4 rare, only 2 there.
     let now: Vec<(&str, u32)> = p.now.iter().map(|s| (s.name.as_str(), s.qty)).collect();
     assert_eq!(now, vec![("Hill Ogre", 4), ("Stone Giant", 4)]);
     assert!(p.now.iter().all(|s| s.short == [0; 4]));
     assert!((p.now[1].complete - 24.0 / 30.0 * 100.0).abs() < 0.01);
-    // Danach: Engel (2 Rare fehlen, 2 aus dem Bestand), dann Drachen (2 Mythic).
+    // Then: angels (2 rare missing, 2 from stock), then dragons (2 mythic).
     let later: Vec<(&str, usize, [u32; 4])> = p
         .later
         .iter()
@@ -133,7 +133,7 @@ fn wildcard_plan_in_stages() {
     assert_eq!(p.later.last().unwrap().complete, 100.0);
     assert!(p.unavailable.is_empty());
 
-    // Mit Nebendeck und unbekannter Karte
+    // With sideboard and an unknown card
     let deck = parse("4 Hill Ogre\n1 Unbekannt\nSideboard\n2 Shock\n");
     let eval = evaluate(&deck, &db, &HashMap::new());
     let p = wildcard_plan(&eval, &db, [0; 4], true);

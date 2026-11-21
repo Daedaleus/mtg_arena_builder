@@ -1,6 +1,6 @@
-//! Ausschnitte von magic.gg-Seiten im Originalaufbau.
+//! Excerpts of magic.gg pages in their original structure.
 
-/// Ausschnitt der Übersichtsseite (Aufbau wie auf magic.gg).
+/// Excerpt of the overview page (structure as on magic.gg).
 pub const GG_INDEX_HTML: &str = r#"<ul>
 <li class="css-3pfjz"><a href="/decklists/arena-championship-13-standard-decklists-a-k" target="_self" rel="" class="css-Q01Pa"><div class="css-2es8F"><div class="css-vT_kr" style="padding-top:56.25%;"></div></div> <div class="css-1wd27"><div class="css-1JXy9">
       Arena Championship 13 Standard Decklists A-K
@@ -15,7 +15,7 @@ pub const GG_INDEX_HTML: &str = r#"<ul>
 <li><a href="/news/mtg-arena-premier-play-policy">Keine Deckliste</a></li>
 </ul>"#;
 
-/// Ausschnitt einer Event-Seite mit zwei Decks und einem leeren Eintrag.
+/// Excerpt of an event page with two decks and one empty entry.
 pub const GG_EVENT_HTML: &str = r#"<div>
 <deck-list deck-title="Erika Muster" subtitle="1st Place" event-date="October 24, 2026" event-name="Arena Championship 13" format="Standard">
 <main-deck>

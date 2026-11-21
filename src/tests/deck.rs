@@ -30,14 +30,14 @@ fn parse_edge_cases() {
             (1, "Atraxa"),
             (4, "Shock"),
             (2, "Opt"),
-            // Klammern ohne Set-Kürzel gehören zum Namen.
+            // Brackets without a set code belong to the name.
             (3, "Card (with note)"),
             (1, "Thing (TOOLONGSET) 1"),
         ]
     );
     assert_eq!(d.side.len(), 1);
     assert_eq!(d.side[0].name, "Lurrus");
-    // „Deck“ nach einer Leerzeile beginnt wieder das Hauptdeck.
+    // "Deck" after an empty line starts the main deck again.
     let d = parse("Deck\n4 Shock\n\nDeck\n2 Opt\n");
     assert_eq!((d.main.len(), d.side.len()), (2, 0));
     assert!(parse("").main.is_empty());
@@ -54,7 +54,7 @@ fn evaluates_against_collection() {
         parse("4 Shock\n2 Shock\n20 Mountain\n4 Hill Ogre\n2 Unknown Card\nSideboard\n3 Murder\n");
     let eval = evaluate(&deck, &db, &owned(&[("shock", 5), ("hill ogre", 4)]));
     let l = &eval.lines;
-    // Zwei Zeilen derselben Karte teilen sich den Besitz.
+    // Two lines of the same card share the ownership.
     assert_eq!((l[0].owned, l[0].missing), (5, 0));
     assert_eq!((l[1].owned, l[1].missing), (5, 1));
     assert!(l[2].basic);
@@ -71,7 +71,7 @@ fn evaluates_against_collection() {
     assert_eq!(s.need, [4, 0, 0, 0]);
     assert_eq!(s.unavailable, 2);
     assert!(!s.complete());
-    // Karten, die es in Arena nicht gibt, lassen sich nicht herstellen.
+    // Cards that don't exist in Arena can't be crafted.
     assert!(!s.craftable([99, 99, 99, 99]));
 
     let main_only = eval.summary(false, |_| 0);
@@ -81,7 +81,7 @@ fn evaluates_against_collection() {
     assert!(without_unknown.craftable([4, 0, 0, 0]));
     assert!(!without_unknown.craftable([3, 0, 0, 0]));
 
-    // Ersatzkarten decken fehlende Exemplare ab.
+    // Replacement cards cover missing copies.
     let replaced = eval.summary(true, |l| l.missing);
     assert_eq!(replaced.missing, 0);
     assert!(replaced.complete());
@@ -122,7 +122,7 @@ fn exports_for_arena() {
     let mut coll = HashMap::new();
     coll.insert(GrpId(1), 2u32);
 
-    // Mit Set-Kürzeln: bevorzugt den eigenen Druck; Ersatz für fehlende Shock.
+    // With set codes: prefers the own printing; replacement for missing Shock.
     let text = export_arena(&eval, &db, Some(&coll), true, true, |l| {
         (l.name == "Shock").then(|| ("Lava Spike".to_string(), 5))
     });
@@ -131,7 +131,7 @@ fn exports_for_arena() {
         "Deck\n2 Shock (M21) 159\n2 Lava Spike (CHK) 1\n20 Mountain\n2 Missing Card\n\nSideboard\n2 Duress (M21) 96\n"
     );
 
-    // Ohne Set-Kürzel und ohne Sideboard; ohne Sammlung gilt der neueste Druck.
+    // Without set codes and without sideboard; without a collection the newest printing applies.
     let text = export_arena(&eval, &db, None, false, false, |_| None);
     assert_eq!(text, "Deck\n4 Shock\n20 Mountain\n2 Missing Card\n");
 }

@@ -5,7 +5,7 @@ use crate::testutil::*;
 fn render(games: &[GameRecord]) {
     let db = std_db();
     let ctx = egui::Context::default();
-    // Zwei Durchläufe: egui legt Größen im ersten fest.
+    // Two passes: egui fixes sizes in the first one.
     for _ in 0..2 {
         let _ = ctx.run(egui::RawInput::default(), |ctx| {
             egui::CentralPanel::default().show(ctx, |ui| progress_view(ui, games, &db));
@@ -15,7 +15,7 @@ fn render(games: &[GameRecord]) {
 
 #[test]
 fn progress_page_renders() {
-    // Ohne Partien, mit einer Partie ohne Rang, mit Verlauf und Decks.
+    // Without games, with a game without rank, with progress and decks.
     render(&[]);
     render(&[GameRecord {
         won: Some(true),
@@ -61,7 +61,7 @@ fn wildcard_plan_renders() {
     let ctx = egui::Context::default();
     let _ = ctx.run(egui::RawInput::default(), |ctx| {
         egui::CentralPanel::default().show(ctx, |ui| {
-            // Zugeklappt und aufgeklappt zeichnen.
+            // Draw collapsed and expanded.
             egui::CollapsingHeader::new("x")
                 .default_open(true)
                 .show(ui, |_| {});
@@ -75,9 +75,9 @@ fn wildcard_plan_renders() {
     assert_eq!(super::widgets::wildcards_text(&[0; 4]), "keine");
 }
 
-/// Wache gegen kaputte Zeilenfortsetzungen in Texten: Geht beim Bearbeiten
-/// das `\` am Zeilenende verloren, landen lange Leerzeichenfolgen mitten im
-/// angezeigten Text.
+/// Guard against broken line continuations in texts: if the `\` at the end
+/// of a line gets lost while editing, long runs of spaces end up in the
+/// displayed text.
 #[test]
 fn texts_have_no_broken_line_continuations() {
     fn visit(dir: &std::path::Path, bad: &mut Vec<String>) {

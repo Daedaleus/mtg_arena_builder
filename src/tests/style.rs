@@ -38,12 +38,12 @@ fn deck_types() {
         DeckProfile::of_ids(&midrange(), &db).style(),
         Style::Midrange
     );
-    // Nur Länder: neutrales Profil.
+    // Only lands: neutral profile.
     assert_eq!(
         DeckProfile::of_ids(&[FOREST; 5], &db),
         DeckProfile::default()
     );
-    // Aus einer Textliste
+    // From a text list
     let d = parse("20 Forest\n20 Llanowar Elves\n20 Grizzly Bears\n");
     assert_eq!(DeckProfile::of_deck(&d, &db).style(), Style::Aggro);
     for s in STYLES {
@@ -102,7 +102,7 @@ fn recommends_what_wins() {
     assert_eq!((s.records[0].games, s.records[0].wins), (7, 4));
     assert_eq!(s.recommended, Style::Aggro);
     assert!(s.reason.contains("3 von 3"), "{}", s.reason);
-    // Angriffe in Zug 5 und 7 von 3, 5, 7
+    // Attacks on turns 5 and 7 out of 3, 5, 7
     assert!((s.attack_rate - 2.0 / 3.0).abs() < 0.01);
     assert!(s.traits[0].contains("67 %"), "{:?}", s.traits);
     assert!(s.traits[1].contains("eher kurze Partien"));

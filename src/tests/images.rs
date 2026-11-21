@@ -1,7 +1,7 @@
 use super::*;
 use crate::testutil::TempDir;
 
-/// Kleines, gültiges PNG (2×1 Pixel).
+/// Small, valid PNG (2×1 pixels).
 fn png() -> Vec<u8> {
     let img = image::RgbaImage::from_pixel(2, 1, image::Rgba([10, 20, 30, 255]));
     let mut out = std::io::Cursor::new(Vec::new());
@@ -26,7 +26,7 @@ fn keys_and_localized_images() {
     assert_eq!(key("Shock", Locale::German), "Shock@de");
     assert_eq!(split_key("Shock@de"), ("Shock", Some("de")));
     assert_eq!(split_key("Fire // Ice"), ("Fire // Ice", None));
-    // Eigene Cache-Datei je Sprache.
+    // Own cache file per language.
     assert_ne!(file_stem(&key("Shock", Locale::German)), file_stem("Shock"));
     assert_eq!(
         search_url("Shock", "de"),
@@ -58,16 +58,16 @@ fn decodes_images() {
 fn cache_hits_misses_and_repairs() {
     let dir = TempDir::new("img");
     assert!(matches!(from_cache(&dir.0, "Shock"), Cached::Unknown));
-    // Heruntergeladenes Bild wird abgelegt und wiedergefunden.
+    // A downloaded image is stored and found again.
     assert!(store(&dir.0, "Shock", Some(&png())).is_some());
     assert!(matches!(from_cache(&dir.0, "Shock"), Cached::Image(_)));
-    // Kaputte Antwort wird nicht gespeichert.
+    // A broken answer isn't stored.
     assert!(store(&dir.0, "Opt", Some(b"<html>")).is_none());
     assert!(!dir.path("opt.jpg").exists());
-    // Kein Bild bei Scryfall: gemerkt.
+    // No image at Scryfall: remembered.
     assert!(store(&dir.0, "Unbekannt", None).is_none());
     assert!(matches!(from_cache(&dir.0, "Unbekannt"), Cached::Missing));
-    // Beschädigte Cache-Datei wird verworfen.
+    // A damaged cache file is dropped.
     std::fs::write(dir.path("bad.jpg"), b"defekt").unwrap();
     assert!(matches!(from_cache(&dir.0, "Bad"), Cached::Unknown));
     assert!(!dir.path("bad.jpg").exists());
@@ -96,7 +96,7 @@ fn worker_answers_from_cache() {
 #[test]
 fn downloads_localized_with_fallback() {
     use crate::testutil::{FakeHttp, Reply};
-    // Echte Scryfall-Antwort für den deutschen Druck.
+    // Real Scryfall answer for the German printing.
     let http = FakeHttp::new(vec![
         (
             "lang%3Ade",
@@ -108,16 +108,16 @@ fn downloads_localized_with_fallback() {
     ]);
     assert_eq!(download(&http, "Shock@de").unwrap().unwrap(), b"DE");
     assert_eq!(download(&http, "Shock").unwrap().unwrap(), b"EN");
-    // Kein deutscher Druck: englisches Bild; gar keins: None.
+    // No German printing: English image; none at all: None.
     let http = FakeHttp::new(vec![("exact=Shock", Reply::Body(b"EN".to_vec()))]);
     assert_eq!(download(&http, "Shock@de").unwrap().unwrap(), b"EN");
     assert!(download(&http, "Unbekannt").unwrap().is_none());
-    // Netzfehler: nicht als „fehlt“ merken.
+    // Network error: don't remember as "missing".
     let dir = TempDir::new("img_fail");
     let failing = FakeHttp::new(vec![("Opt", Reply::Fail)]);
     assert_eq!(load(&failing, &dir.0, "Opt"), Fetched::Failed);
     assert!(matches!(from_cache(&dir.0, "Opt"), Cached::Unknown));
-    // Gibt es nicht: gemerkt.
+    // Doesn't exist: remembered.
     let empty = FakeHttp::new(vec![]);
     assert_eq!(load(&empty, &dir.0, "Opt"), Fetched::NotFound);
     assert!(matches!(from_cache(&dir.0, "Opt"), Cached::Missing));
@@ -131,7 +131,7 @@ fn image_urls_from_real_scryfall_answers() {
         shock.contains("/normal/") && shock.contains("e2b163ad"),
         "{shock}"
     );
-    // Doppelseitige Karte: Vorderseite aus card_faces.
+    // Double-faced card: front face from card_faces.
     let fable = image_from_search(scryfall::FABLE_DE).unwrap();
     assert!(fable.contains("/normal/front/"), "{fable}");
     assert_eq!(image_from_search(scryfall::NOT_FOUND), None);
