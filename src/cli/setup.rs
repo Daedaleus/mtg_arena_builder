@@ -1,8 +1,8 @@
-//! Einrichtung und Diagnose: Kartendaten, Sammlung, Kartenbilder.
+//! Setup and diagnostics: card data, collection, card images.
 
 use super::*;
 
-/// `--check`: Diagnose auf der Konsole (Kartendaten, Sammlung, Meta-Abruf).
+/// `--check`: diagnostics on the console (card data, collection, meta fetch).
 pub fn check() -> i32 {
     let db = match paths::find_card_db(None).and_then(|p| {
         println!("Kartendatenbank: {}", p.display());
@@ -90,12 +90,12 @@ pub fn check() -> i32 {
     }
 }
 
-/// `--sync-collection DATEI`: Hilfsmodus mit Administratorrechten.
+/// `--sync-collection FILE`: helper mode with administrator rights.
 pub fn sync_collection(out: &str) -> i32 {
     collection::run_sync_helper(Path::new(out.trim_matches('"')))
 }
 
-/// `--image NAME…`: Kartenbilder über Scryfall laden.
+/// `--image NAME…`: load card images via Scryfall.
 pub fn image(names: &[String]) {
     let (tx, rx) = std::sync::mpsc::channel();
     let req = images::spawn(

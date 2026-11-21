@@ -18,10 +18,10 @@ fn pay_with_colors() {
     assert!(can_pay(&[&bear], &[G, U]));
     assert!(!can_pay(&[&bear], &[U, U]));
     assert!(!can_pay(&[&counter], &[U, G]));
-    // Duales Land muss für die richtige Farbe eingesetzt werden.
+    // A dual land must be used for the right color.
     assert!(can_pay(&[&bear, &counter], &[U | G, U, G, W]));
     assert!(!can_pay(&[&bear, &counter], &[U | G, G, G, W]));
-    // Zu wenig Länder insgesamt
+    // Too few lands in total
     assert!(!can_pay(&[&card("{3}")], &[W, W]));
     assert!(can_pay(&[], &[]));
 }
@@ -32,12 +32,12 @@ fn plan_for(hand: &[GrpId], lands: &[GrpId], played: bool, opp: &[(GrpId, i32)])
 
 #[test]
 fn uses_mana_fully() {
-    // Mit Berg aus der Hand: Oger (3) statt Bär (2) – die Farben passen.
+    // With a mountain from the hand: ogre (3) instead of bear (2) – the colors fit.
     let p = plan_for(&[MOUNTAIN, OGRE, BEAR], &[FOREST, MOUNTAIN], false, &[]);
     assert_eq!(p.land, Some(MOUNTAIN));
     assert_eq!(p.spells, vec![OGRE]);
     assert_eq!((p.mana_used, p.mana_total), (3, 3));
-    // Zwei Zauber passen zusammen.
+    // Two spells fit together.
     let p = plan_for(&[ELF, BEAR], &[FOREST, FOREST, FOREST], true, &[]);
     assert_eq!(p.land, None);
     assert_eq!(p.spells, vec![BEAR, ELF], "teurere Kreatur zuerst");
@@ -46,35 +46,35 @@ fn uses_mana_fully() {
 
 #[test]
 fn checks_colors() {
-    // Grüne Karten mit roten Ländern: nichts bezahlbar.
+    // Green cards with red lands: nothing affordable.
     let p = plan_for(&[BEAR, ELF], &[MOUNTAIN, MOUNTAIN], true, &[]);
     assert!(p.spells.is_empty());
-    // Unbekannte Länder gelten als beliebige Farbe.
+    // Unknown lands count as any color.
     let p = plan_for(&[ELF], &[GrpId(9999)], true, &[]);
     assert_eq!(p.spells, vec![ELF]);
 }
 
 #[test]
 fn chooses_the_right_land() {
-    // Das Land, das die fehlende Farbe bringt, gewinnt.
+    // The land that brings the missing color wins.
     let p = plan_for(&[ISLAND, FOREST, BEAR], &[MOUNTAIN], false, &[]);
     assert_eq!(p.land, Some(FOREST));
     assert_eq!(p.spells, vec![BEAR]);
-    // Ohne bezahlbaren Zauber lieber das getappte Land legen.
+    // Without an affordable spell rather play the tapped land.
     let p = plan_for(&[TAPLAND_UR, MOUNTAIN, GIANT], &[MOUNTAIN], false, &[]);
     assert_eq!(p.land, Some(TAPLAND_UR));
     assert!(p.land_tapped);
-    // Getapptes Land liefert diesen Zug kein Mana.
+    // A tapped land provides no mana this turn.
     let p = plan_for(&[TAPLAND_UR, ELF], &[], false, &[]);
     assert!(p.spells.is_empty());
-    // Bereits gelegt: kein Landvorschlag.
+    // Already played: no land suggestion.
     let p = plan_for(&[FOREST, ELF], &[FOREST], true, &[]);
     assert_eq!(p.land, None);
 }
 
 #[test]
 fn removal_targets_and_holding() {
-    // Entfernung zuerst, auf die stärkste Kreatur.
+    // Removal first, on the strongest creature.
     let p = plan_for(
         &[MURDER, BEAR],
         &[SWAMP, SWAMP, SWAMP, FOREST, FOREST],
@@ -83,7 +83,7 @@ fn removal_targets_and_holding() {
     );
     assert_eq!(p.spells, vec![MURDER, BEAR]);
     assert_eq!(p.target, Some(DRAGON));
-    // Ohne gegnerische Kreaturen: spontane Entfernung aufheben.
+    // Without opposing creatures: keep instant removal.
     let p = plan_for(
         &[MURDER, DIVINATION],
         &[SWAMP, SWAMP, SWAMP, ISLAND],
@@ -95,10 +95,10 @@ fn removal_targets_and_holding() {
     assert!(p.hold.is_empty(), "nach Divination bleibt nur 1 Mana");
     let p = plan_for(&[MURDER], &[SWAMP, SWAMP, SWAMP], true, &[]);
     assert_eq!(p.hold, vec![MURDER]);
-    // Hexerei-Entfernung ohne Ziel wird gar nicht vorgeschlagen.
+    // Sorcery removal without a target isn't suggested at all.
     let p = plan_for(&[SPIKE], &[MOUNTAIN], true, &[]);
     assert!(p.spells.is_empty() && p.hold.is_empty());
-    // Konter immer zurückhalten.
+    // Always hold counters back.
     let p = plan_for(&[COUNTER, SPIRIT], &[ISLAND; 6], true, &[]);
     assert_eq!(p.spells, vec![SPIRIT]);
     assert_eq!(p.hold, vec![COUNTER]);
@@ -116,7 +116,7 @@ fn wipes_only_when_behind() {
 
 #[test]
 fn tricks_are_kept_open() {
-    // Giant Growth (Spontan, kein Removal) wird nur gespielt, wenn sonst nichts geht.
+    // Giant Growth (instant, no removal) is only cast if nothing else works.
     let p = plan_for(&[GROWTH, ELF], &[FOREST], true, &[]);
     assert_eq!(p.spells, vec![ELF]);
 }
@@ -142,7 +142,7 @@ fn creatures_after_combat_rule() {
     };
     assert!(!creatures_after_combat(&db, &with_spell));
     assert!(!creatures_after_combat(&db, &Plan::default()));
-    // Eile: sofort spielen.
+    // Haste: cast right away.
     let hasty = CardDb::from_cards(
         vec![
             crate::testutil::card(1, "Raging Goblin")
@@ -179,7 +179,7 @@ fn instant_removal_in_opponents_turn() {
 #[test]
 fn mana_creatures_count_as_sources() {
     let db = std_db();
-    // Elf (G) und ein Wald: Bär bezahlbar; Oger nicht (kein Rot).
+    // Elf (G) and a forest: bear affordable; ogre not (no red).
     assert_eq!(sources(&db, &[FOREST], &[ELF, BEAR]), vec![1 << 4, 1 << 4]);
     let p = plan(&db, &[BEAR, OGRE], &[FOREST], &[ELF], true, &[], 0);
     assert_eq!(p.spells, vec![BEAR]);
@@ -201,7 +201,7 @@ fn legend_rule_allows_one_copy() {
         without_legend_duplicates(&db, &[LEGEND, BEAR], &[LEGEND, OGRE]),
         vec![BEAR]
     );
-    // Nicht legendäre Karten dürfen mehrfach.
+    // Non-legendary cards may appear several times.
     assert_eq!(
         without_legend_duplicates(&db, &[BEAR, BEAR], &[BEAR]),
         vec![BEAR, BEAR]

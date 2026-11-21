@@ -1,5 +1,5 @@
-//! Hilfen für Tests: kleine Kartendatenbanken, künstliche Arena-Lognachrichten,
-//! Webseiten-Ausschnitte, ein Netzabruf ohne Netz und temporäre Ordner.
+//! Helpers for tests: small card databases, synthetic Arena log messages,
+//! web page excerpts, network access without network and temporary folders.
 
 mod cards;
 mod http;
@@ -12,7 +12,7 @@ pub use http::*;
 pub use log::*;
 pub use pages::*;
 
-/// Temporäres Verzeichnis, das am Ende des Tests gelöscht wird.
+/// Temporary directory that is deleted at the end of the test.
 pub struct TempDir(pub std::path::PathBuf);
 
 impl TempDir {

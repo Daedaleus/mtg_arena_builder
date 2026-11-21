@@ -15,7 +15,7 @@ fn defaults_when_missing_or_broken() {
 fn roundtrip_and_change_detection() {
     let dir = TempDir::new("settings");
     let (mut file, mut s) = SettingsFile::load(&dir.0);
-    // Unverändert: nichts schreiben.
+    // Unchanged: write nothing.
     assert!(!file.save(&s).unwrap());
     assert!(!dir.path("settings.json").exists());
 
@@ -37,7 +37,7 @@ fn reads_bom_and_partial_files() {
     std::fs::write(dir.path("settings.json"), body).unwrap();
     let (_, s) = SettingsFile::load(&dir.0);
     assert!(s.companion);
-    // Fehlende Felder bekommen Standardwerte, der Zoom wird begrenzt.
+    // Missing fields get defaults, the zoom is limited.
     assert!(s.include_side);
     assert_eq!(s.zoom(), ZOOM_RANGE.1);
 }
@@ -66,7 +66,7 @@ fn old_files_get_a_version_and_write_errors_are_reported() {
     );
     let text = std::fs::read_to_string(dir.path("settings.json")).unwrap();
     assert!(text.contains("\"version\": 1"), "{text}");
-    // Schreibfehler kommt beim Aufrufer an (Ordner gibt es nicht).
+    // A write error reaches the caller (the folder doesn't exist).
     let gone = TempDir::new("settings_gone");
     let (mut file, mut s) = SettingsFile::load(&gone.path("fehlt"));
     s.companion = true;
@@ -76,7 +76,7 @@ fn old_files_get_a_version_and_write_errors_are_reported() {
 #[test]
 fn format_is_stored_as_code() {
     let dir = TempDir::new("settings_format");
-    // Alte Datei mit Index, neue mit Kürzel, unbekanntes Kürzel.
+    // Old file with an index, new one with a code, unknown code.
     for (stored, expected) in [
         ("3", Format::Historic),
         ("\"PI\"", Format::Pioneer),
@@ -116,7 +116,7 @@ fn corrupt_settings_are_backed_up_unreadable_not_overwritten() {
         .count();
     assert_eq!(backups, 1);
 
-    // Nicht lesbar (Ordner): nichts überschreiben.
+    // Unreadable (folder): overwrite nothing.
     let blocked = TempDir::new("settings_unreadable");
     std::fs::create_dir(blocked.path("settings.json")).unwrap();
     let (mut file, mut s) = SettingsFile::load(&blocked.0);

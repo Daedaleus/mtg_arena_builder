@@ -15,12 +15,12 @@ fn c(power: i32, flying: bool, reach: bool, menace: bool) -> LiveCreature {
 
 #[test]
 fn combat_damage() {
-    // Kein Blocker: alles kommt durch
+    // No blocker: everything gets through
     assert_eq!(
         unblocked_damage(&[c(2, false, false, false), c(3, false, false, false)], &[]),
         5
     );
-    // Ein Blocker hält den stärksten Angreifer auf
+    // One blocker stops the strongest attacker
     assert_eq!(
         unblocked_damage(
             &[c(2, false, false, false), c(3, false, false, false)],
@@ -28,7 +28,7 @@ fn combat_damage() {
         ),
         2
     );
-    // Flieger kann vom Bodenblocker nicht geblockt werden
+    // A flyer can't be blocked by the ground blocker
     assert_eq!(
         unblocked_damage(
             &[c(4, true, true, false), c(1, false, false, false)],
@@ -36,12 +36,12 @@ fn combat_damage() {
         ),
         4
     );
-    // ... vom Blocker mit Reichweite schon
+    // ... but by the blocker with reach
     assert_eq!(
         unblocked_damage(&[c(4, true, true, false)], &[c(1, false, true, false)]),
         0
     );
-    // Bedrohlich braucht zwei Blocker
+    // Menace needs two blockers
     assert_eq!(
         unblocked_damage(&[c(3, false, false, true)], &[c(2, false, false, false)]),
         3
@@ -55,7 +55,7 @@ fn combat_damage() {
     );
 }
 
-// ------------------------------------------------------- Begleitfenster ----
+// ------------------------------------------------------------- companion ----
 
 fn base() -> LiveState {
     LiveState {
@@ -145,11 +145,11 @@ fn turn_suggestion_and_board() {
         "{}",
         hints(&v)
     );
-    // In der 2. Hauptphase ist ein ungelegtes Land eine Warnung.
+    // In the second main phase an unplayed land is a warning.
     ls.phase = Phase::Main2;
     let v = build_view(Some(&ls), None, &db, &[]);
     assert_eq!(level_of(&v, "Vorschlag"), Level::Warn);
-    // Im Kampf kein Zugvorschlag.
+    // No turn suggestion in combat.
     ls.phase = Phase::Combat;
     let v = build_view(Some(&ls), None, &db, &[]);
     assert!(!hints(&v).contains("Vorschlag"));
@@ -164,7 +164,7 @@ fn suggestion_details() {
     let db = std_db();
     let mut ls = base();
     ls.land_played = true;
-    // Nichts bezahlbar und kein Land: kein Vorschlag.
+    // Nothing affordable and no land: no suggestion.
     ls.hand = vec![GIANT];
     ls.untapped_lands = vec![FOREST];
     let v = build_view(Some(&ls), None, &db, &[]);
@@ -173,7 +173,7 @@ fn suggestion_details() {
     ls.hand = vec![GIANT, FOREST];
     let v = build_view(Some(&ls), None, &db, &[]);
     assert!(hints(&v).contains("Forest legen – nichts Sinnvolles bezahlbar"));
-    // Entfernung mit Ziel; Konter bleibt für den Gegnerzug.
+    // Removal with a target; the counter stays for the opponent's turn.
     ls.land_played = true;
     ls.hand = vec![MURDER, COUNTER];
     ls.untapped_lands = vec![SWAMP, SWAMP, ISLAND, ISLAND, ISLAND, ISLAND];
@@ -182,7 +182,7 @@ fn suggestion_details() {
     let h = hints(&v);
     assert!(h.contains("Murder auf Shivan Dragon"), "{h}");
     assert!(h.contains("Mana offen lassen für Cancel"), "{h}");
-    // Gefahrlos angreifen: Kreaturen lieber nach dem Kampf.
+    // Attack safely: creatures rather after combat.
     ls.hand = vec![BEAR];
     ls.untapped_lands = vec![FOREST, FOREST];
     ls.opp_creatures.clear();
@@ -243,12 +243,12 @@ fn opponent_turn_blocks_and_tricks() {
     assert!(h.contains("Du nimmst 2 statt 5 Schaden"), "{h}");
     assert!(h.contains("möglich: Giant Growth (schon gesehen)"), "{h}");
 
-    // Ohne Blocker und tödlich
+    // Without blockers and lethal
     ls.my_blockers.clear();
     ls.life_me = 3;
     let v = build_view(Some(&ls), None, &db, &[]);
     assert!(hints(&v).contains("nur ein Trick rettet dich"));
-    // Ohne Blocker, nicht tödlich
+    // Without blockers, not lethal
     ls.life_me = 20;
     ls.hand.clear();
     ls.opp_untapped_lands = 0;
@@ -258,12 +258,12 @@ fn opponent_turn_blocks_and_tricks() {
         "{}",
         hints(&v)
     );
-    // Opfern, wenn es sonst tödlich wäre
+    // Chump block if it would otherwise be lethal
     ls.life_me = 5;
     ls.my_blockers = vec![creature_at(ELF, 1, 1)];
     let v = build_view(Some(&ls), None, &db, &[]);
     assert_eq!(level_of(&v, "opfern, sonst tödlich"), Level::Warn);
-    // Bedrohlich: zwei Blocker gemeinsam
+    // Menace: two blockers together
     let mut menace = creature_at(OGRE, 3, 3);
     menace.menace = true;
     ls.opp_attacking = vec![menace];
@@ -276,7 +276,7 @@ fn opponent_turn_blocks_and_tricks() {
         hints(&v)
     );
     ls.opp_attacking = vec![creature_at(OGRE, 3, 3), creature_at(BEAR, 2, 2)];
-    // Gegner greift nicht an: nichts zu tun
+    // The opponent doesn't attack: nothing to do
     ls.opp_attackers = 0;
     ls.opp_attacking.clear();
     let v = build_view(Some(&ls), None, &db, &[]);
@@ -309,11 +309,11 @@ fn recognizes_opponent_deck() {
     let v = build_view(Some(&ls), None, &db, &meta);
     assert_eq!(v.opponent, "vermutlich Gruul Aggro");
     assert_eq!(v.opp_cards, vec!["Grizzly Bears", "Hill Ogre"]);
-    // Offenes Mana: häufiger Trick des erkannten Decks.
+    // Open mana: common trick of the recognised deck.
     ls.opp_untapped_lands = 2;
     let v = build_view(Some(&ls), None, &db, &meta);
     assert!(hints(&v).contains("Giant Growth (60 %)"), "{}", hints(&v));
-    // Unbekannt: Farben aus den Karten.
+    // Unknown: colors from the cards.
     ls.opp_cards = vec![SPIRIT];
     let v = build_view(Some(&ls), None, &db, &meta);
     assert_eq!(v.opponent, crate::carddb::color::label("U"));
@@ -388,7 +388,7 @@ fn log_tail_follows_file() {
     let read = |tail: &mut LogTail, got: &mut Vec<String>| {
         tail.read(&path, |l| got.push(String::from_utf8_lossy(l).into()))
     };
-    // Datei fehlt noch
+    // File missing so far
     assert!(!read(&mut tail, &mut got));
     std::fs::write(&path, "eins\r\nzwei\r\ndr").unwrap();
     assert!(!read(&mut tail, &mut got));
@@ -401,7 +401,7 @@ fn log_tail_follows_file() {
     drop(f);
     assert!(!read(&mut tail, &mut got));
     assert_eq!(got, vec!["eins", "zwei", "drei", "vier"]);
-    // Arena beginnt ein neues Log: Datei wird kürzer.
+    // Arena begins a new log: the file gets shorter.
     std::fs::write(&path, "neu\n").unwrap();
     assert!(read(&mut tail, &mut got));
     assert!(!read(&mut tail, &mut got));
@@ -421,7 +421,7 @@ fn companion_view_has_hints() {
     assert!(view.hints.iter().any(|(l, _)| *l == Level::Good));
 }
 
-/// Logzeilen einer kurzen Partie, die Sitz `winner` gewinnt.
+/// Log lines of a short game that seat `winner` wins.
 fn game_lines(match_id: &str, winner: u32, finished: bool) -> Vec<String> {
     let mut lines = vec![
         gre(
@@ -473,24 +473,24 @@ fn follower_reports_new_results_only() {
     let db = std_db();
     let dir = TempDir::new("follow");
     let log = dir.path("Player.log");
-    // Beim Start steht schon eine beendete Partie im Log: nicht melden.
+    // At startup a finished game is already in the log: don't report it.
     append(&log, &game_lines("alt", 1, true));
     let mut f = Follower::default();
     let v = f.poll(&log, &db, &[]);
     assert!(v.status.starts_with("Warte"), "{}", v.status);
 
-    // Neue Partie läuft …
+    // A new game is running …
     append(&log, &game_lines("neu", 2, false));
     let v = f.poll(&log, &db, &[]);
     assert_eq!(v.status, "Zug 2 · Gegner am Zug · 1. Hauptphase");
-    // … und endet mit einer Niederlage.
+    // … and ends with a loss.
     append(&log, &game_lines("neu", 2, true)[2..]);
     let v = f.poll(&log, &db, &[]);
     assert_eq!(v.status, "Partie vorbei – verloren.");
-    // Nichts Neues: Anzeige bleibt.
+    // Nothing new: the display stays.
     assert_eq!(f.poll(&log, &db, &[]), v);
 
-    // Arena-Neustart: neues, kürzeres Log mit einer alten Partie.
+    // Arena restart: new, shorter log with an old game.
     std::fs::write(&log, "").unwrap();
     append(&log, &game_lines("x", 1, false));
     let v = f.poll(&log, &db, &[]);

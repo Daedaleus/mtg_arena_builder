@@ -1,4 +1,4 @@
-//! Diagnose-Kommandozeile. Ohne Argument startet `main` die Oberfläche.
+//! Diagnostic command line. Without an argument `main` starts the interface.
 
 use std::path::Path;
 
@@ -12,7 +12,7 @@ mod played;
 mod setup;
 mod tournament;
 
-/// Fehler ausgeben; Rückgabe ist der Exit-Code.
+/// Print an error; the return value is the exit code.
 fn done(result: anyhow::Result<()>) -> i32 {
     match result {
         Ok(()) => 0,
@@ -23,8 +23,8 @@ fn done(result: anyhow::Result<()>) -> i32 {
     }
 }
 
-/// Sprache der Ausgaben: Umgebungsvariable `MTG_LANG` (z. B. `en`), sonst
-/// die Einstellung der App.
+/// Language of the output: environment variable `MTG_LANG` (e.g. `en`),
+/// otherwise the app's setting.
 fn apply_language() {
     use mtg_arena_builder::i18n::{self, Language, Locale};
     let language = std::env::var("MTG_LANG")
@@ -37,8 +37,8 @@ fn apply_language() {
     i18n::set(language.resolve());
 }
 
-/// Führt einen Kommandozeilen-Aufruf aus. `None`, wenn kein bekannter Befehl
-/// angegeben ist (dann startet die Oberfläche); sonst der Exit-Code.
+/// Runs a command line call. `None` if no known command is given (then the
+/// interface starts); otherwise the exit code.
 pub fn run(args: &[String]) -> Option<i32> {
     let arg = |i: usize, default: &str| {
         args.get(i)

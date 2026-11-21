@@ -2,7 +2,7 @@ use super::*;
 use crate::games::TurnStat;
 use crate::testutil::*;
 
-/// Mein Zug mit Hand und Ländern im Spiel.
+/// My turn with hand and lands in play.
 fn my_turn(n: u32, lands: u32, hand: &[GrpId], cast: &[GrpId]) -> TurnStat {
     TurnStat {
         turn: n,
@@ -43,7 +43,7 @@ fn groups_games_by_deck() {
     let mut other = game(false, "Play", vec![]);
     other.deck = vec![ISLAND, SPIRIT];
     let mut reprint = game(true, "Ladder", vec![]);
-    // Anderer Druck derselben Karte zählt als gleiches Deck.
+    // Another printing of the same card counts as the same deck.
     let mut alt = deck();
     alt.reverse();
     reprint.deck = alt;
@@ -81,14 +81,14 @@ fn groups_games_by_deck() {
 #[test]
 fn card_usage_and_swaps() {
     let db = std_db();
-    // Riese wird gezogen, liegt bezahlbar herum und wird nie gespielt;
-    // Oger wird gespielt.
+    // The giant is drawn, sits there affordable and is never cast;
+    // the ogre is cast.
     let turns = || {
         vec![
             my_turn(1, 6, &[GIANT, OGRE], &[OGRE]),
             my_turn(3, 6, &[GIANT], &[]),
             my_turn(5, 6, &[GIANT], &[]),
-            // Abschließender Gegnerzug: Der letzte Zug wird nicht bewertet.
+            // Closing opponent turn: the last turn is not judged.
             TurnStat {
                 turn: 6,
                 ..Default::default()
@@ -98,7 +98,7 @@ fn card_usage_and_swaps() {
     let mut g1 = game(false, "Ladder", turns());
     g1.damage_dealt.insert(OGRE, 7);
     let g2 = game(true, "Ladder", turns());
-    // Partie ohne Daten zu gewirkten Karten zählt nicht.
+    // A game without data on cast cards doesn't count.
     let g3 = game(true, "Ladder", vec![my_turn(1, 1, &[GIANT], &[])]);
     let games = vec![g1, g2, g3];
     let group = &group_decks(&games, &db)[0];
@@ -118,7 +118,7 @@ fn card_usage_and_swaps() {
     assert_eq!(giant.won_when_seen, 1);
     let ogre = r.cards.iter().find(|c| c.name == "Hill Ogre").unwrap();
     assert_eq!((ogre.cast, ogre.damage), (2, 7));
-    // Länder stehen am Ende der Liste.
+    // Lands are at the end of the list.
     assert!(r.cards.last().unwrap().land);
     assert_eq!(r.swaps.len(), 1);
     let swap = &r.swaps[0];
@@ -218,7 +218,7 @@ fn compares_with_tournament_archetype() {
     let m = r.meta.expect("Gruul passt");
     assert_eq!((m.id, m.archetype.as_str(), m.lists), (7, "Gruul", 2));
     assert!(m.overlap >= 0.2);
-    // Fehlende Turnierkarten: ab 50 % der Listen, Standardländer nicht.
+    // Missing tournament cards: from 50 % of the lists, not basic lands.
     assert_eq!(
         m.missing,
         vec![

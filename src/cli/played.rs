@@ -1,8 +1,8 @@
-//! Gespielte Partien: Auswertung, Decks, Logdateien, Begleitfenster-Nachspielen, Probehände.
+//! Played games: analysis, decks, log files, replaying the companion, sample hands.
 
 use super::*;
 
-/// `--games`: Partien aus den Arena-Logs einlesen und auswerten.
+/// `--games`: read and analyse games from the Arena logs.
 pub fn games_cli() -> anyhow::Result<()> {
     let db = carddb::CardDb::load(&paths::find_card_db(None)?)?;
     let games = games::sync(&paths::data_dir().join("games.json"), &paths::player_logs()).games;
@@ -76,7 +76,7 @@ pub fn games_cli() -> anyhow::Result<()> {
     Ok(())
 }
 
-/// `--decks [FORMAT]`: Deck-Auswertung für alle gespielten Decks.
+/// `--decks [FORMAT]`: deck analysis for all played decks.
 pub fn decks_cli(format: &str) -> anyhow::Result<()> {
     let db = carddb::CardDb::load(&paths::find_card_db(None)?)?;
     let col = collection::Collection::load(&paths::data_dir().join("collection.json"))
@@ -175,7 +175,7 @@ pub fn decks_cli(format: &str) -> anyhow::Result<()> {
     Ok(())
 }
 
-/// `--parse LOG…`: Logdateien einlesen, ohne gespeicherte Partien anzufassen.
+/// `--parse LOG…`: read log files without touching stored games.
 pub fn parse(paths: &[String]) {
     for path in paths {
         for g in games::parse_log(Path::new(path)) {
@@ -198,7 +198,7 @@ pub fn parse(paths: &[String]) {
     }
 }
 
-/// `--replay LOG [N]`: ein Log abspielen und die Hinweise des Begleitfensters ausgeben.
+/// `--replay LOG [N]`: replay a log and print the companion's hints.
 pub fn replay(path: &str, limit: usize) -> anyhow::Result<()> {
     let db = carddb::CardDb::load(&paths::find_card_db(None)?)?;
     let mut parser = games::LogParser::default();
@@ -243,7 +243,7 @@ pub fn replay(path: &str, limit: usize) -> anyhow::Result<()> {
     Ok(())
 }
 
-/// `--sim`: Probehände für alle gespielten Decks.
+/// `--sim`: sample hands for all played decks.
 pub fn sim() -> anyhow::Result<()> {
     let db = carddb::CardDb::load(&paths::find_card_db(None)?)?;
     let games = games::sync(&paths::data_dir().join("games.json"), &paths::player_logs()).games;
@@ -304,7 +304,7 @@ pub fn sim() -> anyhow::Result<()> {
     Ok(())
 }
 
-/// `--style`: Spielstil und Einteilung aller zwischengespeicherten Turnierlisten.
+/// `--style`: play style and classification of all cached tournament lists.
 pub fn style_cli() -> anyhow::Result<()> {
     let db = carddb::CardDb::load(&paths::find_card_db(None)?)?;
     let games = games::sync(&paths::data_dir().join("games.json"), &paths::player_logs()).games;
@@ -317,7 +317,7 @@ pub fn style_cli() -> anyhow::Result<()> {
         println!("  {t}");
     }
     println!("Empfehlung: {} – {}", s.recommended.name(), s.reason);
-    // Zwischengespeicherte Listen einteilen
+    // Classify cached lists
     let cache = paths::data_dir().join("cache");
     let mut counts = std::collections::HashMap::new();
     for entry in std::fs::read_dir(&cache)?.flatten() {

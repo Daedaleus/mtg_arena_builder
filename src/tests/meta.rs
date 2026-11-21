@@ -2,7 +2,7 @@ use super::*;
 use crate::testutil::TempDir;
 use serde_json::json;
 
-/// Ausschnitt der MTGTop8-Formatseite (Struktur wie im Original).
+/// Excerpt of the MTGTop8 format page (structure as in the original).
 const FORMAT_HTML: &str = "<div><img src=/metas_thumbs/271.jpg></div>\n\
     <div align=center style=\"width:100%;\">\n\
       <div class=S14><a href=archetype?a=271&meta=50&f=ST>Jund Aggro</a></div>\n\
@@ -16,7 +16,7 @@ const FORMAT_HTML: &str = "<div><img src=/metas_thumbs/271.jpg></div>\n\
       <div>\n\
         <div class=S14>11 %</div>\n";
 
-/// Ausschnitt einer Archetypseite mit zwei Decks.
+/// Excerpt of an archetype page with two decks.
 const ARCH_HTML: &str = "<tr><td><a href=/event?e=1&d=912128&f=ST>Jund Sacrifice</a></td>\n\
     \t  <td><a class=player href=/search?player=Erika+Muster>Erika Muster</a></td>\n\
     \t  <td><a href=/event?e=1&f=ST>World Championship 32</a></td>\n\
@@ -110,7 +110,7 @@ fn cache_age_is_respected() {
     let f = Fetcher::new(dir.0.clone());
     assert_eq!(f.cached("x.txt", None).as_deref(), Some("hallo"));
     assert_eq!(f.cached("x.txt", Some(3600)).as_deref(), Some("hallo"));
-    // Eine Stunde in der Zukunft gilt als frisch; max. Alter 0 nur, wenn sofort gelesen.
+    // One hour in the future counts as fresh; max age 0 only if read immediately.
     assert_eq!(f.cached("fehlt.txt", None), None);
     assert_eq!(f.cached("fehlt.txt", Some(10)), None);
 }
@@ -142,7 +142,7 @@ fn magic_gg_from_cache_without_network() {
     assert!(f.gg_events("pioneer", false).is_err());
     let decks = f.gg_decks(slug).unwrap();
     assert_eq!(decks.len(), 2);
-    // Seite ohne Decks: Fehler, und die Datei wird verworfen.
+    // A page without decks: error, and the file is dropped.
     std::fs::write(
         dir.path(&crate::magicgg::cache_file("leer")),
         "<html></html>",
@@ -157,7 +157,7 @@ fn old_archetype_pages_are_restored() {
     let dir = TempDir::new("meta");
     let page = dir.path("arch_ST_271.html");
     std::fs::write(&page, ARCH_HTML).unwrap();
-    // Datei zwei Tage zurückdatieren.
+    // Date the file back by two days.
     let old = std::time::SystemTime::now() - std::time::Duration::from_secs(48 * 3600);
     std::fs::File::options()
         .write(true)
@@ -191,7 +191,7 @@ fn restores_opened_gg_events() {
         crate::testutil::GG_EVENT_HTML,
     )
     .unwrap();
-    // Nur das geöffnete Event (mit Datei im Cache) kommt zurück.
+    // Only the opened event (with a file in the cache) comes back.
     let restored = f.cached_gg("standard");
     assert_eq!(restored.len(), 1);
     assert_eq!(restored[0].0.slug, slug);
@@ -206,14 +206,14 @@ fn downloads_once_then_uses_cache() {
     let http = FakeHttp::new(vec![
         ("fehler", Reply::Fail),
         ("fehlt", Reply::NotFound),
-        // MTGTop8 liefert ISO-8859-1.
+        // MTGTop8 delivers ISO-8859-1.
         ("seite", Reply::Body(b"Caf\xE9".to_vec())),
     ]);
     let mut f = Fetcher::with_http(dir.0.clone(), std::sync::Arc::new(http.clone()));
     assert_eq!(f.top8("seite", "seite.html", None).unwrap(), "Café");
     assert_eq!(f.top8("seite", "seite.html", None).unwrap(), "Café");
     assert_eq!(http.calls(), 1, "zweites Mal aus dem Cache");
-    // Fehler und fehlende Seiten kommen mit Adresse zurück und landen nicht im Cache.
+    // Errors and missing pages come back with the address and don't land in the cache.
     for page in ["fehler", "fehlt"] {
         let file = format!("{page}.html");
         let err = f.top8(page, &file, None).unwrap_err();
@@ -226,14 +226,14 @@ fn downloads_once_then_uses_cache() {
 fn legality_from_real_scryfall_pages() {
     use crate::testutil::{FakeHttp, Reply, scryfall};
     let dir = TempDir::new("meta_legal");
-    // Seite 2 zuerst prüfen: ihre Adresse enthält auch den Suchtext von Seite 1.
+    // Check page 2 first: its address also contains the search text of page 1.
     let http = FakeHttp::new(vec![
         ("page=2", Reply::text(scryfall::LEGAL_PAGE2)),
         ("f%3Astandard", Reply::text(scryfall::LEGAL_PAGE1)),
     ]);
     let f = Fetcher::with_http(dir.0.clone(), std::sync::Arc::new(http.clone()));
     let names = f.legal_names("standard").unwrap();
-    // Vier Karten; die doppelseitige zählt auch mit ihrer Vorderseite.
+    // Four cards; the double-faced one also counts with its front face.
     assert_eq!(names.len(), 5, "{names:?}");
     assert_eq!(http.calls(), 2, "beide Seiten geholt");
     assert!(http.urls()[1].contains("page=2"), "next_page befolgt");
@@ -244,7 +244,7 @@ fn legality_from_real_scryfall_pages() {
             .iter()
             .all(|(_, accept)| accept == "application/json")
     );
-    // Danach aus dem Cache.
+    // Then from the cache.
     assert_eq!(f.legal_names("standard").unwrap(), names);
     assert_eq!(http.calls(), 2);
 }
@@ -253,7 +253,7 @@ fn legality_from_real_scryfall_pages() {
 fn legality_without_matches_or_network() {
     use crate::testutil::{FakeHttp, Reply};
     let dir = TempDir::new("meta_legal_404");
-    // Scryfall antwortet auf eine Suche ohne Treffer mit 404.
+    // Scryfall answers a search without hits with 404.
     let none = FakeHttp::new(vec![]);
     let f = Fetcher::with_http(dir.0.clone(), std::sync::Arc::new(none));
     let err = f.legal_names("gibtsnicht").unwrap_err().to_string();

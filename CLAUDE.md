@@ -12,8 +12,10 @@ they really fit.
 ## Language and style
 
 - Documentation (README, CONTRIBUTING, SECURITY, this file), issues and commit
-  messages in **English**. Code comments and doc comments stay **German**
-  (the existing code base is German throughout).
+  messages in **English**. Code comments, doc comments, identifiers and
+  technical messages (`expect`, `eprintln!`, thread names) are **English**
+  too. Only display texts are bilingual (`locales/app.yml`); test data such
+  as German card names stays as it is.
 - Commit messages and pull request titles: Conventional Commits with the
   matching gitmoji icon after the colon, e.g. `feat(sim): ✨ add prowess` or
   `fix: 🐛 keep settings` (types and icons in CONTRIBUTING.md, checked by

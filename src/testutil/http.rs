@@ -1,5 +1,5 @@
-//! Netzabruf für Tests: feste Antworten je Adressteil, eine Uhr, die nicht
-//! wirklich wartet, und echte (gekürzte) Antworten von Scryfall.
+//! Network access for tests: fixed answers per address part, a clock that
+//! doesn't really wait, and real (shortened) answers from Scryfall.
 
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
@@ -7,29 +7,29 @@ use std::time::{Duration, Instant};
 
 use crate::http::{Clock, FetchError, Fetched, Http};
 
-/// Echte Scryfall-Antworten, auf wenige Karten gekürzt (`fixtures/scryfall`).
+/// Real Scryfall answers, shortened to a few cards (`fixtures/scryfall`).
 pub mod scryfall {
-    /// Legalitätssuche, Seite 1 von 2 (`has_more`, `next_page` mit `page=2`).
+    /// Legality search, page 1 of 2 (`has_more`, `next_page` with `page=2`).
     pub const LEGAL_PAGE1: &str = include_str!("fixtures/scryfall/legal_page1.json");
-    /// Legalitätssuche, letzte Seite.
+    /// Legality search, last page.
     pub const LEGAL_PAGE2: &str = include_str!("fixtures/scryfall/legal_page2.json");
-    /// Fehlerobjekt einer Suche ohne Treffer (HTTP 404).
+    /// Error object of a search without hits (HTTP 404).
     pub const NOT_FOUND: &str = include_str!("fixtures/scryfall/not_found.json");
-    /// Deutscher Druck von Shock („Schock“) mit `image_uris`.
+    /// German printing of Shock ("Schock") with `image_uris`.
     pub const SHOCK_DE: &str = include_str!("fixtures/scryfall/shock_de.json");
-    /// Doppelseitige Karte: Bilder nur in `card_faces`.
+    /// Double-faced card: images only in `card_faces`.
     pub const FABLE_DE: &str = include_str!("fixtures/scryfall/fable_de.json");
 }
 
-/// Antwort auf eine Anfrage.
+/// Answer to a request.
 #[derive(Clone)]
 pub enum Reply {
     Body(Vec<u8>),
-    /// 404 – gibt es nicht.
+    /// 404 – doesn't exist.
     NotFound,
-    /// Netz- oder Serverfehler.
+    /// Network or server error.
     Fail,
-    /// HTTP 429 mit Wartezeit in Sekunden.
+    /// HTTP 429 with waiting time in seconds.
     RateLimited(u64),
 }
 
@@ -39,13 +39,13 @@ impl Reply {
     }
 }
 
-/// Beantwortet Anfragen nach der ersten passenden Regel (Adresse enthält den
-/// Text); ohne passende Regel: 404. Schreibt alle Anfragen mit.
+/// Answers requests with the first matching rule (address contains the
+/// text); without a matching rule: 404. Records all requests.
 #[derive(Clone, Default)]
 pub struct FakeHttp {
     pub rules: Vec<(&'static str, Reply)>,
     pub calls: Arc<AtomicUsize>,
-    /// Gestellte Anfragen: (Adresse, Accept).
+    /// Requests made: (address, Accept).
     pub requests: Arc<Mutex<Vec<(String, String)>>>,
 }
 
@@ -61,7 +61,7 @@ impl FakeHttp {
         self.calls.load(Ordering::Relaxed)
     }
 
-    /// Gestellte Anfragen (nur die Adressen).
+    /// Requests made (addresses only).
     pub fn urls(&self) -> Vec<String> {
         self.requests
             .lock()
@@ -88,7 +88,7 @@ impl Http for FakeHttp {
     }
 }
 
-/// Uhr, die beim Warten nur die Zeit weiterstellt und die Wartezeiten mitschreibt.
+/// Clock that only advances the time when waiting and records the waiting times.
 pub struct FakeClock {
     start: Instant,
     elapsed: Mutex<Duration>,
@@ -106,7 +106,7 @@ impl Default for FakeClock {
 }
 
 impl FakeClock {
-    /// Zeit vergehen lassen, ohne dass jemand gewartet hat.
+    /// Let time pass without anyone having waited.
     pub fn advance(&self, d: Duration) {
         *self.elapsed.lock().unwrap() += d;
     }
