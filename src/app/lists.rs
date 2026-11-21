@@ -1,4 +1,4 @@
-//! Reiter „Turnierdecks“, „Aus meiner Sammlung“ und „Eigene Liste“.
+//! Tabs "Tournament decks", "From my collection" and "Own list".
 
 use super::*;
 
@@ -66,7 +66,7 @@ impl App {
         }
     }
 
-    /// Tabelle der Turnierlisten eines Archetyps; liefert die angeklickte.
+    /// Table of the tournament lists of an archetype; returns the clicked one.
     fn deck_table(
         &self,
         ui: &mut egui::Ui,
@@ -137,7 +137,7 @@ impl App {
         clicked
     }
 
-    /// Turnierliste auswählen und bei Bedarf laden.
+    /// Choose a tournament list and load it if needed.
     fn select_deck(&mut self, id: u32) {
         self.tour.sel_deck = Some(id);
         if !self.lists.contains_key(&DeckId::Top8(id)) {
@@ -149,7 +149,7 @@ impl App {
         }
     }
 
-    /// Übernimmt fertige Deckvorschläge und legt sie unter eigenen Schlüsseln ab.
+    /// Takes over finished deck suggestions and stores them under their own keys.
     pub(super) fn apply_built(&mut self, built: Vec<Built>) {
         self.built.running = false;
         self.repl.retain(|k, _| !k.0.is_built());
@@ -167,8 +167,8 @@ impl App {
             ui.label(tr!("lists.collection_must_read_first"));
             return;
         }
-        // Neu rechnen, wenn inzwischen weitere Turnierlisten geladen wurden
-        // (beim Start kommen sie erst nach und nach aus dem Zwischenspeicher).
+        // Recompute when more tournament lists were loaded in the meantime
+        // (at startup they only arrive bit by bit from the cache).
         let stale = self.lists.len() != self.built.lists
             && self.built.at.is_none_or(|t| t.elapsed().as_secs() >= 2);
         if self.built.decks.is_none() || stale {

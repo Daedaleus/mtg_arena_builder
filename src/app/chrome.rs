@@ -1,4 +1,4 @@
-//! Kopfzeile, Seitenleiste, Einstellungen und „Erste Schritte“.
+//! Top bar, side panel, settings and "Getting started".
 
 use super::*;
 
@@ -23,7 +23,7 @@ impl App {
         self.status_bar(ctx);
     }
 
-    /// Rechts oben: Einstellungen, Begleitfenster, Sammlung lesen, Format.
+    /// Top right: settings, companion, read collection, format.
     fn header_controls(&mut self, ui: &mut egui::Ui) {
         if ui.button(tr!("chrome.settings")).clicked() {
             self.show_settings = !self.show_settings;
@@ -65,7 +65,7 @@ impl App {
         ui.label(tr!("chrome.format"));
     }
 
-    /// Die Reiter.
+    /// The tabs.
     fn tab_bar(&mut self, ui: &mut egui::Ui) {
         let tabs = [
             (
@@ -111,7 +111,7 @@ impl App {
         }
     }
 
-    /// Statuszeile unten: laufende Abrufe, Meldung, Kartendaten.
+    /// Status line at the bottom: running fetches, message, card data.
     fn status_bar(&self, ctx: &egui::Context) {
         egui::TopBottomPanel::bottom("status").show(ctx, |ui| {
             ui.horizontal(|ui| {
@@ -194,7 +194,7 @@ impl App {
             });
     }
 
-    /// „Alle bewerten“ und „Aktualisieren“ über der Archetyp-Liste.
+    /// "Rate all" and "Refresh" above the archetype list.
     fn archetype_buttons(&mut self, ui: &mut egui::Ui) {
         let todo: Vec<Archetype> = self
             .tour
@@ -228,7 +228,7 @@ impl App {
         }
     }
 
-    /// Archetyp auswählen; seine Decks laden oder weitere Listen nachladen.
+    /// Choose an archetype; load its decks or fetch more lists.
     pub(super) fn select_archetype(&mut self, arch: Archetype) {
         self.tab = Tab::Meta;
         self.tour.sel_arch = Some(arch.id);
@@ -250,7 +250,7 @@ impl App {
         }
     }
 
-    /// Checkliste für den Einstieg, solange noch etwas fehlt.
+    /// Checklist for getting started, as long as something is missing.
     pub(super) fn onboarding(&mut self, ui: &mut egui::Ui) {
         if self.settings.onboarding_hidden {
             return;
@@ -312,7 +312,7 @@ impl App {
     }
 }
 
-/// Kopfzeile: Kartenzahl und Wildcards der Sammlung.
+/// Top bar: card count and wildcards of the collection.
 fn collection_summary(ui: &mut egui::Ui, collection: Option<&Collection>) {
     match collection {
         Some(c) => {

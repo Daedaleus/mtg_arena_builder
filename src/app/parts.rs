@@ -1,56 +1,56 @@
-//! Teilzustände der App, nach Bereich gebündelt. `App` hält davon je einen;
-//! so bleibt sichtbar, welche Felder zusammengehören.
+//! Partial states of the app, bundled by area. `App` holds one of each; so it
+//! stays visible which fields belong together.
 
 use super::*;
 
-/// „Meine Partien“: Partien, Filter, Auswahl und zwischengespeicherte Auswertung.
+/// "My games": games, filter, selection and cached analysis.
 #[derive(Default)]
 pub(super) struct GamesState {
     pub list: Vec<GameRecord>,
     pub loading: bool,
-    /// Wann zuletzt eingelesen (für das automatische Nachladen).
+    /// When last read (for automatic reloading).
     pub scanned: Option<std::time::Instant>,
-    /// In Arena sind „Detaillierte Logs“ aus.
+    /// "Detailed Logs" are off in Arena.
     pub logs_disabled: bool,
-    /// Welche Partien ausgewertet werden (Modus-Gruppe, Deck).
+    /// Which games are analysed (mode group, deck).
     pub filter: games::GamesFilter,
-    /// Filter schon mit der letzten Partie vorbelegt (einmal je Sitzung).
+    /// Filter already preset with the last game (once per session).
     pub filter_set: bool,
     pub sel: Option<usize>,
-    /// Unterseite: 0 = Übersicht, 1 = Partienliste, 2 = Verlauf.
+    /// Sub page: 0 = overview, 1 = game list, 2 = progress.
     pub view: u8,
-    /// Seite der Partienliste (wird beim Zeichnen geändert).
+    /// Page of the game list (changed while drawing).
     pub page: std::cell::Cell<usize>,
     pub cache: Option<GamesAnalysis>,
 }
 
-/// „Offizielle Events“ (magic.gg).
+/// "Official events" (magic.gg).
 #[derive(Default)]
 pub(super) struct GgState {
     pub events: Vec<GgEvent>,
-    /// Format, für das `events` geladen sind.
+    /// Format for which `events` are loaded.
     pub format: Option<Format>,
-    /// Decks je Event (Slug) mit ihren Kennungen.
+    /// Decks per event (slug) with their ids.
     pub decks: HashMap<String, Vec<(u32, GgDeck)>>,
     pub requested: HashSet<String>,
     pub sel_event: Option<String>,
     pub sel_deck: Option<u32>,
 }
 
-/// Kartenbilder: geladene Texturen und Anfragen an den Bild-Thread.
+/// Card images: loaded textures and requests to the image thread.
 pub(super) struct ImageCache {
     pub tx: Sender<String>,
     pub textures: HashMap<String, egui::TextureHandle>,
-    /// Schon angefragt (wird beim Zeichnen ergänzt).
+    /// Already requested (extended while drawing).
     pub requested: std::cell::RefCell<HashSet<String>>,
-    /// Scryfall kennt kein Bild.
+    /// Scryfall knows no image.
     pub missing: HashSet<String>,
-    /// Abruf gescheitert (Netz, Drosselung): wann – erst nach
-    /// [`IMAGE_RETRY`] erneut anfragen.
+    /// Fetch failed (network, throttling): when – request again only after
+    /// [`IMAGE_RETRY`].
     pub failed: std::cell::RefCell<HashMap<String, std::time::Instant>>,
 }
 
-/// Wartezeit, bevor ein gescheitertes Kartenbild erneut angefragt wird.
+/// Waiting time before a failed card image is requested again.
 pub(super) const IMAGE_RETRY: std::time::Duration = std::time::Duration::from_secs(30);
 
 impl ImageCache {
@@ -65,15 +65,15 @@ impl ImageCache {
     }
 }
 
-/// Probehände: Ergebnisse und laufende Berechnungen.
+/// Sample hands: results and running computations.
 #[derive(Default)]
 pub(super) struct SimState {
-    /// Je Deck der Deckansicht.
+    /// Per deck of the deck view.
     pub decks: HashMap<DeckId, sim::Trial>,
-    /// Je Deck aus „Deck verbessern“ (grpIds der Liste).
+    /// Per deck from "Improve deck" (grpIds of the list).
     pub groups: HashMap<Vec<GrpId>, sim::Trial>,
     pub running: HashSet<SimTarget>,
-    /// Stand je Deck-Kennung; steigt, wenn dort eine neue Liste liegt.
+    /// State per deck id; rises when a new list is there.
     pub generations: HashMap<DeckId, u64>,
 }
 
@@ -82,41 +82,41 @@ impl SimState {
         self.generations.get(&id).copied().unwrap_or(0)
     }
 
-    /// Neue Liste unter `id`: alte Probehände gelten nicht mehr.
+    /// New list under `id`: old sample hands no longer apply.
     pub fn list_replaced(&mut self, id: DeckId) {
         self.decks.remove(&id);
         *self.generations.entry(id).or_insert(0) += 1;
     }
 }
 
-/// „Aus meiner Sammlung“: gebaute Decks.
+/// "From my collection": built decks.
 #[derive(Default)]
 pub(super) struct BuiltState {
     pub decks: Option<Vec<Built>>,
     pub sel: usize,
-    /// Anzahl geladener Turnierlisten beim letzten Bauen.
+    /// Number of loaded tournament lists at the last build.
     pub lists: usize,
     pub at: Option<std::time::Instant>,
-    /// Bauen läuft im Hintergrund.
+    /// Building runs in the background.
     pub running: bool,
 }
 
-/// „Turnierdecks“ (MTGTop8): Archetypen, Decklisten-Verweise, Auswahl und
-/// Format-Legalität.
+/// "Tournament decks" (MTGTop8): archetypes, decklist references, selection
+/// and format legality.
 #[derive(Default)]
 pub(super) struct TourState {
     pub archetypes: Vec<Archetype>,
-    /// Decklisten-Verweise je Archetyp.
+    /// Decklist references per archetype.
     pub decks: HashMap<u32, Vec<DeckRef>>,
-    /// Schon angefragte Decklisten (nicht doppelt laden).
+    /// Decklists already requested (don't load twice).
     pub requested: HashSet<u32>,
     pub sel_arch: Option<u32>,
     pub sel_deck: Option<u32>,
-    /// Legale Kartenschlüssel je Format.
+    /// Legal card keys per format.
     pub legal: HashMap<Format, HashSet<String>>,
     pub legal_requested: HashSet<Format>,
-    /// Offene Abrufe in der Warteschlange.
+    /// Open fetches in the queue.
     pub pending: usize,
-    /// „Alle bewerten“ läuft (Status am Ende auf „fertig“ setzen).
+    /// "Rate all" is running (set the status to "done" at the end).
     pub rating_all: bool,
 }

@@ -1,9 +1,9 @@
-//! Reiter „Offizielle Events“: Decklisten von magic.gg.
+//! Tab "Official events": decklists from magic.gg.
 
 use super::*;
 
 impl App {
-    /// Lädt die Events des aktuellen Formats, falls noch nicht geschehen.
+    /// Loads the events of the current format if not done yet.
     fn ensure_gg_events(&mut self, force: bool) {
         let format = self.settings.format;
         if force || self.gg.format != Some(format) {
@@ -13,7 +13,7 @@ impl App {
         }
     }
 
-    /// Seitenleiste mit den Events.
+    /// Side panel with the events.
     pub(super) fn events_panel(&mut self, ctx: &egui::Context) {
         self.ensure_gg_events(false);
         egui::SidePanel::left("gg_events")
@@ -56,7 +56,7 @@ impl App {
             });
     }
 
-    /// Event auswählen und seine Decks laden, falls noch nicht geschehen.
+    /// Choose an event and load its decks if not done yet.
     pub(super) fn select_event(&mut self, slug: String) {
         self.gg.sel_deck = None;
         if !self.gg.decks.contains_key(&slug) && self.gg.requested.insert(slug.clone()) {
@@ -66,7 +66,7 @@ impl App {
         self.gg.sel_event = Some(slug);
     }
 
-    /// Decks des gewählten Events und die Ansicht des gewählten Decks.
+    /// Decks of the chosen event and the view of the chosen deck.
     pub(super) fn events_tab(&mut self, ui: &mut egui::Ui) {
         let Some(slug) = self.gg.sel_event.clone() else {
             ui.add_space(20.0);
@@ -93,8 +93,8 @@ impl App {
         let mut rows: Vec<(u32, String, String, Option<Summary>)> = decks
             .iter()
             .map(|(id, d)| {
-                // Bei Championships nennt magic.gg den Archetyp im Untertitel;
-                // sonst (z. B. Ranglisten-Decks) erkennt die App ihn selbst.
+                // For championships magic.gg names the archetype in the subtitle;
+                // otherwise (e.g. ranked decks) the app recognises it itself.
                 let who = d.title.clone();
                 let label = if d.subtitle.is_empty() {
                     opponents::deck_label(&d.deck, &db, &shares)

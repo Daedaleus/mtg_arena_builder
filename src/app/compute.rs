@@ -1,54 +1,54 @@
-//! Rechenarbeit abseits des Zeichnens: Auswertungen werden zwischengespeichert
-//! und nur neu berechnet, wenn sich ihre Grundlage ändert; Probehände und der
-//! Deckbau laufen im Aufgaben-Thread (`tasks`) und melden sich per [`Msg`] zurück.
+//! Computation away from drawing: evaluations are cached and only recomputed
+//! when their basis changes; sample hands and deck building run on the task
+//! thread (`tasks`) and report back via [`Msg`].
 //!
-//! Grundlage einer Auswertung ist `App::data_gen`: Der Zähler steigt mit
-//! jeder eingetroffenen Nachricht außer Kartenbildern, Probehänden und
-//! Fortschrittsmeldungen
-//! (Partien, Turnierlisten, Sammlung …).
+//! The basis of an evaluation is `App::data_gen`: the counter rises with
+//! every incoming message except card images, sample hands and progress
+//! messages
+//! (games, tournament lists, collection …).
 
 use super::*;
 use crate::i18n::{self, Locale};
 
-/// Wofür Probehände laufen.
+/// What sample hands run for.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub(super) enum SimTarget {
-    /// Deck in der Deckansicht (Turnierdeck, eigene Liste, gebautes Deck)
-    /// mit dem Stand der Liste beim Start (siehe `SimState::list_gen`).
+    /// Deck in the deck view (tournament deck, own list, built deck) with the
+    /// state of the list at the start (see `SimState::list_gen`).
     Deck(DeckId, u64),
-    /// Deck aus „Deck verbessern“ (grpIds der Liste).
+    /// Deck from "Improve deck" (grpIds of the list).
     Group(Vec<GrpId>),
 }
 
-/// Auswertung „Meine Partien“ für einen Filter.
+/// "My games" analysis for a filter.
 pub(super) struct GamesAnalysis {
     key: (u64, games::GamesFilter, Locale),
-    /// Decks im gewählten Modus für die Auswahl: (Anzeige, Schlüssel).
+    /// Decks in the chosen mode for the selection: (display, key).
     pub decks: Vec<(String, Vec<String>)>,
     pub games: Vec<GameRecord>,
-    /// Feste Nummern aller gespeicherten Partien (auch bei Filter nach Modus).
+    /// Fixed numbers of all stored games (also when filtered by mode).
     pub numbers: games::GameNumbers,
     pub report: games::Report,
     pub opp_groups: Vec<opponents::OppGroup>,
     pub opp_names: Vec<String>,
     pub player: style::PlayerStyle,
     pub recs: Vec<style::Candidate>,
-    /// Geladene Turnierlisten, aus denen die Empfehlungen stammen.
+    /// Loaded tournament lists the recommendations come from.
     pub loaded: usize,
 }
 
-/// Auswertung „Deck verbessern“ für ein gewähltes Deck.
+/// "Improve deck" analysis for a chosen deck.
 pub(super) struct DeckAnalysis {
     key: (u64, usize, Locale),
     pub groups: Vec<deckcheck::DeckGroup>,
-    /// Gewähltes Deck (Index in `groups`) und seine Auswertung.
+    /// Chosen deck (index in `groups`) and its analysis.
     pub sel: usize,
     pub check: Option<deckcheck::DeckCheck>,
 }
 
 impl App {
-    /// Auswertung „Meine Partien“, nur bei geänderter Grundlage neu berechnet.
-    /// `None`, solange Kartendaten fehlen.
+    /// "My games" analysis, only recomputed when its basis changed.
+    /// `None` as long as card data is missing.
     pub(super) fn games_analysis(&mut self) -> Option<GamesAnalysis> {
         let key = (self.data_gen, self.games.filter.clone(), i18n::current());
         if let Some(a) = self.games.cache.take()
@@ -91,7 +91,7 @@ impl App {
         })
     }
 
-    /// Decks der Partien im gewählten Modus, zuletzt gespieltes zuerst.
+    /// Decks of the games in the chosen mode, most recently played first.
     fn deck_choices(&self, db: &CardDb) -> Vec<(String, Vec<String>)> {
         let mode_only = games::GamesFilter {
             mode: self.games.filter.mode,
@@ -110,7 +110,7 @@ impl App {
             .collect()
     }
 
-    /// Auswertung „Deck verbessern“ für das Deck an Stelle `sel`.
+    /// "Improve deck" analysis for the deck at position `sel`.
     pub(super) fn deck_analysis(&mut self, sel: usize) -> Option<DeckAnalysis> {
         let key = (self.data_gen, sel, i18n::current());
         if let Some(a) = self.deck_cache.take()
@@ -134,7 +134,7 @@ impl App {
         })
     }
 
-    /// Startet Probehände im Hintergrund (nichts, wenn sie schon laufen).
+    /// Starts sample hands in the background (nothing if they are already running).
     pub(super) fn start_trial(&mut self, target: SimTarget, deck: Vec<GrpId>) {
         let Some(db) = self.db.clone() else { return };
         if !self.sims.running.insert(target.clone()) {
@@ -151,11 +151,11 @@ impl App {
         self.sims.running.contains(target)
     }
 
-    /// Ergebnis von Probehänden übernehmen.
+    /// Takes over the result of sample hands.
     pub(super) fn finish_trial(&mut self, target: SimTarget, trial: sim::Trial) {
         self.sims.running.remove(&target);
         match target {
-            // Inzwischen eine andere Liste unter dieser Kennung: Ergebnis verwerfen.
+            // Meanwhile a different list under this id: discard the result.
             SimTarget::Deck(id, started) => {
                 if started == self.sims.list_gen(id) {
                     self.sims.decks.insert(id, trial);
@@ -167,14 +167,14 @@ impl App {
         }
     }
 
-    /// Baut Deckvorschläge aus der Sammlung im Hintergrund.
+    /// Builds deck suggestions from the collection in the background.
     pub(super) fn start_build(&mut self) {
         let Some(db) = self.db.clone() else { return };
         if self.built.running {
             return;
         }
         self.built.running = true;
-        // Turnier-Präsenz: in wie vielen geladenen Turnierlisten kommt eine Karte vor?
+        // Tournament presence: in how many loaded tournament lists does a card appear?
         let meta_use = deck::usage_counts(
             self.evals
                 .iter()

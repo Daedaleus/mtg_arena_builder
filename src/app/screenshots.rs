@@ -1,10 +1,9 @@
-//! Bildschirmfotos für das README: `--screenshots ORDNER` schaltet nacheinander
-//! durch die Reiter, wählt dort einen Eintrag aus, wartet, bis Daten und
-//! Kartenbilder geladen sind, speichert ein PNG je Reiter und schließt das
-//! Fenster.
+//! Screenshots for the README: `--screenshots DIR` goes through the tabs one
+//! after another, selects an entry there, waits until data and card images
+//! are loaded, saves one PNG per tab and closes the window.
 //!
-//! Die Oberfläche ist in diesem Modus englisch, und es wird nichts an den
-//! Einstellungen gespeichert (siehe `App::save_settings`).
+//! The interface is English in this mode, and nothing is saved to the
+//! settings (see `App::save_settings`).
 
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
@@ -13,10 +12,10 @@ use eframe::egui;
 
 use super::{App, Tab};
 
-/// Reiter, Dateiname und Wartezeit nach dem Auswählen. Turnierdecks und
-/// Events laden ihre Listen erst bei Auswahl, daher länger. Events zuerst:
-/// Nach der Auswahl eines Archetyps stehen viele MTGTop8-Abrufe (höchstens
-/// alle 5 s) in der Warteschlange vor magic.gg.
+/// Tab, file name and waiting time after selecting. Tournament decks and
+/// events only load their lists on selection, hence longer. Events first:
+/// after choosing an archetype, many MTGTop8 fetches (at most every 5 s)
+/// queue up before magic.gg.
 const SHOTS: [(Tab, &str, u64); 5] = [
     (Tab::Events, "official-events.png", 10),
     (Tab::Meta, "tournament-decks.png", 15),
@@ -25,9 +24,9 @@ const SHOTS: [(Tab, &str, u64); 5] = [
     (Tab::Built, "from-my-collection.png", 4),
 ];
 
-/// Wartezeit vor dem ersten Bild (Kartendatenbank, Partien, Archetypen).
+/// Waiting time before the first image (card database, games, archetypes).
 const FIRST_WAIT: Duration = Duration::from_secs(8);
-/// So lange wird höchstens auf etwas Auswählbares gewartet.
+/// Wait at most this long for something to select.
 const PREPARE_LIMIT: Duration = Duration::from_secs(20);
 
 pub(super) struct Shooter {
@@ -51,7 +50,7 @@ impl Shooter {
 }
 
 impl App {
-    /// Treibt den Fotomodus an; ohne `shooter` passiert nichts.
+    /// Drives the screenshot mode; without `shooter` nothing happens.
     pub(super) fn drive_screenshots(&mut self, ctx: &egui::Context) {
         let Some((next, since, prepared)) =
             self.shooter.as_ref().map(|s| (s.next, s.since, s.prepared))
@@ -100,8 +99,8 @@ impl App {
         }
     }
 
-    /// Wählt im Reiter etwas aus, damit das Bild nicht leer ist. `false`,
-    /// solange es noch nichts zum Auswählen gibt.
+    /// Selects something in the tab so the image isn't empty. `false` as long
+    /// as there is nothing to select yet.
     fn prepare_shot(&mut self, tab: Tab) -> bool {
         match tab {
             Tab::Meta => {

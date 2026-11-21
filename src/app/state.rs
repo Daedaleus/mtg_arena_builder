@@ -1,11 +1,11 @@
-//! Daten der Oberfläche: Laden, Listen, Bewertungen und Budget-Version.
+//! Data of the interface: loading, lists, ratings and budget version.
 
 use super::*;
 
 impl App {
-    /// Liest die Arena-Logs im Hintergrund ein und ergänzt `games.json`.
-    /// Neue Sprache: zwischengespeicherte Texte (Probehände, eigene Decks)
-    /// neu berechnen lassen.
+    /// Reads the Arena logs in the background and extends `games.json`.
+    /// New language: have cached texts (sample hands, own decks) computed
+    /// again.
     pub(super) fn on_language_changed(&mut self) {
         self.sims.decks.clear();
         self.sims.groups.clear();
@@ -32,10 +32,10 @@ impl App {
         });
     }
 
-    /// Schreibt Einstellungen und Sitzungszustand nach `settings.json`
-    /// (nur wenn sich etwas geändert hat).
+    /// Writes settings and session state to `settings.json` (only if something
+    /// changed).
     pub(super) fn save_settings(&mut self) {
-        // Der Fotomodus verändert Reiter und Sprache nur für sich.
+        // The screenshot mode changes tab and language only for itself.
         if self.shooter.is_some() {
             return;
         }
@@ -55,8 +55,8 @@ impl App {
         }
     }
 
-    /// Stand der Kartendatenbank – erst beim Anzeigen formuliert, damit ein
-    /// Sprachwechsel ihn erfasst.
+    /// State of the card database – only phrased when shown, so a language
+    /// switch covers it.
     pub(super) fn db_status(&self) -> String {
         match &self.db {
             Some(db) => tr!(
@@ -75,7 +75,7 @@ impl App {
             Ok(db) => {
                 self.db_error.clear();
                 self.db = Some(std::sync::Arc::new(db));
-                // Das Begleitfenster liest mit der neuen Datenbank weiter.
+                // The companion keeps reading with the new database.
                 if let Some(live) = self.live.take() {
                     live.stop.store(true, std::sync::atomic::Ordering::Relaxed);
                 }
@@ -88,7 +88,7 @@ impl App {
         self.refresh_owned();
     }
 
-    /// Nach Änderungen an Sammlung/Kartendaten alles neu bewerten.
+    /// After changes to collection/card data, rate everything again.
     pub(super) fn refresh_owned(&mut self) {
         self.owned = match (&self.collection, &self.db) {
             (Some(c), Some(db)) => c.owned_by_name(db),
@@ -116,7 +116,7 @@ impl App {
         self.tour.sel_deck = None;
         self.subs.clear();
         self.built.decks = None;
-        // magic.gg-Events beim nächsten Öffnen für das neue Format laden.
+        // Load magic.gg events for the new format at the next opening.
         self.gg.events.clear();
         self.gg.format = None;
         self.gg.sel_event = None;
@@ -140,8 +140,8 @@ impl App {
         self.tasks
             .run(move || Msg::Collection(collection::sync(&path)));
     }
-    /// Reiht alle noch nicht geladenen Listen eines Archetyps ein, damit die
-    /// günstigste Variante gefunden wird (eine Anfrage alle 5 s, dauerhaft gecacht).
+    /// Queues all not yet loaded lists of an archetype, so the cheapest
+    /// variant is found (one request every 5 s, cached permanently).
     pub(super) fn queue_variants(&mut self, arch: u32) {
         let ids: Vec<u32> = self
             .tour
@@ -185,7 +185,7 @@ impl App {
         }
     }
 
-    /// Ersetzt fehlende Karten automatisch so, dass die Wildcards reichen.
+    /// Replaces missing cards automatically so the wildcards suffice.
     pub(super) fn apply_budget(&mut self, deck_id: DeckId, eval: &DeckEval) {
         let Some(db) = &self.db else { return };
         let legal = self.tour.legal.get(&self.settings.format);
@@ -197,7 +197,7 @@ impl App {
             self.wildcards(),
             self.settings.include_side,
         );
-        // Gewählter Ersatz muss in der Auswahlliste stehen – sonst ergänzen.
+        // The chosen replacement must be in the selection list – otherwise add it.
         for (key, rep) in &plan.replacements {
             let slot = (deck_id, key.clone());
             let listed = self
@@ -230,7 +230,7 @@ impl App {
             .unwrap_or_default()
     }
 
-    /// Farbe + Kurztext: was das Deck an Wildcards kostet.
+    /// Color + short text: what the deck costs in wildcards.
     pub(super) fn fit_text(&self, s: &Summary) -> (Color32, String) {
         let (fit, text) = present::fit(s, self.collection.is_some(), self.wildcards());
         let color = match fit {
@@ -242,7 +242,7 @@ impl App {
         (color, text)
     }
 
-    /// Günstigstes bereits bewertetes Deck eines Archetyps.
+    /// Cheapest already rated deck of an archetype.
     pub(super) fn best_of_arch(&self, arch: u32) -> Option<Summary> {
         self.tour
             .decks
@@ -252,7 +252,7 @@ impl App {
             .min_by_key(|s| cost_key(s, self.wildcards()))
     }
 
-    /// Alle geladenen Turnierlisten des aktuellen Formats, nach Archetyp.
+    /// All loaded tournament lists of the current format, by archetype.
     pub(super) fn meta_archetypes(&self) -> Vec<deckcheck::MetaArchetype<'_>> {
         self.tour
             .archetypes
@@ -272,8 +272,8 @@ impl App {
             .collect()
     }
 
-    /// Alle geladenen Turnierlisten (MTGTop8 und magic.gg) als Kandidaten für
-    /// die Empfehlung nach Spielstil.
+    /// All loaded tournament lists (MTGTop8 and magic.gg) as candidates for the
+    /// recommendation by play style.
     pub(super) fn style_candidates(&self, db: &CardDb) -> Vec<style::Candidate> {
         let mut out = Vec::new();
         for a in &self.tour.archetypes {
@@ -315,7 +315,7 @@ impl App {
         out
     }
 
-    /// Öffnet ein Turnierdeck in seinem Reiter (MTGTop8 oder magic.gg).
+    /// Opens a tournament deck in its tab (MTGTop8 or magic.gg).
     pub(super) fn open_deck(&mut self, id: u32) {
         if let Some(arch) = self
             .tour

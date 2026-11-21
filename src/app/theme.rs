@@ -1,21 +1,21 @@
-//! Design-Tokens: alle Gestaltungswerte der Oberfläche an einer Stelle –
-//! Farben (für dunkles und helles Design), Abstände und Bildgrößen. Die
-//! Bausteine in `atoms` und alle Ansichten holen ihre Werte nur von hier.
+//! Design tokens: all design values of the interface in one place – colors
+//! (for dark and light mode), spacing and image sizes. The building blocks in
+//! `atoms` and all views take their values only from here.
 
 use eframe::egui::{self, Color32};
 
 use crate::carddb::Rarity;
 
-/// Bedeutung einer Farbe; die Farbe selbst hängt vom Design ab.
+/// Meaning of a color; the color itself depends on the design.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum Tone {
-    /// Gut, erledigt, gewonnen.
+    /// Good, done, won.
     Good,
-    /// Achtung, herstellbar, knapp.
+    /// Attention, craftable, close.
     Warn,
-    /// Fehler, fehlt, verloren.
+    /// Error, missing, lost.
     Bad,
-    /// Unwichtig oder unbekannt.
+    /// Unimportant or unknown.
     Muted,
 }
 
@@ -29,7 +29,7 @@ struct Palette {
     mythic: Color32,
 }
 
-/// Helle Töne auf dunklem Grund.
+/// Light tones on a dark background.
 const DARK: Palette = Palette {
     good: Color32::from_rgb(110, 200, 120),
     warn: Color32::from_rgb(235, 195, 80),
@@ -40,7 +40,7 @@ const DARK: Palette = Palette {
     mythic: Color32::from_rgb(240, 130, 60),
 };
 
-/// Dunklere Töne auf hellem Grund, damit der Kontrast reicht.
+/// Darker tones on a light background, so the contrast is enough.
 const LIGHT: Palette = Palette {
     good: Color32::from_rgb(25, 120, 45),
     warn: Color32::from_rgb(150, 100, 0),
@@ -59,7 +59,7 @@ fn palette(ctx: &egui::Context) -> &'static Palette {
     }
 }
 
-/// Farbe einer Bedeutung im aktuellen Design.
+/// Color of a meaning in the current design.
 pub(super) fn tone(ctx: &egui::Context, tone: Tone) -> Color32 {
     let p = palette(ctx);
     match tone {
@@ -70,7 +70,7 @@ pub(super) fn tone(ctx: &egui::Context, tone: Tone) -> Color32 {
     }
 }
 
-/// Farbe einer Seltenheit im aktuellen Design.
+/// Color of a rarity in the current design.
 pub(super) fn rarity(ctx: &egui::Context, r: Rarity) -> Color32 {
     let p = palette(ctx);
     match r {
@@ -81,13 +81,13 @@ pub(super) fn rarity(ctx: &egui::Context, r: Rarity) -> Color32 {
     }
 }
 
-/// Abstand zwischen Elementen und Innenabstand von Knöpfen.
+/// Spacing between elements and inner padding of buttons.
 const ITEM_SPACING: egui::Vec2 = egui::vec2(8.0, 6.0);
 const BUTTON_PADDING: egui::Vec2 = egui::vec2(8.0, 4.0);
-/// Größe eines Kartenbilds beim Überfahren.
+/// Size of a card image on hover.
 pub(super) const CARD_IMAGE: egui::Vec2 = egui::vec2(244.0, 340.0);
 
-/// Abstände und Textgröße für die ganze Oberfläche setzen.
+/// Set spacing and text size for the whole interface.
 pub(super) fn apply(ctx: &egui::Context, zoom: f32) {
     ctx.style_mut(|style| {
         style.spacing.item_spacing = ITEM_SPACING;

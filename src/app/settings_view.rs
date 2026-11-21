@@ -1,10 +1,10 @@
-//! Fenster „Einstellungen“: Sprache, Darstellung, Export, Begleitfenster, Arena-Ordner.
+//! Window "Settings": language, display, export, companion, Arena folder.
 
 use super::*;
 
 impl App {
-    /// Sprache: wie das Betriebssystem oder fest gewählt. Gilt sofort;
-    /// berechnete Auswertungen werden neu erstellt.
+    /// Language: like the operating system or chosen explicitly. Applies right
+    /// away; computed analyses are recreated.
     fn language_choice(&mut self, ui: &mut egui::Ui) {
         use crate::i18n::{Language, Locale};
         let label = |l: Language| match l {
