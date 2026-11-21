@@ -1,8 +1,8 @@
 //! Card builder and a small default card database.
 
 use crate::carddb::{
-    Card, CardDb, GrpId, ROLE_COUNTER, ROLE_DRAW, ROLE_REMOVAL, ROLE_WIPE, Rarity, TYPE_CREATURE,
-    TYPE_INSTANT, TYPE_LAND, TYPE_SORCERY,
+    Card, CardDb, GrpId, ROLE_COUNTER, ROLE_DRAW, ROLE_PUMP, ROLE_REMOVAL, ROLE_WIPE, Rarity,
+    TYPE_CREATURE, TYPE_INSTANT, TYPE_LAND, TYPE_SORCERY,
 };
 
 /// Bit mask of the colors that appear in mana costs like `{1}{U}{U}`.
@@ -71,6 +71,10 @@ impl CardBuilder {
     }
     pub fn removal(mut self) -> Self {
         self.0.roles |= ROLE_REMOVAL;
+        self
+    }
+    pub fn pump(mut self) -> Self {
+        self.0.roles |= ROLE_PUMP;
         self
     }
     pub fn counter(mut self) -> Self {
@@ -230,7 +234,11 @@ pub fn std_cards() -> Vec<Card> {
             .burn(3)
             .removal()
             .build(),
-        card(GROWTH, "Giant Growth").cost("{G}").instant().build(),
+        card(GROWTH, "Giant Growth")
+            .cost("{G}")
+            .instant()
+            .pump()
+            .build(),
         card(DRAGON, "Shivan Dragon")
             .cost("{4}{R}{R}")
             .creature(5, 5)

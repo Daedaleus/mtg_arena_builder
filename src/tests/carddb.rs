@@ -47,6 +47,14 @@ fn roles_from_text() {
         ROLE_COUNTER | ROLE_DRAW
     );
     assert_eq!(roles_of("Target creature gets +3/+3."), 0);
+    assert_eq!(
+        roles_of("Target creature gets +3/+3 until end of turn."),
+        ROLE_PUMP
+    );
+    assert_eq!(
+        roles_of("Target creature you control gets +2/+0 and gains trample until end of turn."),
+        ROLE_PUMP
+    );
     assert_eq!(roles_of("<b>Destroy target creature.</b>"), ROLE_REMOVAL);
 }
 

@@ -176,6 +176,8 @@ pub const ROLE_REMOVAL: u8 = 1;
 pub const ROLE_COUNTER: u8 = 2;
 /// Draws cards.
 pub const ROLE_DRAW: u8 = 4;
+/// Combat trick: a creature gets +X/+X until end of turn.
+pub const ROLE_PUMP: u8 = 16;
 /// Clears the whole battlefield – also hits the own creatures.
 pub const ROLE_WIPE: u8 = 8;
 

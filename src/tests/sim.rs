@@ -364,6 +364,12 @@ fn opponent_profile_from_history() {
     games[1].opp_cards.insert(GROWTH, 1);
     let o = opponent_from(&games, &db).unwrap();
     assert!((o.tricks - 1.0 / 36.0).abs() < 0.01, "{}", o.tricks);
+    assert_eq!(o.flying, 0.0);
+    // Share of flying creatures among the opposing creature cards seen.
+    games[2].opp_cards.insert(ANGEL, 1);
+    games[2].opp_cards.insert(BEAR, 3);
+    let o = opponent_from(&games, &db).unwrap();
+    assert!((o.flying - 0.25).abs() < 0.01, "{}", o.flying);
     // Fixed opponent for comparison
     let fast = Opponent::fast();
     assert_eq!(fast.games, 0);
@@ -405,6 +411,7 @@ fn personal_simulation() {
         turns: TURNS,
         removal: 0.0,
         tricks: 0.0,
+        flying: 0.0,
     };
     let fast = simulate(&d, &db, 300, 3);
     let best = simulate_with(&d, &db, 300, 3, &slow, None);
@@ -454,36 +461,149 @@ fn opponent_removal_and_tricks() {
     let mut b = pressure::Board::new();
     b.cast(card(ELF));
     b.cast(card(OGRE));
-    assert_eq!(b.opp_turn_with(None, true, false), vec![OGRE]);
+    let removal = pressure::OppTurn {
+        removal: true,
+        ..Default::default()
+    };
+    let quiet = pressure::OppTurn::default();
+    let with_trick = pressure::OppTurn {
+        trick: true,
+        ..Default::default()
+    };
+    assert_eq!(b.opp_turn_with(None, removal), vec![OGRE]);
     assert_eq!(b.mine.len(), 1);
     assert_eq!(b.mine[0].card, ELF);
 
     // Without a trick the attacking 2/2 dies to the ogre, with a trick the ogre.
-    for (trick, ogre_lives) in [(false, true), (true, false)] {
+    for (how, ogre_lives) in [(quiet, true), (with_trick, false)] {
         let mut b = pressure::Board::new();
         b.cast(card(OGRE));
-        b.opp_turn_with(Some((2, 2)), false, false);
-        let died = b.opp_turn_with(None, false, trick);
-        assert_eq!(died.is_empty(), ogre_lives, "Trick {trick}");
-        assert_eq!(b.opp.len(), usize::from(trick), "Trick {trick}");
+        b.opp_turn_with(Some((2, 2)), quiet);
+        let died = b.opp_turn_with(None, how);
+        assert_eq!(died.is_empty(), ogre_lives, "{how:?}");
+        assert_eq!(b.opp.len(), usize::from(how.trick), "{how:?}");
         assert_eq!(b.life, START_LIFE);
     }
 
     // Unblocked, the trick brings extra damage.
     let mut b = pressure::Board::new();
-    b.opp_turn_with(Some((2, 1)), false, false);
-    b.opp_turn_with(None, false, true);
+    b.opp_turn_with(Some((2, 1)), quiet);
+    b.opp_turn_with(None, with_trick);
     assert_eq!(b.life, START_LIFE - 2 - pressure::TRICK_BONUS);
 
     // Trick for the blocker: the 2/2 stops the lethal ogre and survives.
     let mut b = pressure::Board::new();
     b.cast(card(OGRE));
-    b.opp_turn_with(Some((2, 2)), false, false);
+    b.opp_turn_with(Some((2, 2)), quiet);
     b.start_my_turn();
     b.opp_life = 3;
-    assert_eq!(b.my_attack_with(false, true), vec![OGRE]);
+    assert_eq!(b.my_attack_with(false, true, false), vec![OGRE]);
     assert_eq!(b.opp_life, 3);
     assert_eq!(b.opp.len(), 1);
+}
+
+#[test]
+fn own_combat_tricks() {
+    let db = std_db();
+    let card = |g: GrpId| &db.cards[&g];
+    let quiet = pressure::OppTurn::default();
+    // Both sides pump: the ogre (3/3 + 2) beats the pumped 2/2 (4/4).
+    let mut b = pressure::Board::new();
+    b.cast(card(OGRE));
+    b.opp_turn_with(Some((2, 2)), quiet);
+    b.start_my_turn();
+    b.opp_life = 3;
+    assert!(b.my_attack_with(false, true, true).is_empty());
+    assert!(b.trick_used);
+    assert!(b.opp.is_empty());
+
+    // Own trick for a blocker: the ogre survives the pumped 2/2 attacker.
+    let mut b = pressure::Board::new();
+    b.cast(card(OGRE));
+    b.opp_turn_with(Some((2, 2)), quiet);
+    let how = pressure::OppTurn {
+        trick: true,
+        own_trick: true,
+        ..Default::default()
+    };
+    assert!(b.opp_turn_with(None, how).is_empty());
+    assert!(b.trick_used);
+    assert!(b.opp.is_empty());
+    assert_eq!(b.mine.len(), 1);
+
+    // Without a blocker the own trick stays in the hand.
+    let mut b = pressure::Board::new();
+    b.opp_turn_with(Some((2, 2)), quiet);
+    let how = pressure::OppTurn {
+        own_trick: true,
+        ..Default::default()
+    };
+    b.opp_turn_with(None, how);
+    assert!(!b.trick_used);
+    assert_eq!(b.life, START_LIFE - 2);
+}
+
+#[test]
+fn prowess_grows_with_spells() {
+    let db = std_db();
+    let monk = crate::testutil::card(GrpId(900), "Monastery Swiftspear")
+        .cost("{R}")
+        .creature(1, 2)
+        .abilities(&[crate::carddb::keyword::PROWESS])
+        .build();
+    let mut b = pressure::Board::new();
+    b.cast(&monk);
+    b.start_my_turn();
+    b.cast(&db.cards[&DIVINATION]);
+    b.my_attack();
+    assert_eq!(b.opp_life, START_LIFE - 2, "1 power + 1 for the spell");
+    // The bonus lasts only for the turn.
+    b.start_my_turn();
+    b.my_attack();
+    assert_eq!(b.opp_life, START_LIFE - 3);
+    // A used combat trick counts as a spell too.
+    b.start_my_turn();
+    b.my_attack_with(false, false, true);
+    assert_eq!(b.opp_life, START_LIFE - 3 - 2 - pressure::TRICK_BONUS);
+}
+
+#[test]
+fn flying_opponents_pass_ground_blockers() {
+    let db = std_db();
+    let flyer = pressure::OppTurn {
+        flying: true,
+        ..Default::default()
+    };
+    let quiet = pressure::OppTurn::default();
+    // The bear can't block the flying 2/2.
+    let mut b = pressure::Board::new();
+    b.cast(&db.cards[&BEAR]);
+    b.opp_turn_with(Some((2, 2)), flyer);
+    b.opp_turn_with(None, quiet);
+    assert_eq!(b.life, START_LIFE - 2);
+    // The angel flies too and stops it.
+    let mut b = pressure::Board::new();
+    b.cast(&db.cards[&ANGEL]);
+    b.opp_turn_with(Some((2, 2)), flyer);
+    b.opp_turn_with(None, quiet);
+    assert_eq!(b.life, START_LIFE);
+}
+
+#[test]
+fn simulation_uses_tricks_from_hand() {
+    let db = std_db();
+    // The same deck once more, but Giant Growth isn't recognised as a trick.
+    let mut blank = std_db();
+    blank.cards.get_mut(&GROWTH).unwrap().roles = 0;
+    let d = deck(&[(FOREST, 24), (BEAR, 26), (GROWTH, 10)]);
+    let with = simulate(&d, &db, 300, 5);
+    let without = simulate(&d, &blank, 300, 5);
+    assert!(
+        with.pressure.life[5] > without.pressure.life[5],
+        "{:?} / {:?}",
+        with.pressure,
+        without.pressure
+    );
 }
 
 #[test]

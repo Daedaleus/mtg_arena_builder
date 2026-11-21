@@ -35,14 +35,12 @@ pub use crate::games::START_LIFE;
 /// Bonus of an opposing combat trick (+X/+X until end of turn).
 pub const TRICK_BONUS: i32 = 2;
 
-/// Where the opponent plays a trick in combat.
-#[derive(Clone, Copy, Debug, PartialEq)]
-enum Trick {
-    None,
-    /// On a blocked attacker (otherwise extra damage).
-    Attacker,
-    /// On a blocker.
-    Blocker,
+/// Combat tricks in a fight: for the attacking side (on a blocked attacker,
+/// otherwise extra damage) and for the defending side (on a blocker).
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+struct Tricks {
+    attacker: bool,
+    defender: bool,
 }
 
 /// How well does the deck hold up against a fast opponent?
@@ -91,6 +89,8 @@ pub(super) struct Unit {
     /// May attack (no more summoning sickness).
     pub ready: bool,
     pub tapped: bool,
+    /// Prowess: +1/+1 until end of turn per noncreature spell cast.
+    pub prowess: bool,
 }
 
 /// Can `blocker` block the attacker, kill it and survive itself?
@@ -108,24 +108,21 @@ fn battle(
     attackers: &[LiveCreature],
     defenders: &[LiveCreature],
     life: i32,
-    trick: Trick,
+    tricks: Tricks,
 ) -> (i32, Vec<u32>, Vec<u32>) {
     let plan = combat::plan_blocks(attackers, defenders, life);
     let mut damage = plan.damage;
-    let pumped = match trick {
-        Trick::Attacker => plan.blocks.first().map(|b| b.attacker),
-        Trick::Blocker => plan
-            .blocks
-            .first()
-            .and_then(|b| b.blockers.first().copied()),
-        Trick::None => None,
-    };
-    if trick == Trick::Attacker && pumped.is_none() && damage > 0 {
+    let first_block = plan.blocks.first();
+    let pumped_attacker = first_block.filter(|_| tricks.attacker).map(|b| b.attacker);
+    let pumped_blocker = first_block
+        .filter(|_| tricks.defender)
+        .and_then(|b| b.blockers.first().copied());
+    if tricks.attacker && pumped_attacker.is_none() && damage > 0 {
         damage += TRICK_BONUS;
     }
     let pump = |c: &LiveCreature| {
         let mut c = c.clone();
-        if pumped == Some(c.grp_id) {
+        if pumped_attacker == Some(c.grp_id) || pumped_blocker == Some(c.grp_id) {
             c.power += TRICK_BONUS;
             c.toughness += TRICK_BONUS;
         }
@@ -157,6 +154,19 @@ fn battle(
     (damage, dead_att, dead_def)
 }
 
+/// What happens in an opponent turn besides the new creature.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub(super) struct OppTurn {
+    /// The new creature flies.
+    pub flying: bool,
+    /// The opponent first removes the strongest own creature.
+    pub removal: bool,
+    /// The opponent has a combat trick for an attacker.
+    pub trick: bool,
+    /// I have a combat trick for a blocker (see `Board::trick_used`).
+    pub own_trick: bool,
+}
+
 /// Battlefield of a simulated game against the fast opponent.
 pub(super) struct Board {
     pub mine: Vec<Unit>,
@@ -164,6 +174,10 @@ pub(super) struct Board {
     pub life: i32,
     pub opp_life: i32,
     pub kills: u32,
+    /// Noncreature spells cast this own turn (for prowess).
+    pub spells_cast: i32,
+    /// An own combat trick was used in the last fight.
+    pub trick_used: bool,
     next_id: u32,
 }
 
@@ -175,6 +189,8 @@ impl Board {
             life: START_LIFE,
             opp_life: START_LIFE,
             kills: 0,
+            spells_cast: 0,
+            trick_used: false,
             next_id: 1,
         }
     }
@@ -197,14 +213,28 @@ impl Board {
 
     /// Start of the own turn: own creatures untap and become ready.
     pub fn start_my_turn(&mut self) {
+        self.spells_cast = 0;
         for u in &mut self.mine {
             u.tapped = false;
             u.ready = true;
         }
     }
 
+    /// Own creature as it fights right now: with the prowess bonus of this turn.
+    fn fighter(&self, u: &Unit) -> LiveCreature {
+        let mut c = u.c.clone();
+        if u.prowess {
+            c.power += self.spells_cast;
+            c.toughness += self.spells_cast;
+        }
+        c
+    }
+
     /// An own card was played.
     pub fn cast(&mut self, card: &Card) {
+        if !card.is_creature() {
+            self.spells_cast += 1;
+        }
         if card.is_creature() {
             let id = self.id();
             self.mine.push(Unit {
@@ -212,6 +242,7 @@ impl Board {
                 c: creature_of(card, id),
                 ready: card.has_ability(kw::HASTE),
                 tapped: false,
+                prowess: card.has_ability(kw::PROWESS),
             });
         } else if card.has_role(ROLE_WIPE) {
             self.kills += self.opp.len() as u32;
@@ -247,13 +278,20 @@ impl Board {
     /// died in it.
     #[cfg(test)]
     pub fn my_attack(&mut self) -> Vec<GrpId> {
-        self.my_attack_with(false, false)
+        self.my_attack_with(false, false, false)
     }
 
     /// Like [`Board::my_attack`]; `hesitant` = only lethal attacks (habit of
-    /// skipping safe attacks), `trick` = the opponent has a combat trick for a
-    /// blocker.
-    pub fn my_attack_with(&mut self, hesitant: bool, trick: bool) -> Vec<GrpId> {
+    /// skipping safe attacks), `opp_trick` = the opponent has a combat trick
+    /// for a blocker, `own_trick` = I have one for an attacker (counts for
+    /// prowess when used; see `trick_used`).
+    pub fn my_attack_with(
+        &mut self,
+        hesitant: bool,
+        opp_trick: bool,
+        own_trick: bool,
+    ) -> Vec<GrpId> {
+        self.trick_used = false;
         if self.over() {
             return Vec::new();
         }
@@ -266,8 +304,9 @@ impl Board {
         let able: Vec<LiveCreature> = self
             .mine
             .iter()
-            .filter(|u| u.ready && !u.tapped && u.c.power > 0)
-            .map(|u| u.c.clone())
+            .filter(|u| u.ready && !u.tapped)
+            .map(|u| self.fighter(u))
+            .filter(|c| c.power > 0)
             .collect();
         let lethal = combat::unblocked_damage(&able, &blockers) >= self.opp_life;
         // Counterattack next turn: all opposing creatures attack.
@@ -284,8 +323,23 @@ impl Board {
         if attackers.is_empty() {
             return Vec::new();
         }
-        let trick = if trick { Trick::Blocker } else { Trick::None };
-        let (damage, dead_att, dead_def) = battle(&attackers, &blockers, self.opp_life, trick);
+        // An own trick is cast during combat and counts for prowess too.
+        self.trick_used = own_trick;
+        let attackers: Vec<LiveCreature> = if own_trick {
+            self.spells_cast += 1;
+            self.mine
+                .iter()
+                .filter(|u| attackers.iter().any(|a| a.grp_id == u.c.grp_id))
+                .map(|u| self.fighter(u))
+                .collect()
+        } else {
+            attackers
+        };
+        let tricks = Tricks {
+            attacker: own_trick,
+            defender: opp_trick,
+        };
+        let (damage, dead_att, dead_def) = battle(&attackers, &blockers, self.opp_life, tricks);
         self.opp_life -= damage;
         self.kills += dead_def.len() as u32;
         self.opp.retain(|u| !dead_def.contains(&u.c.grp_id));
@@ -313,18 +367,20 @@ impl Board {
     /// Returns the grpIds of the own creatures that died in it.
     #[cfg(test)]
     pub fn opp_turn(&mut self, turn: usize) -> Vec<GrpId> {
-        self.opp_turn_with(Some(OPP_CURVE[(turn - 1).min(TURNS - 1)]), false, false)
+        let new = OPP_CURVE[(turn - 1).min(TURNS - 1)];
+        self.opp_turn_with(Some(new), OppTurn::default())
     }
 
-    /// The opponent's turn with a given new creature (power, toughness).
-    /// `removal`: first removes the strongest own creature; `trick`: combat
-    /// trick for an attacker.
-    pub fn opp_turn_with(
-        &mut self,
-        new: Option<(i32, i32)>,
-        removal: bool,
-        trick: bool,
-    ) -> Vec<GrpId> {
+    /// The opponent's turn with a given new creature (power, toughness); what
+    /// else happens is in `how`.
+    pub fn opp_turn_with(&mut self, new: Option<(i32, i32)>, how: OppTurn) -> Vec<GrpId> {
+        self.trick_used = false;
+        let OppTurn {
+            flying,
+            removal,
+            trick,
+            own_trick,
+        } = how;
         if self.over() {
             return Vec::new();
         }
@@ -352,8 +408,12 @@ impl Board {
             .filter(|u| !u.tapped)
             .map(|u| u.c.clone())
             .collect();
-        let trick = if trick { Trick::Attacker } else { Trick::None };
-        let (damage, dead_opp, dead_mine) = battle(&attackers, &blockers, self.life, trick);
+        let tricks = Tricks {
+            attacker: trick,
+            defender: own_trick && !blockers.is_empty(),
+        };
+        self.trick_used = tricks.defender;
+        let (damage, dead_opp, dead_mine) = battle(&attackers, &blockers, self.life, tricks);
         self.life -= damage;
         self.kills += dead_opp.len() as u32;
         self.opp.retain(|u| !dead_opp.contains(&u.c.grp_id));
@@ -371,10 +431,13 @@ impl Board {
                 grp_id: id,
                 power,
                 toughness,
+                flying,
+                reach: flying,
                 ..Default::default()
             },
             ready: false,
             tapped: false,
+            prowess: false,
         });
         died
     }
