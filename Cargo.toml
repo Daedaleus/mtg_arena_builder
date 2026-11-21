@@ -1,6 +1,6 @@
 [package]
 name = "mtg_arena_builder"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2024"
 description = "Desktop companion for MTG Arena: tournament decks vs. your collection, deck building, game analysis and in-game hints"
 license = "GPL-3.0-or-later"
