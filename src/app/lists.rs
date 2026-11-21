@@ -183,7 +183,7 @@ impl App {
         }
         ui.label(tr!(
             "lists.decks_build_right_away",
-            v = self.settings.format.name()
+            v = self.settings.mode.label()
         ));
         note(ui, tr!("lists.card_strength_estimated_rarity"));
         let built = self.built.decks.clone().unwrap_or_default();

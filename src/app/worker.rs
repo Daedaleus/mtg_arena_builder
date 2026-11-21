@@ -37,7 +37,7 @@ pub(super) enum Msg {
     Archetypes(Format, Result<Vec<Archetype>, String>),
     Decks(Format, u32, Result<Vec<DeckRef>, String>),
     List(u32, Result<String, String>),
-    Legal(Format, Result<HashSet<String>, String>),
+    Legal(GameFormat, Result<HashSet<String>, String>),
     GgEvents(Format, Result<Vec<GgEvent>, String>),
     GgDecks(String, Result<Vec<GgDeck>, String>),
     Collection(Result<collection::Synced, collection::CollectionError>),
@@ -210,7 +210,7 @@ impl App {
         }
     }
 
-    fn on_legal(&mut self, format: Format, result: Result<HashSet<String>, String>) {
+    fn on_legal(&mut self, format: GameFormat, result: Result<HashSet<String>, String>) {
         match result {
             Ok(names) => {
                 self.tour.legal.insert(format, names);

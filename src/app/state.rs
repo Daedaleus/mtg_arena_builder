@@ -125,7 +125,11 @@ impl App {
         self.save_settings();
         if format_changed {
             self.load_format(false);
+        } else {
+            self.request_legality();
         }
+        // Decks from the collection depend on the mode.
+        self.built.decks = None;
     }
 
     pub(super) fn load_format(&mut self, force: bool) {
@@ -145,13 +149,20 @@ impl App {
         self.gg.sel_event = None;
         self.gg.sel_deck = None;
         self.status = tr!("state.loading_metagame_mtgtop8", v = format.name());
-        if self.tour.legal_requested.insert(format) {
+        self.request_legality();
+    }
+
+    /// Loads the legal cards of the game mode from Scryfall (once).
+    pub(super) fn request_legality(&mut self) {
+        let mode = self.settings.mode;
+        let Some(name) = mode.scryfall() else { return };
+        if self.tour.legal_requested.insert(mode) {
             let (cache, net) = (self.data_dir.join("cache"), self.net.clone());
             self.tasks.run(move || {
                 let r = Fetcher::with_http(cache, net)
-                    .legal_names(format.scryfall())
+                    .legal_names(name)
                     .map_err(|e| format!("{e:#}"));
-                Msg::Legal(format, r)
+                Msg::Legal(mode, r)
             });
         }
     }
@@ -276,11 +287,10 @@ impl App {
     }
 
     /// All loaded tournament lists of the current format, by archetype.
-    /// Cards legal in the game mode (`None` = unknown or no tournament format,
-    /// e.g. Brawl: then everything counts as allowed).
+    /// Cards legal in the game mode (`None` = unknown, e.g. limited: then
+    /// everything counts as allowed).
     pub(super) fn legal(&self) -> Option<&HashSet<String>> {
-        let format = self.settings.mode.meta()?;
-        self.tour.legal.get(&format)
+        self.tour.legal.get(&self.settings.mode)
     }
 
     /// Archetypes of the tournament format; none in modes without one.

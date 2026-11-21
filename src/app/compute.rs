@@ -191,8 +191,14 @@ impl App {
         );
         let owned = self.owned.clone();
         let legal = self.legal().cloned();
+        let mode = self.settings.mode;
         self.built.lists = self.lists.len();
-        self.tasks
-            .run(move || Msg::Built(builder::build_all(&db, &owned, legal.as_ref(), &meta_use)));
+        self.tasks.run(move || {
+            Msg::Built(if mode.is_brawl() {
+                builder::build_brawl(&db, &owned, legal.as_ref(), mode)
+            } else {
+                builder::build_all(&db, &owned, legal.as_ref(), &meta_use)
+            })
+        });
     }
 }

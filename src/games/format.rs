@@ -160,6 +160,30 @@ impl GameFormat {
         }
     }
 
+    /// Name of the format at Scryfall (for the legality list); none for
+    /// limited and other events.
+    pub fn scryfall(self) -> Option<&'static str> {
+        match self {
+            GameFormat::Standard => Some("standard"),
+            GameFormat::Historic => Some("historic"),
+            GameFormat::Explorer => Some("explorer"),
+            GameFormat::Alchemy => Some("alchemy"),
+            GameFormat::Timeless => Some("timeless"),
+            GameFormat::Brawl => Some("brawl"),
+            GameFormat::StandardBrawl => Some("standardbrawl"),
+            GameFormat::Limited | GameFormat::Other => None,
+        }
+    }
+
+    /// Deck size of the format, commander included (constructed: minimum).
+    pub fn deck_size(self) -> Option<usize> {
+        match self {
+            GameFormat::Brawl => Some(BRAWL_DECK_SIZE),
+            GameFormat::Limited | GameFormat::Other => None,
+            _ => Some(60),
+        }
+    }
+
     /// Brawl in either size.
     pub fn is_brawl(self) -> bool {
         matches!(self, GameFormat::Brawl | GameFormat::StandardBrawl)

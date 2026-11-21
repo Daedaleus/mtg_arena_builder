@@ -102,7 +102,7 @@ fn builds_decks_for_owned_colors() {
 
     for b in &built {
         let total: u32 = b.deck.main.iter().map(|e| e.qty).sum();
-        assert_eq!(total, DECK_SIZE, "{}", b.label);
+        assert_eq!(total, CONSTRUCTED.spells + CONSTRUCTED.lands, "{}", b.label);
         assert!(b.creatures >= 12);
         // At most 4 copies per card (except basic lands).
         assert!(
@@ -123,7 +123,7 @@ fn builds_decks_for_owned_colors() {
     assert_eq!(count(gruul, "Mountain") + count(gruul, "Forest"), 16);
     assert!(count(gruul, "Mountain") >= 5 && count(gruul, "Forest") >= 5);
     let red = built.iter().find(|b| b.label == "Mono-Rot").unwrap();
-    assert_eq!(count(red, "Mountain"), LANDS);
+    assert_eq!(count(red, "Mountain"), CONSTRUCTED.lands);
     assert!(red.removal > 0);
     assert!(red.rares > 0);
 }
@@ -183,4 +183,79 @@ fn rating_rules() {
     assert!(rating(&big, 0, 1 << 3, 1) < rating(&fair, 0, 1 << 3, 1) + 1.0);
     assert_eq!(curve_bucket(0), 0);
     assert_eq!(curve_bucket(9), 5);
+}
+
+/// Singletons in red and green, a red-green and a white commander.
+fn brawl_collection() -> (CardDb, HashMap<String, u32>) {
+    let mut cards = vec![
+        card(1, "Plains").land("W").basic().build(),
+        card(4, "Mountain").land("R").basic().build(),
+        card(5, "Forest").land("G").basic().build(),
+        card(6, "Rootbound Crag").land("RG").rarity(4).build(),
+        card(7, "Gruul Chief")
+            .cost("{2}{R}{G}")
+            .creature(4, 4)
+            .legendary()
+            .rarity(4)
+            .build(),
+        card(8, "Lonely Knight")
+            .cost("{1}{W}")
+            .creature(2, 2)
+            .legendary()
+            .build(),
+    ];
+    let mut owned: HashMap<String, u32> = ["rootbound crag", "gruul chief", "lonely knight"]
+        .iter()
+        .map(|k| (k.to_string(), 1))
+        .collect();
+    let mut grp = 100;
+    for (color, letter) in [("Red", "R"), ("Green", "G")] {
+        for cmc in 1..=5u32 {
+            for n in 0..5 {
+                let generic = if cmc > 1 {
+                    format!("{{{}}}", cmc - 1)
+                } else {
+                    String::new()
+                };
+                let name = format!("{color} Beast {cmc}{n}");
+                cards.push(
+                    card(grp, &name)
+                        .cost(&format!("{generic}{{{letter}}}"))
+                        .creature(cmc as i32 + 1, cmc as i32)
+                        .build(),
+                );
+                // Several copies owned, one goes into the deck.
+                owned.insert(name.to_lowercase(), 3);
+                grp += 1;
+            }
+        }
+    }
+    (CardDb::from_cards(cards, "t"), owned)
+}
+
+#[test]
+fn brawl_decks_around_owned_commanders() {
+    use crate::games::GameFormat;
+    let (db, owned) = brawl_collection();
+    let built = build_brawl(&db, &owned, None, GameFormat::StandardBrawl);
+    // The white commander has no white cards to go with it.
+    assert_eq!(
+        built.len(),
+        1,
+        "{:?}",
+        built.iter().map(|b| &b.label).collect::<Vec<_>>()
+    );
+    let b = &built[0];
+    assert!(b.label.starts_with("Gruul Chief"), "{}", b.label);
+    assert_eq!(b.deck.commander, vec!["Gruul Chief".to_string()]);
+    assert_eq!(b.deck.main[0].name, "Gruul Chief");
+    let total: u32 = b.deck.main.iter().map(|e| e.qty).sum();
+    assert_eq!(total, 60);
+    // Follows all Brawl rules: one copy, colors, size, commander.
+    let problems = crate::deck::brawl::check(&b.deck, &db, GameFormat::StandardBrawl, None);
+    assert!(problems.is_empty(), "{problems:?}");
+    assert_eq!(count(b, "Rootbound Crag"), 1);
+    // Historic Brawl needs 61 spells – not enough cards here; other modes build nothing.
+    assert!(build_brawl(&db, &owned, None, GameFormat::Brawl).is_empty());
+    assert!(build_brawl(&db, &owned, None, GameFormat::Standard).is_empty());
 }
