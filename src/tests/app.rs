@@ -209,3 +209,20 @@ fn deck_ids_roundtrip_through_settings() {
     assert!(DeckId::Top8(5).is_tournament() && DeckId::Gg(0x8000_0001).is_tournament());
     assert!(!DeckId::Pasted.is_tournament() && DeckId::Built(1).is_built());
 }
+
+#[test]
+fn tabs_fit_the_game_mode() {
+    use crate::games::GameFormat;
+    let shown = |mode: GameFormat| -> Vec<u8> {
+        Tab::SAVED
+            .into_iter()
+            .filter(|t| t.fits(mode))
+            .map(Tab::saved)
+            .collect()
+    };
+    // Saved order: Meta, Paste, Built, Games, DeckCheck, Events.
+    assert_eq!(shown(GameFormat::Standard), vec![0, 1, 2, 3, 4, 5]);
+    assert_eq!(shown(GameFormat::Brawl), vec![1, 3, 4]);
+    assert_eq!(shown(GameFormat::Timeless), vec![1, 3, 4]);
+    assert_eq!(shown(GameFormat::Limited), vec![3]);
+}

@@ -62,7 +62,7 @@ fn old_files_get_a_version_and_write_errors_are_reported() {
     assert!(s.companion);
     assert!(file.save(&s).unwrap(), "migrated file is written again");
     let text = std::fs::read_to_string(dir.path("settings.json")).unwrap();
-    assert!(text.contains("\"version\": 1"), "{text}");
+    assert!(text.contains("\"version\": 2"), "{text}");
     // A write error reaches the caller (the folder doesn't exist).
     let gone = TempDir::new("settings_gone");
     let (mut file, mut s) = SettingsFile::load(&gone.path("fehlt"));
@@ -73,24 +73,34 @@ fn old_files_get_a_version_and_write_errors_are_reported() {
 #[test]
 fn format_is_stored_as_code() {
     let dir = TempDir::new("settings_format");
-    // Old file with an index, new one with a code, unknown code.
-    for (stored, expected) in [
-        ("3", Format::Historic),
-        ("\"PI\"", Format::Pioneer),
-        ("\"XX\"", Format::Standard),
-        ("99", Format::Alchemy),
+    // Old file with an index, new one with a code, unknown code; the game
+    // mode follows the format (Arena has no Pioneer: Explorer).
+    for (stored, expected, mode) in [
+        ("3", Format::Historic, GameFormat::Historic),
+        ("\"PI\"", Format::Explorer, GameFormat::Explorer),
+        ("\"XX\"", Format::Standard, GameFormat::Standard),
+        ("99", Format::Alchemy, GameFormat::Alchemy),
     ] {
         let body = format!("{{ \"format\": {stored} }}");
         std::fs::write(dir.path("settings.json"), body).unwrap();
         let (_, s) = SettingsFile::load(&dir.0);
-        assert_eq!(s.format, expected, "{stored}");
+        assert_eq!((s.format, s.mode), (expected, mode), "{stored}");
     }
+    // Version 2 keeps the stored mode, also without a tournament format.
+    let body = r#"{ "version": 2, "format": "ST", "mode": "brawl" }"#;
+    std::fs::write(dir.path("settings.json"), body).unwrap();
+    let (_, s) = SettingsFile::load(&dir.0);
+    assert_eq!((s.format, s.mode), (Format::Standard, GameFormat::Brawl));
+    let body = r#"{ "version": 2, "mode": "nonsense" }"#;
+    std::fs::write(dir.path("settings.json"), body).unwrap();
+    assert_eq!(SettingsFile::load(&dir.0).1.mode, GameFormat::Standard);
     let s = Settings {
         format: Format::Pioneer,
         ..Default::default()
     };
     let json = serde_json::to_string(&s).unwrap();
     assert!(json.contains("\"format\":\"PI\""), "{json}");
+    assert!(json.contains("\"mode\":\"standard\""), "{json}");
 }
 
 #[test]

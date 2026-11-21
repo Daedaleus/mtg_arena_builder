@@ -48,19 +48,18 @@ impl App {
         {
             self.sync_collection();
         }
-        let before = self.settings.format;
+        let mut mode = self.settings.mode;
         egui::ComboBox::from_id_salt("format")
-            .selected_text(self.settings.format.name())
+            .selected_text(mode.label())
             .show_ui(ui, |ui| {
-                for f in Format::ALL {
-                    ui.selectable_value(&mut self.settings.format, f, f.name());
+                for m in GameFormat::SELECTABLE {
+                    ui.selectable_value(&mut mode, m, m.label());
                 }
             })
             .response
             .on_hover_text(tr!("chrome.format_tournament_decks_legality"));
-        if before != self.settings.format {
-            self.save_settings();
-            self.load_format(false);
+        if mode != self.settings.mode {
+            self.set_mode(mode);
         }
         ui.label(tr!("chrome.format"));
     }
@@ -99,7 +98,8 @@ impl App {
                 tr!("chrome.which_cards_deck_should"),
             ),
         ];
-        for (tab, label, hint) in tabs {
+        let mode = self.settings.mode;
+        for (tab, label, hint) in tabs.into_iter().filter(|(t, _, _)| t.fits(mode)) {
             let text = RichText::new(label).size(15.0);
             if ui
                 .add(egui::SelectableLabel::new(self.tab == tab, text))

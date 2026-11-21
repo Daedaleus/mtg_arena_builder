@@ -42,6 +42,69 @@ impl GameFormat {
         GameFormat::Other,
     ];
 
+    /// What can be chosen as the game mode of the app (all but `Other`).
+    pub const SELECTABLE: [GameFormat; 8] = [
+        GameFormat::Standard,
+        GameFormat::Historic,
+        GameFormat::Explorer,
+        GameFormat::Alchemy,
+        GameFormat::Timeless,
+        GameFormat::Brawl,
+        GameFormat::StandardBrawl,
+        GameFormat::Limited,
+    ];
+
+    /// Code in `settings.json`.
+    pub fn code(self) -> &'static str {
+        match self {
+            GameFormat::Standard => "standard",
+            GameFormat::Historic => "historic",
+            GameFormat::Explorer => "explorer",
+            GameFormat::Alchemy => "alchemy",
+            GameFormat::Timeless => "timeless",
+            GameFormat::Brawl => "brawl",
+            GameFormat::StandardBrawl => "standardbrawl",
+            GameFormat::Limited => "limited",
+            GameFormat::Other => "other",
+        }
+    }
+
+    pub fn from_code(code: &str) -> Option<GameFormat> {
+        GameFormat::ALL
+            .into_iter()
+            .find(|f| f.code().eq_ignore_ascii_case(code))
+    }
+
+    /// Game mode for a tournament format (Arena has no Pioneer: Explorer).
+    pub fn from_meta(format: Format) -> GameFormat {
+        match format {
+            Format::Standard => GameFormat::Standard,
+            Format::Pioneer | Format::Explorer => GameFormat::Explorer,
+            Format::Historic => GameFormat::Historic,
+            Format::Alchemy => GameFormat::Alchemy,
+        }
+    }
+
+    pub fn label(self) -> String {
+        match self {
+            GameFormat::Standard => tr!("game_format.standard"),
+            GameFormat::Historic => tr!("game_format.historic"),
+            GameFormat::Explorer => tr!("game_format.explorer"),
+            GameFormat::Alchemy => tr!("game_format.alchemy"),
+            GameFormat::Timeless => tr!("game_format.timeless"),
+            GameFormat::Brawl => tr!("game_format.brawl"),
+            GameFormat::StandardBrawl => tr!("game_format.standard_brawl"),
+            GameFormat::Limited => tr!("game_format.limited"),
+            GameFormat::Other => tr!("game_format.other"),
+        }
+    }
+
+    /// Decks are built and checked for this mode (not for limited, where the
+    /// deck comes from the draft).
+    pub fn has_own_decks(self) -> bool {
+        !matches!(self, GameFormat::Limited | GameFormat::Other)
+    }
+
     /// Format of an Arena event; `deck_size` (commander included, 0 =
     /// unknown) separates Historic and Standard Brawl when the name doesn't.
     pub fn of(event_name: &str, deck_size: usize) -> GameFormat {

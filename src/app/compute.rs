@@ -39,7 +39,7 @@ pub(super) struct GamesAnalysis {
 
 /// "Improve deck" analysis for a chosen deck.
 pub(super) struct DeckAnalysis {
-    key: (u64, usize, Locale),
+    key: (u64, usize, Locale, GameFormat),
     pub groups: Vec<deckcheck::DeckGroup>,
     /// Chosen deck (index in `groups`) and its analysis.
     pub sel: usize,
@@ -94,7 +94,7 @@ impl App {
     /// Decks of the games in the chosen mode, most recently played first.
     fn deck_choices(&self, db: &CardDb) -> Vec<(String, Vec<String>)> {
         let mode_only = games::GamesFilter {
-            mode: self.games.filter.mode,
+            format: self.games.filter.format,
             deck: None,
         };
         let in_mode: Vec<GameRecord> = self
@@ -110,21 +110,29 @@ impl App {
             .collect()
     }
 
-    /// "Improve deck" analysis for the deck at position `sel`.
+    /// "Improve deck" analysis for the deck at position `sel`: only decks
+    /// and games of the chosen game mode.
     pub(super) fn deck_analysis(&mut self, sel: usize) -> Option<DeckAnalysis> {
-        let key = (self.data_gen, sel, i18n::current());
+        let mode = self.settings.mode;
+        let key = (self.data_gen, sel, i18n::current(), mode);
         if let Some(a) = self.deck_cache.take()
             && a.key == key
         {
             return Some(a);
         }
         let db = self.db.clone()?;
-        let groups = deckcheck::group_decks(&self.games.list, &db);
+        let in_mode: Vec<GameRecord> = self
+            .games
+            .list
+            .iter()
+            .filter(|g| g.format() == mode)
+            .cloned()
+            .collect();
+        let groups = deckcheck::group_decks(&in_mode, &db);
         let sel = sel.min(groups.len().saturating_sub(1));
         let check = groups.get(sel).map(|group| {
             let meta = self.meta_archetypes();
-            let legal = self.tour.legal.get(&self.settings.format);
-            deckcheck::check(group, &self.games.list, &db, &self.owned, legal, &meta)
+            deckcheck::check(group, &in_mode, &db, &self.owned, self.legal(), &meta)
         });
         Some(DeckAnalysis {
             key,
@@ -182,7 +190,7 @@ impl App {
                 .map(|(_, e)| e),
         );
         let owned = self.owned.clone();
-        let legal = self.tour.legal.get(&self.settings.format).cloned();
+        let legal = self.legal().cloned();
         self.built.lists = self.lists.len();
         self.tasks
             .run(move || Msg::Built(builder::build_all(&db, &owned, legal.as_ref(), &meta_use)));

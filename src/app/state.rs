@@ -105,6 +105,28 @@ impl App {
         }
     }
 
+    /// Switches the game mode of the app: tournament format, visible tabs.
+    pub(super) fn set_mode(&mut self, mode: GameFormat) {
+        self.settings.mode = mode;
+        // "My games" follows, unless it shows all games.
+        if self.games.filter.format.is_some() {
+            self.games.filter = games::GamesFilter::of_format(mode);
+            self.games.sel = None;
+            self.games.page.set(0);
+        }
+        if !self.tab.fits(mode) {
+            self.tab = Tab::Games;
+        }
+        let format_changed = mode.meta().is_some_and(|f| f != self.settings.format);
+        if let Some(f) = mode.meta() {
+            self.settings.format = f;
+        }
+        self.save_settings();
+        if format_changed {
+            self.load_format(false);
+        }
+    }
+
     pub(super) fn load_format(&mut self, force: bool) {
         let format = self.settings.format;
         let _ = self.tx_job.send(Job::Clear);
@@ -188,7 +210,7 @@ impl App {
     /// Replaces missing cards automatically so the wildcards suffice.
     pub(super) fn apply_budget(&mut self, deck_id: DeckId, eval: &DeckEval) {
         let Some(db) = &self.db else { return };
-        let legal = self.tour.legal.get(&self.settings.format);
+        let legal = self.legal();
         let plan = budget::plan(
             eval,
             db,
@@ -253,7 +275,18 @@ impl App {
     }
 
     /// All loaded tournament lists of the current format, by archetype.
+    /// Cards legal in the game mode (`None` = unknown or no tournament format,
+    /// e.g. Brawl: then everything counts as allowed).
+    pub(super) fn legal(&self) -> Option<&HashSet<String>> {
+        let format = self.settings.mode.meta()?;
+        self.tour.legal.get(&format)
+    }
+
+    /// Archetypes of the tournament format; none in modes without one.
     pub(super) fn meta_archetypes(&self) -> Vec<deckcheck::MetaArchetype<'_>> {
+        if self.settings.mode.meta().is_none() {
+            return Vec::new();
+        }
         self.tour
             .archetypes
             .iter()

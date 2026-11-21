@@ -1,9 +1,9 @@
-//! Choice of games for "My games": by game mode (groups instead of single
-//! Arena events) and by deck. So Brawl and Standard games or different decks
-//! don't mix in one analysis.
+//! Choice of games for "My games": by format (see [`super::GameFormat`]) and
+//! by deck. So Brawl and Standard games or different decks don't mix in one
+//! analysis. [`GameMode`] groups Arena events coarsely (ranked, play …).
 
-use super::GameRecord;
 use super::arena::event;
+use super::{GameFormat, GameRecord};
 use crate::carddb::{CardDb, GrpId, name_key};
 
 /// Group of Arena events with comparable games.
@@ -90,22 +90,22 @@ pub fn deck_key(deck: &[GrpId], db: &CardDb) -> Vec<String> {
 /// Which games are analysed; `None` = all.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct GamesFilter {
-    pub mode: Option<GameMode>,
+    pub format: Option<GameFormat>,
     /// Key of the decklist (see [`deck_key`]).
     pub deck: Option<Vec<String>>,
 }
 
 impl GamesFilter {
-    /// Mode and deck of game `g` – preselection with the last game.
-    pub fn like(g: &GameRecord, db: &CardDb) -> GamesFilter {
+    /// All decks of one format.
+    pub fn of_format(format: GameFormat) -> GamesFilter {
         GamesFilter {
-            mode: Some(GameMode::of(&g.event)),
-            deck: (!g.deck.is_empty()).then(|| deck_key(&g.deck, db)),
+            format: Some(format),
+            deck: None,
         }
     }
 
     pub fn matches(&self, g: &GameRecord, db: &CardDb) -> bool {
-        self.mode.is_none_or(|m| GameMode::of(&g.event) == m)
+        self.format.is_none_or(|f| g.format() == f)
             && self
                 .deck
                 .as_ref()
