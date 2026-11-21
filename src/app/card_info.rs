@@ -83,12 +83,12 @@ impl App {
         if let Some(tex) = self.images.textures.get(key) {
             ui.add(
                 egui::Image::new((tex.id(), tex.size_vec2()))
-                    .fit_to_exact_size(egui::vec2(244.0, 340.0)),
+                    .fit_to_exact_size(super::theme::CARD_IMAGE),
             );
         } else if self.images.failed.borrow().contains_key(key) {
-            ui.label(RichText::new(tr!("card_info.image_reachable_right_now")).weak());
+            note(ui, tr!("card_info.image_reachable_right_now"));
         } else if self.images.missing.contains(key) {
-            ui.label(RichText::new(tr!("deck_view.no_image_available")).weak());
+            note(ui, tr!("deck_view.no_image_available"));
         } else {
             ui.horizontal(|ui| {
                 ui.spinner();

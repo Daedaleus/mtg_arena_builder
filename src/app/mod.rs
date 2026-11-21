@@ -5,6 +5,12 @@
 //! Aus meiner Sammlung, Eigene Liste), `deck_view` (Deckansicht mit Ersatzkarten),
 //! `games_tab` (Meine Partien, Verlauf), `deck_check` (Deck verbessern) und
 //! `companion` (Begleitfenster). Logik gehört in die Fachmodule der Bibliothek.
+//!
+//! Gestaltung nach Atomic Design: `theme` hält alle Gestaltungswerte
+//! (Farben für dunkles und helles Design, Abstände, Bildgrößen), `atoms` die
+//! kleinsten Bausteine (Hinweistext, farbiger Text, Seltenheit), `widgets`
+//! größere Bausteine (Probehände, Wildcard-Plan); die Reiter setzen sie nur
+//! zusammen. Farben nie direkt eintragen, sondern über `theme::Tone`.
 
 use compute::{DeckAnalysis, GamesAnalysis, SimTarget};
 use parts::{BuiltState, GamesState, GgState, ImageCache, SimState, TourState};
@@ -36,9 +42,6 @@ use crate::sim;
 use crate::similar::{self, Suggestion};
 use crate::style;
 
-const GREEN: Color32 = Color32::from_rgb(110, 200, 120);
-const YELLOW: Color32 = Color32::from_rgb(235, 195, 80);
-const RED: Color32 = Color32::from_rgb(235, 115, 105);
 /// Woher ein Deck in den Deck-Tabellen (`lists`, `evals`, Ersatzkarten) stammt.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub(super) enum DeckId {
@@ -82,15 +85,7 @@ impl DeckId {
     }
 }
 
-fn rarity_color(r: Rarity) -> Color32 {
-    match r {
-        Rarity::Uncommon => Color32::from_rgb(170, 200, 220),
-        Rarity::Rare => Color32::from_rgb(230, 195, 100),
-        Rarity::Mythic => Color32::from_rgb(240, 130, 60),
-        _ => Color32::GRAY,
-    }
-}
-
+mod atoms;
 mod card_info;
 mod chrome;
 mod companion;
@@ -108,10 +103,13 @@ mod screenshots;
 mod settings_view;
 mod state;
 mod tasks;
+mod theme;
 mod widgets;
 mod worker;
 
+use atoms::*;
 use progress_view::progress_view;
+use theme::Tone;
 use widgets::*;
 use worker::{Job, Msg, worker};
 
@@ -212,12 +210,8 @@ impl App {
             None => settings.language.resolve(),
         });
 
-        // Etwas großzügigere Abstände und die gewählte Textgröße.
-        cc.egui_ctx.style_mut(|style| {
-            style.spacing.item_spacing = egui::vec2(8.0, 6.0);
-            style.spacing.button_padding = egui::vec2(8.0, 4.0);
-        });
-        cc.egui_ctx.set_zoom_factor(settings.zoom());
+        // Abstände und die gewählte Textgröße (siehe `theme`).
+        theme::apply(&cc.egui_ctx, settings.zoom());
 
         // Ein Netzabruf für alle Threads: Mindestabstände gelten gemeinsam.
         let net = crate::http::shared();
@@ -318,7 +312,7 @@ impl eframe::App for App {
         }
         egui::CentralPanel::default().show(ctx, |ui| {
             if self.db.is_none() {
-                ui.label(RichText::new(self.db_status()).color(RED));
+                toned(ui, Tone::Bad, self.db_status());
                 ui.label(tr!("app.set_arena_folder_under"));
                 ui.separator();
             }

@@ -127,7 +127,7 @@ impl App {
                                         .on_hover_text(cost_tooltip(s));
                                 }
                                 None => {
-                                    ui.label(RichText::new(tr!("lists.loaded")).weak());
+                                    note(ui, tr!("lists.loaded"));
                                 }
                             });
                         });
@@ -185,10 +185,10 @@ impl App {
             "lists.decks_build_right_away",
             v = self.settings.format.name()
         ));
-        ui.label(RichText::new(tr!("lists.card_strength_estimated_rarity")).weak());
+        note(ui, tr!("lists.card_strength_estimated_rarity"));
         let built = self.built.decks.clone().unwrap_or_default();
         if built.is_empty() {
-            ui.label(RichText::new(tr!("lists.no_complete_deck_built")).color(YELLOW));
+            toned(ui, Tone::Warn, tr!("lists.no_complete_deck_built"));
             return;
         }
         ui.add_space(4.0);

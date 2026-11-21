@@ -68,10 +68,10 @@ impl App {
                         recommended = player.recommended.name(),
                         v = player.recommended.description()
                     ))
-                    .color(GREEN)
+                    .color(theme::tone(ui.ctx(), Tone::Good))
                     .strong(),
                 );
-                ui.label(RichText::new(&player.reason).weak());
+                note(ui, &player.reason);
                 if recs.is_empty() {
                     let text = if loaded == 0 {
                         tr!("games_overview.app_suggests_matching_decks")
@@ -82,7 +82,7 @@ impl App {
                             recommended = player.recommended.name()
                         )
                     };
-                    ui.label(RichText::new(text).weak());
+                    note(ui, text);
                     return;
                 }
                 ui.label(tr!("games_overview.matching_tournament_decks_cheapest"));
@@ -91,7 +91,7 @@ impl App {
                         if ui.link(&c.label).clicked() {
                             open = Some(c.deck_id);
                         }
-                        ui.label(RichText::new(c.source.as_str()).weak());
+                        note(ui, c.source.as_str());
                         let (color, text) = self.fit_text(&c.summary);
                         ui.label(RichText::new(text).color(color))
                             .on_hover_text(cost_tooltip(&c.summary));
@@ -110,7 +110,7 @@ impl App {
         ))
         .id_salt("damage_sources")
         .show(ui, |ui| {
-            ui.label(RichText::new(tr!("games_overview.against_these_cards_pays")).weak());
+            note(ui, tr!("games_overview.against_these_cards_pays"));
             for (name, dmg) in &r.damage_sources {
                 let resp = ui.label(tr!(
                     "games_overview.damage",
@@ -137,7 +137,11 @@ impl App {
 /// Siege, Niederlagen, Anfangen/Ziehen und Partielänge.
 fn balance(ui: &mut egui::Ui, r: &games::Report) {
     ui.horizontal_wrapped(|ui| {
-        let color = if r.wins >= r.losses { GREEN } else { RED };
+        let color = if r.wins >= r.losses {
+            theme::tone(ui.ctx(), Tone::Good)
+        } else {
+            theme::tone(ui.ctx(), Tone::Bad)
+        };
         ui.label(
             RichText::new(tr!(
                 "games_overview.wins_losses",
@@ -165,7 +169,11 @@ fn top_mistakes(ui: &mut egui::Ui, r: &games::Report) {
         .take(3)
         .collect();
     if top.is_empty() {
-        ui.label(RichText::new(tr!("games_overview.no_typical_mistakes_found")).color(GREEN));
+        toned(
+            ui,
+            Tone::Good,
+            tr!("games_overview.no_typical_mistakes_found"),
+        );
     }
     for (n, c) in top.iter().enumerate() {
         let in_games: HashSet<usize> = c.items.iter().map(|f| f.game).collect();
@@ -173,7 +181,7 @@ fn top_mistakes(ui: &mut egui::Ui, r: &games::Report) {
             ui.label(
                 RichText::new(format!("{}. {}", n + 1, c.title()))
                     .strong()
-                    .color(YELLOW),
+                    .color(theme::tone(ui.ctx(), Tone::Warn)),
             );
             ui.label(tr!(
                 "games_overview.games_2",
@@ -210,13 +218,17 @@ fn all_findings(app: &App, ui: &mut egui::Ui, r: &games::Report) -> Option<usize
         .weak(),
     );
     for c in &r.categories {
-        let color = if c.items.is_empty() { GREEN } else { YELLOW };
+        let color = if c.items.is_empty() {
+            theme::tone(ui.ctx(), Tone::Good)
+        } else {
+            theme::tone(ui.ctx(), Tone::Warn)
+        };
         egui::CollapsingHeader::new(
             RichText::new(format!("{}: {}×", c.title(), c.items.len())).color(color),
         )
         .id_salt(c.title())
         .show(ui, |ui| {
-            ui.label(RichText::new(c.advice()).weak());
+            note(ui, c.advice());
             for f in &c.items {
                 let when = if f.turn == 0 {
                     tr!("games_overview.opening_hand")
@@ -250,7 +262,7 @@ fn opponents_section(ui: &mut egui::Ui, opp_groups: &[opponents::OppGroup]) {
         .id_salt("opponents")
         .default_open(true)
         .show(ui, |ui| {
-            ui.label(RichText::new(tr!("games_overview.app_recognizes_opponents_deck")).weak());
+            note(ui, tr!("games_overview.app_recognizes_opponents_deck"));
             egui::Grid::new("opp_grid")
                 .striped(true)
                 .num_columns(4)
@@ -266,7 +278,11 @@ fn opponents_section(ui: &mut egui::Ui, opp_groups: &[opponents::OppGroup]) {
                     ui.end_row();
                     for o in opp_groups {
                         ui.label(&o.name);
-                        let color = if o.wins >= o.losses() { GREEN } else { RED };
+                        let color = if o.wins >= o.losses() {
+                            theme::tone(ui.ctx(), Tone::Good)
+                        } else {
+                            theme::tone(ui.ctx(), Tone::Bad)
+                        };
                         ui.label(
                             RichText::new(tr!(
                                 "games_overview.wins_losses_2",

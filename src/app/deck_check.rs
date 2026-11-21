@@ -96,7 +96,7 @@ impl App {
                 let resp = ui.label(
                     RichText::new(tr!("deck_check.out", out = self.shown(&sw.out)))
                         .strong()
-                        .color(YELLOW),
+                        .color(theme::tone(ui.ctx(), Tone::Warn)),
                 );
                 self.card_hover(resp, &sw.out, None);
                 ui.label(format!("– {}", sw.reason));
@@ -105,10 +105,11 @@ impl App {
                 ui.horizontal_wrapped(|ui| {
                     ui.add_space(16.0);
                     let resp = ui.label(
-                        RichText::new(tr!("deck_check.in", name = self.shown(name))).color(GREEN),
+                        RichText::new(tr!("deck_check.in", name = self.shown(name)))
+                            .color(theme::tone(ui.ctx(), Tone::Good)),
                     );
                     self.card_hover(resp, name, None);
-                    ui.label(RichText::new(tr!("deck_check.text", why = why)).weak());
+                    note(ui, tr!("deck_check.text", why = why));
                 });
             }
         }
@@ -117,7 +118,7 @@ impl App {
     /// Tabelle aller Karten im Deck mit Nutzung, Schaden und Turnier-Anteil.
     fn cards_section(&self, ui: &mut egui::Ui, r: &deckcheck::DeckCheck, sel: usize) {
         section(ui, &tr!("deck_check.cards_deck"));
-        ui.label(RichText::new(tr!("deck_check.drawn_played_how_many")).weak());
+        note(ui, tr!("deck_check.drawn_played_how_many"));
         let winrates = r.show_winrates();
         ui.push_id(("deck_cards", sel), |ui| {
             let mut table = TableBuilder::new(ui)
@@ -182,7 +183,7 @@ impl App {
             let resp = ui.label(if c.land {
                 text.weak()
             } else {
-                text.color(rarity_color(c.rarity))
+                text.color(theme::rarity(ui.ctx(), c.rarity))
             });
             self.card_hover(resp, &c.name, None);
         });
@@ -190,7 +191,7 @@ impl App {
         row.col(|ui| dash(ui, tracked && !c.land, c.cast.to_string()));
         row.col(|ui| {
             if c.held > 0 {
-                ui.label(RichText::new(c.held.to_string()).color(YELLOW));
+                toned(ui, Tone::Warn, c.held.to_string());
             } else {
                 dash(ui, tracked && !c.land, "0".into());
             }
@@ -226,9 +227,13 @@ fn section(ui: &mut egui::Ui, title: &str) {
 /// Bilanz des Decks und Hinweis, ab wann Gewinnraten je Karte erscheinen.
 fn summary(ui: &mut egui::Ui, group: &deckcheck::DeckGroup, r: &deckcheck::DeckCheck) {
     if group.fixed {
-        ui.label(RichText::new(tr!("deck_check.deck_set_event_cannot")).color(YELLOW));
+        toned(ui, Tone::Warn, tr!("deck_check.deck_set_event_cannot"));
     }
-    let color = if r.wins * 2 >= r.games { GREEN } else { RED };
+    let color = if r.wins * 2 >= r.games {
+        theme::tone(ui.ctx(), Tone::Good)
+    } else {
+        theme::tone(ui.ctx(), Tone::Bad)
+    };
     ui.horizontal_wrapped(|ui| {
         ui.label(
             RichText::new(tr!("deck_check.wins_games", wins = r.wins, games = r.games))
@@ -269,9 +274,9 @@ fn lands_section(
         flood = m.flood
     ));
     let color = if m.verdict.needs_change() {
-        YELLOW
+        theme::tone(ui.ctx(), Tone::Warn)
     } else {
-        Color32::GRAY
+        theme::tone(ui.ctx(), Tone::Muted)
     };
     ui.label(RichText::new(m.verdict.advice()).color(color));
     let clicked = ui
@@ -294,12 +299,12 @@ fn lands_section(
 fn meta_section(ui: &mut egui::Ui, meta: Option<&deckcheck::MetaMatch>, db: &CardDb) {
     section(ui, &tr!("deck_check.comparison_tournament_decks"));
     let Some(m) = meta else {
-        ui.label(RichText::new(tr!("deck_check.no_matching_tournament_archetype")).weak());
+        note(ui, tr!("deck_check.no_matching_tournament_archetype"));
         return;
     };
     ui.label(tr!("deck_check.most_similar_loaded_tournament", archetype = m.archetype, lists = m.lists, v = m.overlap * 100.0 : {:.0}));
     if m.missing.is_empty() {
-        ui.label(RichText::new(tr!("deck_check.play_cards_most_these")).color(GREEN));
+        toned(ui, Tone::Good, tr!("deck_check.play_cards_most_these"));
         return;
     }
     ui.label(tr!("deck_check.least_half_tournament_lists"));
@@ -309,9 +314,9 @@ fn meta_section(ui: &mut egui::Ui, meta: Option<&deckcheck::MetaMatch>, db: &Car
                 tr!("deck_check.lists", name = db.display_name(name), v = share * 100.0 : {:.0}),
             );
             if *own > 0 {
-                ui.label(RichText::new(tr!("deck_check.you_have", own = own)).color(GREEN));
+                toned(ui, Tone::Good, tr!("deck_check.you_have", own = own));
             } else {
-                ui.label(RichText::new(tr!("deck_check.collection")).weak());
+                note(ui, tr!("deck_check.collection"));
             }
         });
     }

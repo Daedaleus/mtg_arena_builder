@@ -234,10 +234,10 @@ impl App {
     pub(super) fn fit_text(&self, s: &Summary) -> (Color32, String) {
         let (fit, text) = present::fit(s, self.collection.is_some(), self.wildcards());
         let color = match fit {
-            Fit::Unknown => Color32::GRAY,
-            Fit::Complete => GREEN,
-            Fit::Craftable => YELLOW,
-            Fit::TooExpensive => RED,
+            Fit::Unknown => theme::tone(&self.ctx, Tone::Muted),
+            Fit::Complete => theme::tone(&self.ctx, Tone::Good),
+            Fit::Craftable => theme::tone(&self.ctx, Tone::Warn),
+            Fit::TooExpensive => theme::tone(&self.ctx, Tone::Bad),
         };
         (color, text)
     }

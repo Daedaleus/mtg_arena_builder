@@ -73,8 +73,8 @@ impl App {
 
 /// Zeichnet das Begleitfenster.
 pub(super) fn draw(ui: &mut egui::Ui, view: &live::CompanionView) {
-    let green = egui::Color32::from_rgb(110, 200, 120);
-    let yellow = egui::Color32::from_rgb(235, 195, 80);
+    let green = theme::tone(ui.ctx(), Tone::Good);
+    let yellow = theme::tone(ui.ctx(), Tone::Warn);
     ui.heading(&view.status);
     if let Some((me, opp)) = view.life {
         ui.horizontal(|ui| {

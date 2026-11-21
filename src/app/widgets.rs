@@ -14,7 +14,7 @@ pub(super) fn sim_view(ui: &mut egui::Ui, t: &sim::Trial) {
                 .weak(),
             );
             for (i, a) in r.advice.iter().enumerate() {
-                let color = if r.smooth { GREEN } else { YELLOW };
+                let color = if r.smooth { theme::tone(ui.ctx(), Tone::Good) } else { theme::tone(ui.ctx(), Tone::Warn) };
                 let text = RichText::new(a).color(color);
                 ui.label(if i == 0 { text.strong() } else { text });
             }
@@ -30,7 +30,7 @@ pub(super) fn sim_view(ui: &mut egui::Ui, t: &sim::Trial) {
             let mana: Vec<String> = (0..r.turns)
                 .map(|t| format!("Z{} {:.1}/{:.1}", t + 1, r.mana_used[t], r.mana_avail[t]))
                 .collect();
-            ui.label(RichText::new(tr!("widgets.mana_used_available", v = mana.join(" · "))).weak());
+            note(ui, tr!("widgets.mana_used_available", v = mana.join(" · ")));
         });
 }
 
@@ -83,7 +83,11 @@ fn personal_view(ui: &mut egui::Ui, t: &sim::Trial) {
             } else {
                 tr!("widgets.already_play_deck_almost")
             };
-            ui.label(RichText::new(text).color(if gap >= 1.0 { YELLOW } else { GREEN }));
+            ui.label(RichText::new(text).color(if gap >= 1.0 {
+                theme::tone(ui.ctx(), Tone::Warn)
+            } else {
+                theme::tone(ui.ctx(), Tone::Good)
+            }));
         }
         _ => {
             ui.label(
@@ -127,12 +131,12 @@ pub(super) fn wildcard_plan_view(ui: &mut egui::Ui, plan: &budget::WildcardPlan,
         .show(ui, |ui| {
             ui.label(tr!("widgets.already_owned_deck", complete = plan.complete : {:.0}));
             if !plan.now.is_empty() {
-                ui.label(RichText::new(tr!("widgets.craft_now_wildcards")).color(GREEN).strong());
+                ui.label(RichText::new(tr!("widgets.craft_now_wildcards")).color(theme::tone(ui.ctx(), Tone::Good)).strong());
                 for s in &plan.now {
                     ui.label(format!("• {}× {} ({})", s.qty, db.display_name(&s.name), Rarity::WILDCARDS[s.slot].label()));
                 }
                 if let Some(last) = plan.now.last() {
-                    ui.label(RichText::new(tr!("widgets.after_deck_complete", complete = last.complete : {:.0})).weak());
+                    note(ui, tr!("widgets.after_deck_complete", complete = last.complete : {:.0}));
                 }
             }
             if !plan.later.is_empty() {
@@ -149,7 +153,7 @@ pub(super) fn wildcard_plan_view(ui: &mut egui::Ui, plan: &budget::WildcardPlan,
             }
             if !plan.unavailable.is_empty() {
                 ui.label(
-                    RichText::new(tr!("widgets.available_arena", v = plan.unavailable.join(", "))).color(YELLOW),
+                    RichText::new(tr!("widgets.available_arena", v = plan.unavailable.join(", "))).color(theme::tone(ui.ctx(), Tone::Warn)),
                 );
             }
         });

@@ -7,6 +7,10 @@ const TREND_WINDOW: usize = 10;
 
 /// „Meine Partien“ > „Verlauf“: Rang und Siegquote über die Zeit.
 pub(super) fn progress_view(ui: &mut egui::Ui, games: &[GameRecord], db: &CardDb) {
+    // Farben vorab: in den Diagrammen ist `ui` ausgeliehen.
+    let good = theme::tone(ui.ctx(), Tone::Good);
+    let warn = theme::tone(ui.ctx(), Tone::Warn);
+    let bad = theme::tone(ui.ctx(), Tone::Bad);
     use egui_plot::{Legend, Line, Plot, PlotPoints};
     egui::ScrollArea::vertical()
         .id_salt("progress_scroll")
@@ -42,14 +46,14 @@ pub(super) fn progress_view(ui: &mut egui::Ui, games: &[GameRecord], db: &CardDb
                     .x_axis_label(tr!("progress_view.game"))
                     .legend(Legend::default())
                     .show(ui, |plot| {
-                        plot.line(Line::new(PlotPoints::from(ranks)).name(tr!("progress_view.constructed")).color(GREEN));
+                        plot.line(Line::new(PlotPoints::from(ranks)).name(tr!("progress_view.constructed")).color(good));
                         plot.line(
                             Line::new(PlotPoints::from(progress::queue_series(
                                 games,
                                 progress::Queue::Limited,
                             )))
                             .name(tr!("progress_view.limited_2"))
-                            .color(YELLOW),
+                            .color(warn),
                         );
                     });
             }
@@ -59,11 +63,11 @@ pub(super) fn progress_view(ui: &mut egui::Ui, games: &[GameRecord], db: &CardDb
             ui.heading(tr!("progress_view.win_rate"));
             if let Some((recent, before)) = progress::trend(games, TREND_WINDOW) {
                 let color = if recent > before + 0.5 {
-                    GREEN
+                    good
                 } else if recent + 0.5 < before {
-                    RED
+                    bad
                 } else {
-                    YELLOW
+                    warn
                 };
                 ui.label(
                     RichText::new(tr!("progress_view.last_games_won_before", TREND_WINDOW = TREND_WINDOW, recent = recent : {:.0}, before = before : {:.0}))

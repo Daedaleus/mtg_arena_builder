@@ -29,7 +29,7 @@ impl App {
                     {
                         self.ensure_gg_events(true);
                     }
-                    ui.label(RichText::new(tr!("events.source_magic_gg")).weak());
+                    note(ui, tr!("events.source_magic_gg"));
                 });
                 ui.separator();
                 let mut clicked: Option<String> = None;
@@ -37,7 +37,7 @@ impl App {
                     .auto_shrink([false, false])
                     .show(ui, |ui| {
                         if self.gg.events.is_empty() {
-                            ui.label(RichText::new(tr!("events.no_events_loaded_yet")).weak());
+                            note(ui, tr!("events.no_events_loaded_yet"));
                         }
                         for e in &self.gg.events {
                             let selected = self.gg.sel_event.as_deref() == Some(e.slug.as_str());
@@ -125,7 +125,7 @@ impl App {
                             {
                                 clicked = Some(*id);
                             }
-                            ui.label(RichText::new(who).weak());
+                            note(ui, who);
                             match summary {
                                 Some(s) => {
                                     let (color, text) = self.fit_text(s);

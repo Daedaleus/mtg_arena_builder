@@ -123,7 +123,7 @@ impl App {
                 }
                 ui.label(&self.status);
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    ui.label(RichText::new(self.db_status()).weak());
+                    note(ui, self.db_status());
                 });
             });
         });
@@ -161,7 +161,7 @@ impl App {
                     .auto_shrink([false, false])
                     .show(ui, |ui| {
                         if rows.is_empty() {
-                            ui.label(RichText::new(tr!("chrome.no_archetypes_loaded_yet")).weak());
+                            note(ui, tr!("chrome.no_archetypes_loaded_yet"));
                         }
                         for (arch, best) in &rows {
                             ui.horizontal(|ui| {
@@ -294,10 +294,10 @@ impl App {
             for (i, (done, title, how)) in steps.iter().enumerate() {
                 ui.horizontal_wrapped(|ui| {
                     if *done {
-                        ui.label(RichText::new(tr!("chrome.text", title = title)).color(GREEN));
+                        toned(ui, Tone::Good, tr!("chrome.text", title = title));
                     } else {
                         ui.label(RichText::new(tr!("chrome.text_2", title = title)).strong());
-                        ui.label(RichText::new(how.as_str()).weak());
+                        note(ui, how.as_str());
                         if i == 1 && !self.syncing {
                             sync = ui.small_button(tr!("chrome.read_now")).clicked();
                         }
@@ -318,11 +318,11 @@ fn collection_summary(ui: &mut egui::Ui, collection: Option<&Collection>) {
         Some(c) => {
             ui.label(tr!("chrome.cards", v = c.total_cards()))
                 .on_hover_text(tr!("chrome.collection_read", v = c.age_text()));
-            ui.label(RichText::new(tr!("chrome.wildcards_2")).weak());
+            note(ui, tr!("chrome.wildcards_2"));
             for (i, n) in c.wildcards.as_array().iter().enumerate() {
                 ui.label(
                     RichText::new(format!("{} {n}", ["C", "U", "R", "M"][i]))
-                        .color(rarity_color(Rarity::WILDCARDS[i]))
+                        .color(theme::rarity(ui.ctx(), Rarity::WILDCARDS[i]))
                         .strong(),
                 )
                 .on_hover_text(tr!(
@@ -333,7 +333,7 @@ fn collection_summary(ui: &mut egui::Ui, collection: Option<&Collection>) {
             }
         }
         None => {
-            ui.label(RichText::new(tr!("chrome.collection_read_yet")).color(YELLOW));
+            toned(ui, Tone::Warn, tr!("chrome.collection_read_yet"));
         }
     }
 }
