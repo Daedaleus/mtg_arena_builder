@@ -52,17 +52,34 @@ impl App {
         let running = self.trial_running(&target);
         let sim_report = self.sims.groups.get(&group.deck);
 
+        let has_meta = self.settings.mode.meta().is_some();
         egui::ScrollArea::vertical()
             .id_salt("deck_check_scroll")
             .auto_shrink([false, false])
             .show(ui, |ui| {
                 summary(ui, group, r);
-                clicks.simulate = lands_section(ui, &r.mana, sim_report, running);
+                ui.add_space(theme::SECTION_GAP);
+                let title = tr!("deck_check.lands");
+                clicks.simulate = fold(ui, "dc_lands", title, true, |ui| {
+                    lands_section(ui, &r.mana, sim_report, running)
+                })
+                .unwrap_or(false);
                 if !group.fixed {
-                    self.swaps_section(ui, &r.swaps);
-                    meta_section(ui, r.meta.as_ref(), &db);
+                    let title = tr!("deck_check.swap_suggestions");
+                    fold(ui, "dc_swaps", title, true, |ui| {
+                        self.swaps_section(ui, &r.swaps)
+                    });
+                    if has_meta {
+                        let title = tr!("deck_check.comparison_tournament_decks");
+                        fold(ui, "dc_meta", title, false, |ui| {
+                            meta_section(ui, r.meta.as_ref(), &db)
+                        });
+                    }
                 }
-                self.cards_section(ui, r, sel);
+                let title = tr!("deck_check.cards_deck");
+                fold(ui, "dc_cards", title, false, |ui| {
+                    self.cards_section(ui, r, sel)
+                });
             });
 
         let deck_text = clicks.adopt.then(|| deckcheck::deck_text(&group.deck, &db));
@@ -90,7 +107,6 @@ impl App {
 
     /// Swap suggestions: out with a reason, in with a replacement from the collection.
     fn swaps_section(&self, ui: &mut egui::Ui, swaps: &[deckcheck::Swap]) {
-        section(ui, &tr!("deck_check.swap_suggestions"));
         if swaps.is_empty() {
             ui.label(tr!("deck_check.no_clear_candidates_yet"));
         }
@@ -120,7 +136,6 @@ impl App {
 
     /// Table of all cards in the deck with usage, damage and tournament share.
     fn cards_section(&self, ui: &mut egui::Ui, r: &deckcheck::DeckCheck, sel: usize) {
-        section(ui, &tr!("deck_check.cards_deck"));
         note(ui, tr!("deck_check.drawn_played_how_many"));
         let winrates = r.show_winrates();
         ui.push_id(("deck_cards", sel), |ui| {
@@ -222,11 +237,6 @@ impl App {
     }
 }
 
-fn section(ui: &mut egui::Ui, title: &str) {
-    ui.add_space(10.0);
-    ui.heading(title);
-}
-
 /// Record of the deck and a hint from when on win rates per card appear.
 fn summary(ui: &mut egui::Ui, group: &deckcheck::DeckGroup, r: &deckcheck::DeckCheck) {
     if group.fixed {
@@ -267,7 +277,6 @@ fn lands_section(
     sim_report: Option<&sim::Trial>,
     running: bool,
 ) -> bool {
-    section(ui, &tr!("deck_check.lands"));
     ui.label(tr!(
         "deck_check.lands_cards_too_few",
         lands = m.lands,
@@ -300,7 +309,6 @@ fn lands_section(
 
 /// Comparison with the most similar tournament archetype.
 fn meta_section(ui: &mut egui::Ui, meta: Option<&deckcheck::MetaMatch>, db: &CardDb) {
-    section(ui, &tr!("deck_check.comparison_tournament_decks"));
     let Some(m) = meta else {
         note(ui, tr!("deck_check.no_matching_tournament_archetype"));
         return;

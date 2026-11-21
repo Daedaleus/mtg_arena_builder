@@ -17,11 +17,47 @@ pub(super) struct GamesState {
     /// Filter already preset with the last game (once per session).
     pub filter_set: bool,
     pub sel: Option<usize>,
-    /// Sub page: 0 = overview, 1 = game list, 2 = progress.
-    pub view: u8,
+    pub view: GamesView,
     /// Page of the game list (changed while drawing).
     pub page: std::cell::Cell<usize>,
     pub cache: Option<GamesAnalysis>,
+}
+
+/// Sub page of "My games".
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(super) enum GamesView {
+    /// Key figures and the most important in short.
+    #[default]
+    Overview,
+    /// Tips and all findings.
+    Improve,
+    /// Play style and matching decks.
+    Style,
+    Opponents,
+    List,
+    Progress,
+}
+
+impl GamesView {
+    pub const ALL: [GamesView; 6] = [
+        GamesView::Overview,
+        GamesView::Improve,
+        GamesView::Style,
+        GamesView::Opponents,
+        GamesView::List,
+        GamesView::Progress,
+    ];
+
+    pub fn label(self) -> String {
+        match self {
+            GamesView::Overview => tr!("games_tab.overview"),
+            GamesView::Improve => tr!("games_tab.improve"),
+            GamesView::Style => tr!("games_tab.style"),
+            GamesView::Opponents => tr!("games_tab.opponents"),
+            GamesView::List => tr!("games_tab.game_list"),
+            GamesView::Progress => tr!("games_tab.progress"),
+        }
+    }
 }
 
 /// "Official events" (magic.gg).

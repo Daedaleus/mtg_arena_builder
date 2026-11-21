@@ -226,3 +226,20 @@ fn tabs_fit_the_game_mode() {
     assert_eq!(shown(GameFormat::Timeless), vec![1, 3, 4]);
     assert_eq!(shown(GameFormat::Limited), vec![3]);
 }
+
+#[test]
+fn areas_group_the_pages() {
+    use super::nav::Area;
+    use crate::games::GameFormat;
+    for tab in Tab::SAVED {
+        let first = tab.area().first_tab(GameFormat::Standard);
+        assert!(first.is_some_and(|t| t.area() == tab.area()));
+    }
+    assert!(Area::Decks.first_tab(GameFormat::Standard) == Some(Tab::Meta));
+    // Brawl: the Decks area only offers the import.
+    assert!(Area::Decks.first_tab(GameFormat::Brawl) == Some(Tab::Paste));
+    // Limited: neither decks nor deck checks.
+    assert!(Area::Decks.first_tab(GameFormat::Limited).is_none());
+    assert!(Area::Improve.first_tab(GameFormat::Limited).is_none());
+    assert!(Area::Games.first_tab(GameFormat::Limited) == Some(Tab::Games));
+}

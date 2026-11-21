@@ -1,105 +1,128 @@
-//! "My games" > "Overview & tips": record, improvements, opponents.
+//! "My games" pages: overview (key figures and short cards), improve (tips
+//! and all findings), your style and opponents.
 
 use super::*;
 
+/// What was clicked on a page of "My games".
+#[derive(Default)]
+pub(super) struct PageClicks {
+    /// Fixed number of a game.
+    pub game: Option<usize>,
+    /// Recommended deck to open.
+    pub deck: Option<u32>,
+    /// Sub page to switch to.
+    pub view: Option<GamesView>,
+}
+
 impl App {
-    /// Overview; returns the fixed number of the clicked game and the clicked
-    /// recommended deck.
-    pub(super) fn games_overview(
+    /// Overview: key figures as tiles, then the top tips and the style in
+    /// short, each with a link to its page.
+    pub(super) fn overview_page(
+        &self,
+        ui: &mut egui::Ui,
+        r: &games::Report,
+        player: &style::PlayerStyle,
+    ) -> PageClicks {
+        let mut clicks = PageClicks::default();
+        ui.add_space(4.0);
+        key_figures(ui, r);
+        ui.add_space(theme::SECTION_GAP);
+        ui.columns(2, |cols| {
+            card(&mut cols[0], tr!("games_overview.top_tips"), |ui| {
+                top_tips_short(ui, r);
+                if ui.link(tr!("games_overview.all_findings")).clicked() {
+                    clicks.view = Some(GamesView::Improve);
+                }
+            });
+            card(&mut cols[1], tr!("games_tab.style"), |ui| {
+                style_short(ui, player);
+                if ui.link(tr!("games_overview.style_and_decks")).clicked() {
+                    clicks.view = Some(GamesView::Style);
+                }
+            });
+        });
+        clicks
+    }
+
+    /// Improve: the most important kinds of mistakes and all findings.
+    pub(super) fn improve_page(&self, ui: &mut egui::Ui, r: &games::Report) -> PageClicks {
+        ui.add_space(4.0);
+        top_mistakes(ui, r);
+        ui.add_space(theme::SECTION_GAP);
+        PageClicks {
+            game: all_findings(self, ui, r),
+            ..Default::default()
+        }
+    }
+
+    /// Opponents: record per opposing deck, damage sources, common cards.
+    pub(super) fn opponents_page(
         &self,
         ui: &mut egui::Ui,
         r: &games::Report,
         opp_groups: &[opponents::OppGroup],
-        player: &style::PlayerStyle,
-        recs: &[style::Candidate],
-        loaded: usize,
-    ) -> (Option<usize>, Option<u32>) {
+    ) {
         ui.add_space(4.0);
-        balance(ui, r);
-        ui.add_space(6.0);
-        let open = self.style_section(ui, player, recs, loaded);
-        ui.add_space(6.0);
-        top_mistakes(ui, r);
-        ui.add_space(8.0);
-        let clicked = all_findings(self, ui, r);
-        self.card_lists(ui, r);
-        ui.add_space(6.0);
-        ui.separator();
         opponents_section(ui, opp_groups);
-        ui.add_space(6.0);
-        (clicked, open)
+        ui.add_space(theme::SECTION_GAP);
+        self.card_lists(ui, r);
     }
 
-    /// Play style, recommendation and matching tournament decks. Returns the
-    /// clicked deck.
-    fn style_section(
+    /// Your style: play style, recommendation and matching tournament decks.
+    pub(super) fn style_page(
         &self,
         ui: &mut egui::Ui,
         player: &style::PlayerStyle,
         recs: &[style::Candidate],
         loaded: usize,
-    ) -> Option<u32> {
-        let mut open = None;
-        egui::CollapsingHeader::new(RichText::new(tr!("games_overview.play_style")).strong())
-            .id_salt("player_style")
-            .default_open(true)
-            .show(ui, |ui| {
-                if !player.records.is_empty() {
-                    let played: Vec<String> = player
-                        .records
-                        .iter()
-                        .map(|s| {
-                            tr!(
-                                "games_overview.games_wins",
-                                style = s.style.name(),
-                                games = s.games,
-                                wins = s.wins
-                            )
-                        })
-                        .collect();
-                    ui.label(tr!("games_overview.played", v = played.join(" · ")));
+    ) -> PageClicks {
+        let mut clicks = PageClicks::default();
+        ui.add_space(4.0);
+        if !player.records.is_empty() {
+            ui.label(tr!("games_overview.played", v = played_styles(player)));
+        }
+        for t in &player.traits {
+            ui.label(t);
+        }
+        ui.add_space(theme::SECTION_GAP);
+        ui.label(
+            RichText::new(tr!(
+                "games_overview.recommendation",
+                recommended = player.recommended.name(),
+                v = player.recommended.description()
+            ))
+            .color(theme::tone(ui.ctx(), Tone::Good))
+            .strong(),
+        );
+        note(ui, &player.reason);
+        ui.add_space(theme::SECTION_GAP);
+        if recs.is_empty() {
+            let text = if loaded == 0 {
+                tr!("games_overview.app_suggests_matching_decks")
+            } else {
+                tr!(
+                    "games_overview.no_deck_among_loaded",
+                    loaded = loaded,
+                    recommended = player.recommended.name()
+                )
+            };
+            note(ui, text);
+            return clicks;
+        }
+        ui.label(tr!("games_overview.matching_tournament_decks_cheapest"));
+        egui::Grid::new("style_recs").num_columns(3).show(ui, |ui| {
+            for c in recs {
+                if ui.link(&c.label).clicked() {
+                    clicks.deck = Some(c.deck_id);
                 }
-                for t in &player.traits {
-                    ui.label(t);
-                }
-                ui.label(
-                    RichText::new(tr!(
-                        "games_overview.recommendation",
-                        recommended = player.recommended.name(),
-                        v = player.recommended.description()
-                    ))
-                    .color(theme::tone(ui.ctx(), Tone::Good))
-                    .strong(),
-                );
-                note(ui, &player.reason);
-                if recs.is_empty() {
-                    let text = if loaded == 0 {
-                        tr!("games_overview.app_suggests_matching_decks")
-                    } else {
-                        tr!(
-                            "games_overview.no_deck_among_loaded",
-                            loaded = loaded,
-                            recommended = player.recommended.name()
-                        )
-                    };
-                    note(ui, text);
-                    return;
-                }
-                ui.label(tr!("games_overview.matching_tournament_decks_cheapest"));
-                egui::Grid::new("style_recs").num_columns(3).show(ui, |ui| {
-                    for c in recs {
-                        if ui.link(&c.label).clicked() {
-                            open = Some(c.deck_id);
-                        }
-                        note(ui, c.source.as_str());
-                        let (color, text) = self.fit_text(&c.summary);
-                        ui.label(RichText::new(text).color(color))
-                            .on_hover_text(cost_tooltip(&c.summary));
-                        ui.end_row();
-                    }
-                });
-            });
-        open
+                note(ui, c.source.as_str());
+                let (color, text) = self.fit_text(&c.summary);
+                ui.label(RichText::new(text).color(color))
+                    .on_hover_text(cost_tooltip(&c.summary));
+                ui.end_row();
+            }
+        });
+        clicks
     }
 
     /// Who dealt the most damage and common opponent cards.
@@ -134,29 +157,111 @@ impl App {
     }
 }
 
-/// Wins, losses, play/draw and game length.
-fn balance(ui: &mut egui::Ui, r: &games::Report) {
+/// Key figures as tiles: win rate, on the play / on the draw, game length,
+/// conceded games.
+fn key_figures(ui: &mut egui::Ui, r: &games::Report) {
+    let decided = r.wins + r.losses;
+    let rate = if decided == 0 {
+        "–".to_string()
+    } else {
+        format!("{:.0} %", r.wins as f32 * 100.0 / decided as f32)
+    };
+    let tone = if r.wins >= r.losses {
+        Tone::Good
+    } else {
+        Tone::Bad
+    };
+    let fraction = |(won, total): (usize, usize)| format!("{won}/{total}");
     ui.horizontal_wrapped(|ui| {
-        let color = if r.wins >= r.losses {
-            theme::tone(ui.ctx(), Tone::Good)
-        } else {
-            theme::tone(ui.ctx(), Tone::Bad)
-        };
-        ui.label(
-            RichText::new(tr!(
+        stat_tile(
+            ui,
+            tr!("games_overview.tile_win_rate"),
+            rate,
+            Some(tone),
+            tr!(
                 "games_overview.wins_losses",
                 wins = r.wins,
                 losses = r.losses
-            ))
-            .color(color)
-            .strong(),
+            ),
         );
-        ui.label(tr!("games_overview.games", games = r.games));
-        if r.conceded > 0 {
-            ui.label(tr!("games_overview.them_conceded", conceded = r.conceded));
-        }
+        stat_tile(
+            ui,
+            tr!("games_overview.tile_play_draw"),
+            format!("{} · {}", fraction(r.on_play), fraction(r.on_draw)),
+            None,
+            tr!("games_overview.tile_play_draw_sub"),
+        );
+        stat_tile(
+            ui,
+            tr!("games_overview.tile_turns"),
+            format!("{:.0}", r.avg_turns),
+            None,
+            tr!("games_overview.games", games = r.games),
+        );
+        stat_tile(
+            ui,
+            tr!("games_overview.tile_conceded"),
+            r.conceded.to_string(),
+            (r.conceded > 0).then_some(Tone::Warn),
+            tr!("games_overview.tile_conceded_sub"),
+        );
     });
-    ui.label(tr!("games_overview.play_draw_games_last", v = ratio(r.on_play.0, r.on_play.1), v2 = ratio(r.on_draw.0, r.on_draw.1), avg_turns = r.avg_turns : {:.0}));
+}
+
+/// The three most frequent kinds of mistakes, one line each.
+fn top_tips_short(ui: &mut egui::Ui, r: &games::Report) {
+    let top: Vec<&games::Category> = r
+        .categories
+        .iter()
+        .filter(|c| !c.items.is_empty())
+        .take(3)
+        .collect();
+    if top.is_empty() {
+        toned(
+            ui,
+            Tone::Good,
+            tr!("games_overview.no_typical_mistakes_found"),
+        );
+    }
+    for (n, c) in top.iter().enumerate() {
+        toned(
+            ui,
+            Tone::Warn,
+            format!("{}. {} ({}×)", n + 1, c.title(), c.items.len()),
+        );
+    }
+}
+
+/// Played styles and the recommendation in short.
+fn style_short(ui: &mut egui::Ui, player: &style::PlayerStyle) {
+    if !player.records.is_empty() {
+        ui.label(played_styles(player));
+    }
+    toned(
+        ui,
+        Tone::Good,
+        tr!(
+            "games_overview.recommended_short",
+            recommended = player.recommended.name()
+        ),
+    );
+}
+
+/// "Midrange 9 games (1 wins) · Aggro …"
+fn played_styles(player: &style::PlayerStyle) -> String {
+    player
+        .records
+        .iter()
+        .map(|s| {
+            tr!(
+                "games_overview.games_wins",
+                style = s.style.name(),
+                games = s.games,
+                wins = s.wins
+            )
+        })
+        .collect::<Vec<String>>()
+        .join(" · ")
 }
 
 /// The three most frequent kinds of mistakes with advice.
@@ -258,52 +363,48 @@ fn all_findings(app: &App, ui: &mut egui::Ui, r: &games::Report) -> Option<usize
 
 /// Record against the recognised opponent decks.
 fn opponents_section(ui: &mut egui::Ui, opp_groups: &[opponents::OppGroup]) {
-    egui::CollapsingHeader::new(RichText::new(tr!("games_overview.who_win_lose_against")).strong())
-        .id_salt("opponents")
-        .default_open(true)
+    ui.strong(tr!("games_overview.who_win_lose_against"));
+    note(ui, tr!("games_overview.app_recognizes_opponents_deck"));
+    egui::Grid::new("opp_grid")
+        .striped(true)
+        .num_columns(4)
         .show(ui, |ui| {
-            note(ui, tr!("games_overview.app_recognizes_opponents_deck"));
-            egui::Grid::new("opp_grid")
-                .striped(true)
-                .num_columns(4)
-                .show(ui, |ui| {
-                    for t in [
-                        tr!("game_list.opponent"),
-                        tr!("games_overview.record"),
-                        tr!("games_overview.turns"),
-                        tr!("games_overview.dealt_most_damage"),
-                    ] {
-                        ui.strong(t);
-                    }
-                    ui.end_row();
-                    for o in opp_groups {
-                        ui.label(&o.name);
-                        let color = if o.wins >= o.losses() {
-                            theme::tone(ui.ctx(), Tone::Good)
-                        } else {
-                            theme::tone(ui.ctx(), Tone::Bad)
-                        };
-                        ui.label(
-                            RichText::new(tr!(
-                                "games_overview.wins_losses_2",
-                                wins = o.wins,
-                                v = o.losses()
-                            ))
-                            .color(color),
-                        );
-                        ui.label(format!("{:.0}", o.avg_turns));
-                        let threats: Vec<String> = o
-                            .threats
-                            .iter()
-                            .map(|(n, d)| format!("{n} ({d})"))
-                            .collect();
-                        ui.label(if threats.is_empty() {
-                            "–".into()
-                        } else {
-                            threats.join(", ")
-                        });
-                        ui.end_row();
-                    }
+            for t in [
+                tr!("game_list.opponent"),
+                tr!("games_overview.record"),
+                tr!("games_overview.turns"),
+                tr!("games_overview.dealt_most_damage"),
+            ] {
+                ui.strong(t);
+            }
+            ui.end_row();
+            for o in opp_groups {
+                ui.label(&o.name);
+                let color = if o.wins >= o.losses() {
+                    theme::tone(ui.ctx(), Tone::Good)
+                } else {
+                    theme::tone(ui.ctx(), Tone::Bad)
+                };
+                ui.label(
+                    RichText::new(tr!(
+                        "games_overview.wins_losses_2",
+                        wins = o.wins,
+                        v = o.losses()
+                    ))
+                    .color(color),
+                );
+                ui.label(format!("{:.0}", o.avg_turns));
+                let threats: Vec<String> = o
+                    .threats
+                    .iter()
+                    .map(|(n, d)| format!("{n} ({d})"))
+                    .collect();
+                ui.label(if threats.is_empty() {
+                    "–".into()
+                } else {
+                    threats.join(", ")
                 });
+                ui.end_row();
+            }
         });
 }

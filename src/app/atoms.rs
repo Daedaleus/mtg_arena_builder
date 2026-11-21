@@ -19,6 +19,34 @@ pub(super) fn toned(ui: &mut egui::Ui, tone: Tone, text: impl Into<String>) -> e
     ui.label(RichText::new(text).color(color))
 }
 
+/// Key figure tile: small label, big value (optionally in the color of a
+/// meaning) and a muted line below.
+pub(super) fn stat_tile(
+    ui: &mut egui::Ui,
+    label: impl Into<String>,
+    value: impl Into<String>,
+    tone: Option<Tone>,
+    sub: impl Into<String>,
+) -> egui::Response {
+    egui::Frame::none()
+        .fill(theme::tile_fill(ui.ctx()))
+        .rounding(theme::CARD_ROUNDING)
+        .inner_margin(theme::TILE_PADDING)
+        .show(ui, |ui| {
+            ui.set_min_width(theme::TILE_WIDTH);
+            ui.vertical(|ui| {
+                ui.label(RichText::new(label).weak());
+                let mut value = RichText::new(value).size(theme::TILE_VALUE).strong();
+                if let Some(t) = tone {
+                    value = value.color(theme::tone(ui.ctx(), t));
+                }
+                ui.label(value);
+                ui.label(RichText::new(sub).weak().small());
+            });
+        })
+        .response
+}
+
 /// Rarity as a word in its color.
 pub(super) fn rarity_label(ui: &mut egui::Ui, r: Rarity) -> egui::Response {
     let color = theme::rarity(ui.ctx(), r);

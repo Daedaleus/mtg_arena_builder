@@ -13,7 +13,8 @@
 //! hard-code colors, use `theme::Tone`.
 
 use compute::{DeckAnalysis, GamesAnalysis, SimTarget};
-use parts::{BuiltState, GamesState, GgState, ImageCache, SimState, TourState};
+use games_overview::PageClicks;
+use parts::{BuiltState, GamesState, GamesView, GgState, ImageCache, SimState, TourState};
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::PathBuf;
 use std::sync::mpsc::{Receiver, Sender, channel};
@@ -97,6 +98,7 @@ mod game_list;
 mod games_overview;
 mod games_tab;
 mod lists;
+mod nav;
 mod parts;
 mod progress_view;
 mod screenshots;
@@ -171,6 +173,8 @@ pub struct App {
     lists: HashMap<DeckId, Deck>,
     evals: HashMap<DeckId, DeckEval>,
     tab: Tab,
+    /// Last open page in the Decks area (reopened with the area).
+    deck_tab: Tab,
     paste_text: String,
     /// (deck, card key) -> chosen replacement card
     repl: HashMap<(DeckId, String), String>,
@@ -255,6 +259,9 @@ impl App {
             tab: Some(Tab::from_saved(settings.tab))
                 .filter(|t| t.fits(settings.mode))
                 .unwrap_or(Tab::Games),
+            deck_tab: Some(Tab::from_saved(settings.tab))
+                .filter(|t| t.area() == nav::Area::Decks)
+                .unwrap_or(Tab::Meta),
             paste_text: settings.paste_text.clone(),
             repl,
             collection: Collection::load(&data_dir.join("collection.json")),

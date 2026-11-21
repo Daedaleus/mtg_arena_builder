@@ -158,3 +158,43 @@ pub(super) fn wildcard_plan_view(ui: &mut egui::Ui, plan: &budget::WildcardPlan,
             }
         });
 }
+
+/// Card: framed block with a title, for short summaries on overview pages.
+pub(super) fn card<R>(
+    ui: &mut egui::Ui,
+    title: impl Into<String>,
+    content: impl FnOnce(&mut egui::Ui) -> R,
+) -> R {
+    egui::Frame::none()
+        .stroke(theme::card_stroke(ui.ctx()))
+        .rounding(theme::CARD_ROUNDING)
+        .inner_margin(theme::CARD_PADDING)
+        .show(ui, |ui| {
+            ui.set_width(ui.available_width());
+            ui.strong(title.into());
+            ui.add_space(4.0);
+            content(ui)
+        })
+        .inner
+}
+
+/// Collapsible section with a heading; egui remembers whether it is open.
+/// Returns the result of `content` if it is open.
+pub(super) fn fold<R>(
+    ui: &mut egui::Ui,
+    id: &str,
+    title: impl Into<String>,
+    open: bool,
+    content: impl FnOnce(&mut egui::Ui) -> R,
+) -> Option<R> {
+    let title = egui::RichText::new(title.into())
+        .size(theme::FOLD_TITLE)
+        .strong();
+    let r = egui::CollapsingHeader::new(title)
+        .id_salt(id)
+        .default_open(open)
+        .show(ui, content)
+        .body_returned;
+    ui.add_space(theme::SECTION_GAP);
+    r
+}
