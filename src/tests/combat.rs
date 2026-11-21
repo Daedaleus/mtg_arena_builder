@@ -60,10 +60,7 @@ fn block_outcomes_with_keywords() {
     let mut ind = cr(10, 1, 5);
     ind.indestructible = true;
     assert_eq!(outcome(&ind, &cr(1, 9, 9)), (false, false));
-    assert!(
-        !kills(&cr(1, 0, 1), &cr(10, 1, 1)),
-        "ohne Kraft kein Schaden"
-    );
+    assert!(!kills(&cr(1, 0, 1), &cr(10, 1, 1)), "no power, no damage");
 }
 
 #[test]

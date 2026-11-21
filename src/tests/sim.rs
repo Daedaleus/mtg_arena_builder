@@ -20,7 +20,7 @@ fn healthy_deck_runs_smoothly() {
     assert!(r.on_curve[2] > 0.7, "{:?}", r.on_curve);
     assert_eq!(r.color_screw, 0.0);
     assert!(r.flood < 0.25);
-    assert!(r.mana_used[1] > 1.0, "Zug 2: meist ein Bär");
+    assert!(r.mana_used[1] > 1.0, "turn 2: mostly a bear");
     assert!(r.mana_used.iter().zip(&r.mana_avail).all(|(u, a)| u <= a));
     assert_eq!(r.advice.len(), 1);
     assert!(r.advice[0].contains("rund"), "{:?}", r.advice);
@@ -77,7 +77,7 @@ fn mana_creatures_and_tapped_lands_are_used() {
     let r = run(&[(FOREST, 22), (TAPLAND_UR, 2), (ELF, 20), (GIANT, 16)]);
     assert!(
         r.mana_avail[3] > 4.0,
-        "Zug 4 mit Elf mehr als 4 Mana: {:?}",
+        "turn 4 with elf more than 4 mana: {:?}",
         r.mana_avail
     );
 }
@@ -156,10 +156,10 @@ fn board_rules() {
     b.start_my_turn();
     b.cast(card(BEAR));
     assert_eq!(b.mine.len(), 1);
-    assert!(!b.mine[0].ready, "Einsatzverzögerung");
-    assert!(b.my_attack().is_empty(), "noch nicht bereit");
+    assert!(!b.mine[0].ready, "summoning sickness");
+    assert!(b.my_attack().is_empty(), "not ready yet");
     b.opp_turn(3);
-    assert_eq!(b.kills, 1, "2/1 stirbt am Bären");
+    assert_eq!(b.kills, 1, "2/1 dies to the bear");
     // The burn spell Shock (2) only kills creatures with toughness up to 2.
     let before = b.opp.len();
     b.cast(card(SHOCK));
@@ -188,7 +188,7 @@ fn racing_rules() {
     b.start_my_turn();
     assert!(b.my_attack().is_empty());
     assert_eq!(b.opp_life, START_LIFE - 3);
-    assert!(b.mine[0].tapped, "Angreifer ist getappt");
+    assert!(b.mine[0].tapped, "attacker is tapped");
     // Tapped attackers don't block in the opponent's turn.
     b.opp_turn(1);
     b.opp_turn(2);
@@ -202,7 +202,7 @@ fn racing_rules() {
     b.start_my_turn();
     let life = b.opp_life;
     b.my_attack();
-    assert_eq!(b.opp_life, life, "2/2 tötet den Elf und überlebt");
+    assert_eq!(b.opp_life, life, "2/2 kills the elf and survives");
     // … a possible trade doesn't.
     let mut b = pressure::Board::new();
     b.cast(card(BEAR));
@@ -212,7 +212,7 @@ fn racing_rules() {
     b.my_attack();
     assert!(
         b.mine.is_empty() || b.mine[0].tapped,
-        "Bär greift in den 2/2 an"
+        "bear attacks into the 2/2"
     );
 
     // Lethal: everything attacks, even if the counterattack would be lethal.
@@ -235,11 +235,11 @@ fn racing_rules() {
     // Burn: lethal to the face, without a target also to the face.
     let mut b = pressure::Board::new();
     b.cast(card(SPIKE));
-    assert_eq!(b.opp_life, START_LIFE - 3, "kein Ziel");
+    assert_eq!(b.opp_life, START_LIFE - 3, "no target");
     b.opp_turn(1); // 2/1 – Shock would kill it …
     b.opp_life = 2;
     b.cast(card(SHOCK));
-    assert!(b.over(), "… aber tödlicher Brand geht ins Gesicht");
+    assert!(b.over(), "… but lethal burn goes to the face");
 
     // Little life: stay home and block.
     let mut b = pressure::Board::new();
@@ -252,7 +252,7 @@ fn racing_rules() {
     b.start_my_turn();
     let opp_life = b.opp_life;
     b.my_attack();
-    assert_eq!(b.opp_life, opp_life, "Gegenschlag (2) wäre tödlich");
+    assert_eq!(b.opp_life, opp_life, "counterattack (2) would be lethal");
 }
 
 #[test]
@@ -292,7 +292,7 @@ fn creatures_from_cards() {
     odd.power = "*".into();
     odd.toughness = "*".into();
     let c = pressure::creature_of(&odd, 1);
-    assert_eq!((c.power, c.toughness), (0, 1), "Sternchen-Werte als 0/1");
+    assert_eq!((c.power, c.toughness), (0, 1), "star stats as 0/1");
 }
 
 // ------------------------------------------------- personal sample hands ----
@@ -339,7 +339,7 @@ fn opponent_profile_from_history() {
     let db = std_db();
     let ok = my_turn(&[], &[FOREST], true, &[]);
     let few: Vec<GameRecord> = (0..2).map(|_| history_game(&[1, 2], ok.clone())).collect();
-    assert!(opponent_from(&few, &db).is_none(), "zu wenige Partien");
+    assert!(opponent_from(&few, &db).is_none(), "too few games");
     let mut games: Vec<GameRecord> = (0..6)
         .map(|_| history_game(&[0, 2, 2, 5, 5, 6], ok.clone()))
         .collect();
@@ -354,7 +354,7 @@ fn opponent_profile_from_history() {
     assert_eq!(
         rest,
         [0.0, 0.0, 0.0, 3.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0],
-        "Zuwachs je Zug, nie negativ; ohne Daten weiter im letzten Tempo"
+        "gain per turn, never negative; without data keep the last pace"
     );
     assert!(o.toughness.iter().zip(&o.power).all(|(t, p)| t >= p));
     assert_eq!(o.label, "deine Gegner (meist Mono-Rot)");
@@ -390,7 +390,7 @@ fn habits_from_history() {
     assert_eq!(h.turns, 24);
     assert!((h.weaker_turn - 0.5).abs() < 0.01, "{h:?}");
     assert!((h.skip_attack - 0.5).abs() < 0.01, "{h:?}");
-    assert!(habits_from(&games[..2], &db).is_none(), "zu wenige Züge");
+    assert!(habits_from(&games[..2], &db).is_none(), "too few turns");
 }
 
 #[test]
@@ -506,8 +506,8 @@ fn trial_runs_all_variants() {
     assert!(t.mine.is_none() && t.mine_habits.is_none() && t.habits.is_none());
     assert_eq!(t.profile_games, 0);
     assert_eq!(t.fast.opponent, "schneller Gegner");
-    assert_eq!(t.fast.turns, FAST_TURNS, "Stresstest nur für den Start");
-    assert_eq!(t.fast.mana_avail[FAST_TURNS], 0.0, "danach nicht gespielt");
+    assert_eq!(t.fast.turns, FAST_TURNS, "stress test only for the start");
+    assert_eq!(t.fast.mana_avail[FAST_TURNS], 0.0, "not played afterwards");
     // With history: all three variants.
     let lazy = my_turn(
         &[OGRE],
@@ -532,7 +532,7 @@ fn trial_runs_all_variants() {
     assert_eq!(
         t.mine.as_ref().unwrap().turns,
         TURNS,
-        "eigene Gegner bis Zug 10"
+        "own opponents up to turn 10"
     );
     assert!(t.habits.is_some());
 }

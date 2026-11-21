@@ -44,10 +44,10 @@ fn shares_and_matching() {
     assert_eq!(shares.len(), 2);
     assert_eq!(shares[0].share["grizzly bears"], 1.0);
     assert_eq!(shares[0].share["hill ogre"], 0.5);
-    assert_eq!(shares[0].share["giant growth"], 0.5, "Nebendeck zählt mit");
+    assert_eq!(shares[0].share["giant growth"], 0.5, "sideboard counts too");
 
     let seen = seen_keys(&[BEAR, OGRE, FOREST], &db);
-    assert_eq!(seen.len(), 2, "Länder zählen nicht");
+    assert_eq!(seen.len(), 2, "lands don't count");
     assert_eq!(match_archetype(&seen, &shares).unwrap().name, "Gruul");
     // A single fitting card isn't enough.
     let one = seen_keys(&[BEAR], &db);

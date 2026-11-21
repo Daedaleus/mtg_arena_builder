@@ -40,7 +40,7 @@ fn uses_mana_fully() {
     // Two spells fit together.
     let p = plan_for(&[ELF, BEAR], &[FOREST, FOREST, FOREST], true, &[]);
     assert_eq!(p.land, None);
-    assert_eq!(p.spells, vec![BEAR, ELF], "teurere Kreatur zuerst");
+    assert_eq!(p.spells, vec![BEAR, ELF], "more expensive creature first");
     assert_eq!(p.mana_used, 3);
 }
 
@@ -92,7 +92,7 @@ fn removal_targets_and_holding() {
     );
     assert_eq!(p.spells, vec![DIVINATION]);
     assert_eq!(p.target, None);
-    assert!(p.hold.is_empty(), "nach Divination bleibt nur 1 Mana");
+    assert!(p.hold.is_empty(), "after Divination only 1 mana is left");
     let p = plan_for(&[MURDER], &[SWAMP, SWAMP, SWAMP], true, &[]);
     assert_eq!(p.hold, vec![MURDER]);
     // Sorcery removal without a target isn't suggested at all.
@@ -186,7 +186,7 @@ fn mana_creatures_count_as_sources() {
     assert_eq!(p.mana_total, 2);
     assert!(
         instant_removal(&db, &[SHOCK], &[], &[ELF]).is_empty(),
-        "Elf liefert kein Rot"
+        "elf provides no red"
     );
 }
 

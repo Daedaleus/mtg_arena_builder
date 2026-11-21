@@ -90,7 +90,7 @@ fn play_first_game(p: &mut LogParser) {
         }),
     );
     line(p, &gre(1001, vec![mulligan(1)]));
-    let live = p.live().expect("Starthand läuft");
+    let live = p.live().expect("opening hand running");
     assert!(live.mulligan);
     assert_eq!(live.hand.len(), 7);
 
@@ -150,7 +150,7 @@ fn play_first_game(p: &mut LogParser) {
     assert_eq!(live.life_me, 18);
     assert!(
         live.mana_permanents.is_empty(),
-        "Oger hat Einsatzverzögerung"
+        "ogre has summoning sickness"
     );
 
     // Turn 3 (me): ogre ready, no land played, Shock cast
@@ -171,21 +171,13 @@ fn play_first_game(p: &mut LogParser) {
     );
     let live = p.live().unwrap();
     assert_eq!(live.turn, 3);
-    assert_eq!(
-        live.safe_attackers,
-        vec![OGRE],
-        "Bär kann den Oger nicht töten"
-    );
+    assert_eq!(live.safe_attackers, vec![OGRE], "bear can't kill the ogre");
     assert_eq!(live.attackers.len(), 1);
     assert_eq!(live.blockers.len(), 1);
     assert_eq!(live.opp_creatures, vec![(BEAR, 2)]);
     assert_eq!(live.opp_untapped_lands, 1);
     assert_eq!(live.creatures_me, 1);
-    assert_eq!(
-        live.mana_permanents,
-        vec![OGRE],
-        "einsatzbereit, nicht getappt"
-    );
+    assert_eq!(live.mana_permanents, vec![OGRE], "ready, not tapped");
     assert!(!live.land_played);
     state_msg(
         p,
@@ -262,7 +254,7 @@ fn records_a_complete_game() {
     assert_eq!(
         g.damage_taken.get(&BEAR),
         Some(&2),
-        "doppelte Annotation zählt einmal"
+        "duplicate annotation counts once"
     );
     assert_eq!(g.discards_me, 1);
     assert!(g.opp_cards.contains_key(&BEAR));
@@ -285,7 +277,7 @@ fn records_a_complete_game() {
     let t4 = &g.turns[3];
     assert_eq!(t4.my_untapped_creatures, 1);
     assert!(!t4.blocked);
-    let rank = g.rank_after.as_ref().expect("Rang nach der Partie");
+    let rank = g.rank_after.as_ref().expect("rank after the game");
     assert_eq!(
         (rank.class.as_str(), rank.level, rank.step),
         ("Bronze", 4, 2)
@@ -403,7 +395,10 @@ fn key_moments_compare_with_suggestion() {
         .iter()
         .find(|c| c.kind == Mistake::UnusedMana)
         .unwrap();
-    assert!(unused.items.is_empty(), "neue Prüfung ersetzt die alte");
+    assert!(
+        unused.items.is_empty(),
+        "the new check replaces the old one"
+    );
 }
 
 #[test]
@@ -439,7 +434,7 @@ fn next_game_after_leftover_message() {
         2100,
         json!({ "gameStateId": 2, "turnInfo": turn_info(1, 2, "Phase_Main1", "") }),
     );
-    let live = p.live().expect("neue Partie wird verfolgt");
+    let live = p.live().expect("new game is followed");
     assert_eq!(live.turn, 1);
     assert!(!live.my_turn);
     state_msg(
@@ -459,7 +454,7 @@ fn next_game_after_leftover_message() {
     assert_eq!(first.deck.len(), 6);
     assert!(
         first.rank_after.is_some(),
-        "Rang aus der Doppelmeldung übernommen"
+        "rank taken over from the duplicate report"
     );
     let second = games.iter().find(|g| g.id == "m-2#1").unwrap();
     assert_eq!(second.won, Some(true));
@@ -581,7 +576,7 @@ fn parses_log_files_and_syncs_store() {
     std::fs::write(&store, serde_json::to_vec(&file).unwrap()).unwrap();
     let kept = sync(&store, &[]).games;
     assert_eq!(kept.len(), 1);
-    assert_eq!(kept[0].parser, 2, "Version aus der alten Datei");
+    assert_eq!(kept[0].parser, 2, "version from the old file");
     // With a log it is recomputed, even with equal quality.
     assert_eq!(
         sync(&store, std::slice::from_ref(&log)).games[0].parser,
@@ -592,7 +587,7 @@ fn parses_log_files_and_syncs_store() {
     std::fs::create_dir(&blocked).unwrap();
     let failed = sync(&blocked, std::slice::from_ref(&log));
     assert!(failed.problem.is_some());
-    assert_eq!(failed.games.len(), 1, "Partien aus dem Log trotzdem da");
+    assert_eq!(failed.games.len(), 1, "games from the log are there anyway");
     assert!(blocked.is_dir());
 }
 
@@ -649,7 +644,7 @@ fn game_numbers_stay_when_a_newer_game_arrives() {
     let before = GameNumbers::new(std::slice::from_ref(&first));
     let after = GameNumbers::new(&[second.clone(), first.clone()]);
     assert_eq!(before.of(&first), 1);
-    assert_eq!(after.of(&first), 1, "die erste Partie bleibt #1");
+    assert_eq!(after.of(&first), 1, "the first game stays #1");
     assert_eq!(after.of(&second), 2);
     assert_eq!(after.of(&game("unbekannt", None, vec![])), 0);
 
@@ -799,7 +794,7 @@ fn end_reasons_keep_arena_values() {
         let r = EndReason::from_arena(value);
         assert_eq!(r.to_arena(), value);
         let json = serde_json::to_string(&r).unwrap();
-        assert_eq!(json, format!("\"{value}\""), "in games.json unverändert");
+        assert_eq!(json, format!("\"{value}\""), "unchanged in games.json");
         assert_eq!(serde_json::from_str::<EndReason>(&json).unwrap(), r);
     }
     assert_eq!(
@@ -823,7 +818,7 @@ fn last_turn_of_a_game_is_not_judged() {
     g.reason = EndReason::Concede;
     let r = report_all(&[g.clone()], &std_db());
     assert!(r.categories.iter().all(|c| c.items.is_empty()));
-    assert_eq!(r.my_turns, 1, "der Zug zählt trotzdem als gespielt");
+    assert_eq!(r.my_turns, 1, "the turn still counts as played");
 
     // The same turn in the middle of the game is judged.
     g.turns.push(turn(20, false));
@@ -895,7 +890,7 @@ fn skipped_attacks_respect_blockers_and_tap_abilities() {
     let found = skipped(&g);
     assert_eq!(found.len(), 1);
     assert!(found[0].text.contains("Grizzly Bears") && !found[0].text.contains("Llanowar"));
-    assert_eq!(found[0].cards, vec![BEAR], "Karten für die Bilder");
+    assert_eq!(found[0].cards, vec![BEAR], "cards for the images");
     // If lethal damage threatens, holding back is right.
     g.turns[0].opp_creatures = vec![(OGRE, 3), (DRAGON, 7)];
     assert!(skipped(&g).is_empty());
@@ -950,10 +945,10 @@ fn games_filter_by_mode_and_deck() {
     let filter = GamesFilter::like(&ranked, &db);
     assert_eq!(filter.mode, Some(GameMode::Ranked));
     assert!(filter.matches(&ranked, &db) && filter.matches(&ranked_again, &db));
-    assert!(!filter.matches(&brawl, &db), "Brawl mischt sich nicht dazu");
+    assert!(!filter.matches(&brawl, &db), "Brawl doesn't mix in");
     assert!(
         !filter.matches(&no_deck, &db),
-        "ohne Deckliste kein Deck-Treffer"
+        "no deck match without a decklist"
     );
 
     let mode_only = GamesFilter {

@@ -373,7 +373,7 @@ fn shares_from_tournament_lists() {
     ];
     let s = arch_shares(&archs, &db);
     assert_eq!(s.len(), 1);
-    assert_eq!(s[0].share["shock"], 1.0, "pro Liste nur einmal gezählt");
+    assert_eq!(s[0].share["shock"], 1.0, "counted only once per list");
     assert_eq!(s[0].share["hill ogre"], 0.5);
     assert!(!s[0].share.contains_key("unknown"));
 }

@@ -23,7 +23,7 @@ fn roundtrip_and_change_detection() {
     s.tab = 3;
     s.paste_text = "4 Shock".into();
     assert!(file.save(&s).unwrap());
-    assert!(!file.save(&s).unwrap(), "zweites Speichern ohne Änderung");
+    assert!(!file.save(&s).unwrap(), "second save without change");
 
     let (_, loaded) = SettingsFile::load(&dir.0);
     assert_eq!(loaded, s);
@@ -60,10 +60,7 @@ fn old_files_get_a_version_and_write_errors_are_reported() {
     let (mut file, s) = SettingsFile::load(&dir.0);
     assert_eq!(s.version, SETTINGS_VERSION, "migriert");
     assert!(s.companion);
-    assert!(
-        file.save(&s).unwrap(),
-        "migrierte Datei wird neu geschrieben"
-    );
+    assert!(file.save(&s).unwrap(), "migrated file is written again");
     let text = std::fs::read_to_string(dir.path("settings.json")).unwrap();
     assert!(text.contains("\"version\": 1"), "{text}");
     // A write error reaches the caller (the folder doesn't exist).
@@ -104,7 +101,7 @@ fn corrupt_settings_are_backed_up_unreadable_not_overwritten() {
     assert!(file.problem.as_ref().unwrap().contains("gesichert"));
     assert_eq!(s, Settings::default());
     s.companion = true;
-    assert!(file.save(&s).unwrap(), "neue Datei neben der Sicherung");
+    assert!(file.save(&s).unwrap(), "new file next to the backup");
     let backups = std::fs::read_dir(&dir.0)
         .unwrap()
         .filter_map(|e| e.ok())

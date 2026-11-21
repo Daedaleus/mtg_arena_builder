@@ -121,14 +121,14 @@ fn contract_with_real_scryfall() {
     let page: serde_json::Value = serde_json::from_slice(&bytes).expect("JSON");
     let (names, next) = crate::meta::parse_scryfall_page(&page);
     assert!(names.iter().any(|n| n == "shock"), "{names:?}");
-    assert_eq!(next, None, "eine Seite");
+    assert_eq!(next, None, "one page");
     for key in ["Shock", "Shock@de"] {
         let bytes = crate::images::download(net.as_ref(), key)
             .unwrap_or_else(|e| panic!("{key}: {e}"))
             .expect("Bild vorhanden");
         assert!(
             crate::images::decode(&bytes).is_some(),
-            "{key}: kein gültiges Bild"
+            "{key}: not a valid image"
         );
     }
 }

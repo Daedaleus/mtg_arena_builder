@@ -4,7 +4,7 @@ use crate::testutil::{GG_EVENT_HTML as EVENT_HTML, GG_INDEX_HTML as INDEX_HTML};
 #[test]
 fn parses_index_by_format() {
     let all = parse_index(INDEX_HTML, "");
-    assert_eq!(all.len(), 3, "jede Kennung nur einmal, keine News");
+    assert_eq!(all.len(), 3, "each id only once, no news");
     let standard = parse_index(INDEX_HTML, "standard");
     assert_eq!(standard.len(), 2);
     assert_eq!(
@@ -25,7 +25,7 @@ fn parses_index_by_format() {
 #[test]
 fn parses_event_decks() {
     let decks = parse_event(EVENT_HTML);
-    assert_eq!(decks.len(), 2, "leere Liste fällt weg");
+    assert_eq!(decks.len(), 2, "empty list drops out");
     let d = &decks[0];
     assert_eq!(d.title, "Erika Muster");
     assert_eq!(d.subtitle, "1st Place");
