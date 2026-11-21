@@ -1,12 +1,12 @@
-//! Begleitfenster: liest das Arena-Log während einer Partie mit und berechnet
-//! daraus Hinweise („Land legen“, „gefahrlos angreifen“, „blocken!“ …).
+//! Companion window: follows the Arena log during a game and computes hints
+//! from it ("play a land", "attack safely", "block!" …).
 //!
-//! Es wird nur die Logdatei gelesen, die Arena für Community-Tools schreibt
-//! („Detaillierte Logs“). Ins Spiel greift das Fenster nicht ein.
+//! Only the log file Arena writes for community tools is read ("Detailed
+//! Logs"). The window never acts in the game.
 //!
-//! Aufbau: `view` (Anzeige berechnen), `hints` (Zug- und Blockvorschlag),
-//! `damage` (Siegchancen) und `follow` (Log mitlesen). Gezeichnet wird in
-//! der Oberfläche (`app::companion`); dieses Modul kennt kein egui.
+//! Layout: `view` (compute the display), `hints` (turn and block
+//! suggestion), `damage` (chances to win) and `follow` (follow the log).
+//! Drawing happens in the interface (`app::companion`); this module knows no egui.
 
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
@@ -38,13 +38,13 @@ pub enum Level {
     Warn,
 }
 
-/// Was das Begleitfenster gerade anzeigt.
+/// What the companion window shows right now.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct CompanionView {
     pub status: String,
-    /// (meine Leben, gegnerische Leben)
+    /// (my life, opponent's life)
     pub life: Option<(i32, i32)>,
-    /// Kurze Spielfeld-Übersicht (Länder, Kreaturen).
+    /// Short battlefield overview (lands, creatures).
     pub board: String,
     pub hints: Vec<(Level, String)>,
     pub opponent: String,
@@ -53,21 +53,21 @@ pub struct CompanionView {
 
 pub use crate::opponents::{ArchShare, arch_shares};
 
-/// Gefahrlose Angreifer, die sich auch lohnen (siehe
+/// Safe attackers that are also worth it (see
 /// [`crate::combat::worth_attacking`]).
 fn worth_attacking(ls: &LiveState, db: &CardDb) -> Vec<GrpId> {
     let opp_power: i32 = ls.opp_creatures.iter().map(|(_, p)| p).sum();
     crate::combat::worth_attacking(db, &ls.safe_attackers, ls.life_me, opp_power)
 }
 
-/// Zwischen Live-Thread, Begleitfenster und Hauptfenster geteilter Zustand.
+/// State shared between the live thread, the companion and the main window.
 #[derive(Default)]
 pub struct Shared {
     pub view: Mutex<CompanionView>,
     pub meta: RwLock<Vec<ArchShare>>,
-    /// Das Begleitfenster wurde über sein „X“ geschlossen.
+    /// The companion window was closed with its "X".
     pub close_requested: AtomicBool,
-    /// Mitlesen beenden (der Thread endet beim nächsten Durchlauf).
+    /// Stop following (the thread ends on its next pass).
     pub stop: AtomicBool,
 }
 

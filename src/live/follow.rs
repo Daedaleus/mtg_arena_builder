@@ -1,8 +1,8 @@
-//! Mitlesen des Arena-Logs im Hintergrund.
+//! Following the Arena log in the background.
 
 use super::*;
 
-/// Liest eine wachsende Logdatei zeilenweise nach.
+/// Reads a growing log file line by line.
 #[derive(Default)]
 pub struct LogTail {
     pos: u64,
@@ -10,10 +10,9 @@ pub struct LogTail {
 }
 
 impl LogTail {
-    /// Übergibt alle seit dem letzten Aufruf vollständig geschriebenen Zeilen
-    /// (ohne Zeilenende). Ist die Datei kürzer geworden, wurde sie neu
-    /// begonnen: Dann wird nichts gelesen, der Zustand zurückgesetzt und
-    /// `true` zurückgegeben.
+    /// Hands over all lines written completely since the last call (without
+    /// line end). If the file got shorter, it was started anew: then nothing
+    /// is read, the state is reset and `true` is returned.
     pub fn read(&mut self, path: &Path, mut on_line: impl FnMut(&[u8])) -> bool {
         let len = std::fs::metadata(path).map(|m| m.len()).unwrap_or(0);
         if len < self.pos {
@@ -50,7 +49,7 @@ pub(super) fn find_log() -> Option<PathBuf> {
         .find(|p| p.is_file())
 }
 
-/// Verfolgt das Arena-Log und merkt sich die zuletzt beendete Partie.
+/// Follows the Arena log and remembers the last finished game.
 pub struct Follower {
     parser: LogParser,
     tail: LogTail,
@@ -72,11 +71,11 @@ impl Default for Follower {
 }
 
 impl Follower {
-    /// Liest neue Logzeilen und berechnet die Anzeige.
+    /// Reads new log lines and computes the display.
     pub fn poll(&mut self, path: &Path, db: &CardDb, meta: &[ArchShare]) -> CompanionView {
         let parser = &mut self.parser;
         if self.tail.read(path, |line| parser.feed(line)) {
-            // Arena wurde neu gestartet und hat ein neues Log begonnen.
+            // Arena was restarted and began a new log.
             self.parser = LogParser::default();
             self.catching_up = true;
             let parser = &mut self.parser;
@@ -87,7 +86,7 @@ impl Follower {
             && g.id != self.last_id
         {
             self.last_id = g.id.clone();
-            // Beim ersten Nachlesen des Logs beendete Partien nicht als „gerade vorbei“ melden.
+            // On the first read of the log, don't report finished games as "just over".
             if !self.catching_up {
                 self.last = Some((g.clone(), Instant::now()));
             }
@@ -98,8 +97,8 @@ impl Follower {
     }
 }
 
-/// Startet das Mitlesen im Hintergrund. `repaint` wird aufgerufen, wenn sich
-/// die Anzeige geändert hat; [`Shared::stop`] beendet den Thread.
+/// Starts following in the background. `repaint` is called when the display
+/// changed; [`Shared::stop`] ends the thread.
 pub fn spawn(db: Arc<CardDb>, shared: Arc<Shared>, repaint: impl Fn() + Send + 'static) {
     std::thread::spawn(move || {
         let mut follower = Follower::default();

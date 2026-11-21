@@ -1,7 +1,7 @@
-//! Ersatzvorschläge: ähnliche Karten aus der eigenen Sammlung.
+//! Replacement suggestions: similar cards from the own collection.
 //!
-//! Das ist eine Heuristik (Typ, Manawert, Farbe, gemeinsame Fähigkeiten) –
-//! sie findet funktional verwandte Karten, ersetzt aber kein Spielverständnis.
+//! This is a heuristic (type, mana value, color, shared abilities) – it finds
+//! functionally related cards, but doesn't replace game understanding.
 
 use std::collections::{HashMap, HashSet};
 
@@ -38,8 +38,8 @@ fn score(target: &Card, cand: &Card) -> f32 {
     {
         s += 0.5;
     }
-    // Gleiche Aufgabe (Removal, Neutralisieren, Kartenziehen) zählt viel:
-    // Ein Removal-Zauber soll durch Removal ersetzt werden, nicht durch einen Kampftrick.
+    // The same job (removal, countering, card draw) counts a lot: a removal
+    // spell should be replaced by removal, not by a combat trick.
     for role in [ROLE_REMOVAL, ROLE_COUNTER, ROLE_DRAW] {
         match (target.has_role(role), cand.has_role(role)) {
             (true, true) => s += 2.5,
@@ -50,11 +50,11 @@ fn score(target: &Card, cand: &Card) -> f32 {
     s
 }
 
-/// Sucht bis zu `limit` Ersatzkarten für `target_key` in der Sammlung.
+/// Searches up to `limit` replacement cards for `target_key` in the collection.
 ///
-/// * `deck_colors` – Farbidentität des Decks; Ersatz muss hineinpassen.
-/// * `in_deck` – Karten, die schon im Deck sind (werden nicht vorgeschlagen).
-/// * `legal` – falls bekannt: im Format legale Kartennamen.
+/// * `deck_colors` – color identity of the deck; the replacement must fit into it.
+/// * `in_deck` – cards already in the deck (not suggested).
+/// * `legal` – if known: card names legal in the format.
 pub fn suggest(
     db: &CardDb,
     owned: &HashMap<String, u32>,
@@ -102,7 +102,7 @@ pub fn suggest(
 }
 
 impl Suggestion {
-    /// Vorschlag für eine bestimmte eigene Karte (z. B. vom Budget-Plan gewählt).
+    /// Suggestion for a specific own card (e.g. chosen by the budget plan).
     pub fn for_card(db: &CardDb, owned: &HashMap<String, u32>, key: &str) -> Option<Suggestion> {
         let c = db.representative(key)?;
         Some(Suggestion {

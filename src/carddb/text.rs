@@ -1,9 +1,9 @@
-//! Eigenschaften aus Kartentexten: Rollen, Brandschaden, Manafähigkeiten, getappte Länder.
+//! Properties from card texts: roles, burn damage, mana abilities, tapped lands.
 
 use super::*;
 
-/// Schaden, den ein Fähigkeitstext einem Spieler zufügen kann (0 = keiner).
-/// Erfasst z. B. „deals 3 damage to any target“ oder „… to each opponent“.
+/// Damage an ability text can deal to a player (0 = none).
+/// Catches e.g. "deals 3 damage to any target" or "… to each opponent".
 pub(super) fn burn_of(text: &str) -> u32 {
     let t = strip_tags(text).to_lowercase();
     for target in [
@@ -28,7 +28,7 @@ pub(super) fn burn_of(text: &str) -> u32 {
     0
 }
 
-/// Leitet aus einem (englischen) Fähigkeitstext grobe Rollen ab.
+/// Derives rough roles from an (English) ability text.
 pub(super) fn roles_of(text: &str) -> u8 {
     let t = strip_tags(text).to_lowercase();
     let has = |needles: &[&str]| needles.iter().any(|n| t.contains(n));
@@ -94,15 +94,15 @@ pub(super) fn strip_tags(s: &str) -> String {
     out
 }
 
-/// Aus den Fähigkeitstexten gewonnene Eigenschaften je Fähigkeits-Kennung.
+/// Properties gained from the ability texts per ability id.
 #[derive(Default)]
 pub(super) struct AbilityInfo {
     roles: HashMap<u32, u8>,
     burn: HashMap<u32, u32>,
     tapped: HashSet<u32>,
-    /// Aktivierte Fähigkeiten, die Tappen kosten.
+    /// Activated abilities that cost tapping.
     tap_cost: HashSet<u32>,
-    /// Manafähigkeiten: erzeugte Farben (0 = farblos).
+    /// Mana abilities: colors produced (0 = colorless).
     mana: HashMap<u32, u8>,
 }
 
@@ -128,7 +128,7 @@ impl AbilityInfo {
     }
 }
 
-/// Leitet Rollen, Brandschaden, „kommt getappt“ und Manafähigkeiten ab.
+/// Derives roles, burn damage, "enters tapped" and mana abilities.
 pub(super) fn apply_abilities(card: &mut Card, info: &AbilityInfo) {
     card.roles = card
         .abilities
@@ -137,8 +137,8 @@ pub(super) fn apply_abilities(card: &mut Card, info: &AbilityInfo) {
         .fold(0, |m, r| m | r);
     card.enters_tapped = card.abilities.iter().any(|a| info.tapped.contains(a));
     card.tap_ability = card.abilities.iter().any(|a| info.tap_cost.contains(a));
-    // Brandschaden zählt nur bei Spontanzaubern und Hexereien – bei Kreaturen
-    // steckt er oft in Fähigkeiten, die nicht sofort wirken.
+    // Burn damage only counts for instants and sorceries – on creatures it
+    // often sits in abilities that don't take effect right away.
     if card
         .types
         .iter()
@@ -152,7 +152,7 @@ pub(super) fn apply_abilities(card: &mut Card, info: &AbilityInfo) {
             .max()
             .unwrap_or(0);
     }
-    // Länder liefern ihre Farben über `colors`; hier nur andere Manaquellen.
+    // Lands provide their colors via `colors`; here only other mana sources.
     if !card.is_land() {
         card.mana = card
             .abilities
@@ -162,15 +162,15 @@ pub(super) fn apply_abilities(card: &mut Card, info: &AbilityInfo) {
     }
 }
 
-/// Kostet die aktivierte Fähigkeit Tappen? Die Kosten stehen vor dem
-/// Doppelpunkt: „{oT}: …“ oder „{oT}, Opfere …: …“.
+/// Does the activated ability cost tapping? The costs come before the
+/// colon: "{oT}: …" or "{oT}, Sacrifice …: …".
 pub(super) fn tap_cost_of(text: &str) -> bool {
     let t = strip_tags(text).to_lowercase();
     t.split_once(':')
         .is_some_and(|(cost, _)| cost.contains("{ot}"))
 }
 
-/// Farben einer Manafähigkeit wie „{oT}: Add {oG}.“ (0 = farblos), sonst `None`.
+/// Colors of a mana ability like "{oT}: Add {oG}." (0 = colorless), otherwise `None`.
 pub(super) fn mana_of(text: &str) -> Option<u8> {
     let t = strip_tags(text).to_lowercase();
     let (_, add) = t.split_once("{ot}: add ")?;
@@ -185,7 +185,7 @@ pub(super) fn mana_of(text: &str) -> Option<u8> {
     (colors != 0 || add.contains("{oc}")).then_some(colors)
 }
 
-/// Kommt ein Land laut Fähigkeitstext immer getappt ins Spiel?
+/// Does a land always enter tapped according to its ability text?
 pub(super) fn enters_tapped_of(text: &str) -> bool {
     let lower = text.to_lowercase();
     lower.contains("enters tapped") && !lower.contains("unless")

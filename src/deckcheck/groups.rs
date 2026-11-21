@@ -1,4 +1,4 @@
-//! Fasst die Partien nach Deckliste zusammen.
+//! Groups the games by decklist.
 
 use super::*;
 
@@ -23,10 +23,10 @@ pub(super) fn is_fixed_event(name: &str) -> bool {
     event::fixed_deck(name)
 }
 
-/// Fasst die Partien nach Deckliste zusammen, zuletzt gespieltes Deck zuerst.
+/// Groups the games by decklist, most recently played deck first.
 pub fn group_decks(games: &[GameRecord], db: &CardDb) -> Vec<DeckGroup> {
     let mut groups: Vec<DeckGroup> = Vec::new();
-    // Gleiche Karte in anderem Druck = gleiches Deck: Schlüssel über die Namen.
+    // The same card in another printing = the same deck: key by names.
     let key_of = |deck: &[GrpId]| crate::games::deck_key(deck, db);
     let mut keys: Vec<Vec<String>> = Vec::new();
     for (i, g) in games.iter().enumerate() {
@@ -56,7 +56,7 @@ pub fn group_decks(games: &[GameRecord], db: &CardDb) -> Vec<DeckGroup> {
     for grp in &mut groups {
         let first = &games[grp.games[0]];
         let colors = crate::games::deck_colors(&grp.deck, db);
-        // Bekannteste Karte als Erkennungszeichen: seltenste Nichtland-Karte.
+        // Best-known card as a marker: the rarest non-land card.
         let signature = grp
             .deck
             .iter()

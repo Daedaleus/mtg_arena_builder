@@ -1,10 +1,10 @@
-//! Deckvorschläge ausschließlich aus Karten der eigenen Sammlung.
+//! Deck suggestions only from cards of the own collection.
 //!
-//! Für jede Farbe und jedes Farbpaar wird ein 60-Karten-Deck zusammengestellt:
-//! die stärksten eigenen Karten auf einer sinnvollen Manakurve, genug Kreaturen
-//! und Removal, dazu passende Länder. Die Kartenstärke ist eine Schätzung aus
-//! Seltenheit, Turnier-Präsenz, Werten und Kartentext – kein Ersatz für ein
-//! abgestimmtes Turnierdeck, aber deutlich besser als zufällig gemischte Karten.
+//! For every color and every color pair a 60-card deck is put together: the
+//! strongest own cards on a sensible mana curve, enough creatures and
+//! removal, plus matching lands. Card strength is an estimate from rarity,
+//! tournament presence, stats and card text – no substitute for a tuned
+//! tournament deck, but much better than randomly mixed cards.
 
 use std::collections::{HashMap, HashSet};
 
@@ -27,7 +27,7 @@ pub struct Built {
     pub meta_cards: u32,
 }
 
-/// Geschätzte Stärke einer Karte (höher = besser).
+/// Estimated strength of a card (higher = better).
 fn rating(card: &Card, meta_use: u32, colors: u8, copies: u32) -> f32 {
     let mut r = match card.rarity {
         Rarity::Mythic => 3.0,
@@ -35,7 +35,7 @@ fn rating(card: &Card, meta_use: u32, colors: u8, copies: u32) -> f32 {
         Rarity::Uncommon => 1.6,
         _ => 1.0,
     };
-    // Karten, die in Turnierdecks gespielt werden, sind erwiesenermaßen gut.
+    // Cards played in tournament decks are proven to be good.
     if meta_use > 0 {
         r += 1.5 + (meta_use as f32).ln().min(2.0) * 0.5;
     }
@@ -46,23 +46,23 @@ fn rating(card: &Card, meta_use: u32, colors: u8, copies: u32) -> f32 {
         r += 0.4;
     }
     if card.is_creature() {
-        // Werte im Verhältnis zu den Kosten (eine 3/3 für 3 ist der Maßstab).
+        // Stats relative to the cost (a 3/3 for 3 is the benchmark).
         if let (Ok(p), Ok(t)) = (card.power.parse::<f32>(), card.toughness.parse::<f32>()) {
             r += ((p + t) - (2.0 * card.cmc as f32)).clamp(-2.0, 2.0) * 0.2;
         }
         r += (card.abilities.len().min(3) as f32) * 0.15;
     }
-    // Mehrfarbige Karten, die genau ins Farbpaar passen, sind meist stärker.
+    // Multicolored cards that fit the color pair exactly are usually stronger.
     if card.colors == colors && colors.count_ones() == 2 {
         r += 0.4;
     }
-    // Mehrere Exemplare machen das Deck berechenbarer als lauter Einzelkarten.
+    // Several copies make the deck more predictable than many single cards.
     r += 0.15 * (copies.saturating_sub(1)) as f32;
-    // Teure Karten bleiben oft auf der Hand stecken.
+    // Expensive cards often get stuck in hand.
     if card.cmc >= 5 {
         r -= 0.5;
     }
-    // In zweifarbigen Decks sind Kosten wie {U}{U} oder {R}{R}{R} schwer zu bezahlen.
+    // In two-color decks, costs like {U}{U} or {R}{R}{R} are hard to pay.
     if colors.count_ones() == 2 {
         let max_pips = color::LETTERS
             .iter()
@@ -78,35 +78,35 @@ fn curve_bucket(cmc: u32) -> usize {
     (cmc.clamp(1, 6) - 1) as usize
 }
 
-/// Obergrenzen je Manawert (1, 2, 3, 4, 5, 6+): zuerst eine schnelle Kurve,
-/// und nur wenn die Sammlung dafür nicht reicht, eine großzügigere.
+/// Upper limits per mana value (1, 2, 3, 4, 5, 6+): first a fast curve, and
+/// only if the collection isn't enough for it, a more generous one.
 const CURVE_CAPS: [[u32; 6]; 2] = [[10, 14, 8, 4, 2, 0], [12, 16, 10, 7, 4, 2]];
-/// Höchstens so viele Nicht-Kreaturen – viele Kreaturen halten Removal besser aus.
+/// At most this many non-creatures – many creatures withstand removal better.
 const MAX_NONCREATURE: u32 = 14;
-/// Davon höchstens so viele ohne Removal-Funktion.
+/// Of those, at most this many without a removal function.
 const MAX_OTHER: u32 = 4;
-/// Mindestens so viele Karten je Farbe in einem Zweifarbdeck.
+/// At least this many cards per color in a two-color deck.
 const MIN_PER_COLOR: u32 = 6;
-/// Mindestens so viele Kreaturen.
+/// At least this many creatures.
 const MIN_CREATURES: u32 = 12;
 
-/// Eigene Karte, die ins Deck passen würde.
+/// Own card that would fit into the deck.
 struct Candidate<'a> {
     card: &'a Card,
     rating: f32,
-    /// Eigene Exemplare, höchstens 4.
+    /// Own copies, at most 4.
     copies: u32,
-    /// In so vielen Turnierlisten gespielt.
+    /// Played in this many tournament lists.
     meta: u32,
 }
 
-/// Ausgewählte Karte mit Anzahl.
+/// Chosen card with count.
 struct Pick<'a> {
     card: &'a Card,
     qty: u32,
 }
 
-/// Bisher ausgewählte Zauber und ihre Kennzahlen.
+/// Spells chosen so far and their key figures.
 #[derive(Default)]
 struct Selection<'a> {
     picks: Vec<Pick<'a>>,
@@ -118,13 +118,13 @@ struct Selection<'a> {
     rares: u32,
     meta_cards: u32,
     noncreature: u32,
-    /// Nicht-Kreaturen ohne Removal-Funktion.
+    /// Non-creatures without a removal function.
     other: u32,
 }
 
 impl<'a> Selection<'a> {
-    /// Beste Karten zuerst, begrenzt durch Kurve und Kartentypen; reicht die
-    /// schnelle Kurve nicht, geht es mit der großzügigeren weiter.
+    /// Best cards first, limited by curve and card types; if the fast curve
+    /// isn't enough, it continues with the more generous one.
     fn choose(pool: &[Candidate<'a>]) -> Selection<'a> {
         let mut sel = Selection::default();
         for caps in &CURVE_CAPS {
@@ -148,7 +148,7 @@ impl<'a> Selection<'a> {
             .map_or(0, |p| p.qty)
     }
 
-    /// Wie viele Exemplare noch passen (Kurve, Kartentyp, Deckgröße).
+    /// How many copies still fit (curve, card type, deck size).
     fn room_for(&self, c: &Candidate, caps: &[u32; 6]) -> u32 {
         let bucket = curve_bucket(c.card.cmc);
         let type_room = if c.card.is_creature() {
@@ -194,7 +194,7 @@ impl<'a> Selection<'a> {
         }
     }
 
-    /// Exemplare mit einer Farbe (Bit).
+    /// Copies with a color (bit).
     fn of_color(&self, bit: u8) -> u32 {
         self.picks
             .iter()
@@ -203,7 +203,7 @@ impl<'a> Selection<'a> {
             .sum()
     }
 
-    /// Farbsymbole in den Manakosten aller Picks (W, U, B, R, G).
+    /// Color symbols in the mana costs of all picks (W, U, B, R, G).
     fn pips(&self) -> [u32; 5] {
         let mut pips = [0u32; 5];
         for p in &self.picks {
@@ -215,7 +215,7 @@ impl<'a> Selection<'a> {
     }
 }
 
-/// Eigene Karten aus der Sammlung, die das Format erlaubt (höchstens 4 je Karte).
+/// Own cards from the collection that the format allows (at most 4 per card).
 fn owned_cards<'a>(
     db: &'a CardDb,
     owned: &'a HashMap<String, u32>,
@@ -227,7 +227,7 @@ fn owned_cards<'a>(
         .filter_map(move |(key, n)| Some((key, db.representative(key)?, (*n).min(4))))
 }
 
-/// Eigene, legale Nichtland-Karten in den Farben, stärkste zuerst.
+/// Own legal non-land cards in the colors, strongest first.
 fn candidates<'a>(
     db: &'a CardDb,
     owned: &'a HashMap<String, u32>,
@@ -241,7 +241,7 @@ fn candidates<'a>(
                 && !card.back_face
                 && card.cmc > 0
                 && card.colors & !colors == 0
-                // Flächenräumer schaden einem Kreaturendeck mehr, als sie nützen.
+                // Board wipes hurt a creature deck more than they help.
                 && !card.has_role(ROLE_WIPE)
         })
         .map(|(key, card, copies)| {
@@ -262,8 +262,8 @@ fn candidates<'a>(
     pool
 }
 
-/// Länder: eigene Zweifarbländer (höchstens 8), Rest Standardländer nach
-/// Farbbedarf – jede Farbe mindestens ein Drittel.
+/// Lands: own dual lands (at most 8), the rest basic lands by color need –
+/// every color at least a third.
 fn mana_base(
     db: &CardDb,
     owned: &HashMap<String, u32>,
@@ -278,7 +278,7 @@ fn mana_base(
             .filter(|(_, c, _)| c.is_land() && !c.basic && c.colors == colors)
             .map(|(_, c, n)| (c, n))
             .collect();
-        // Seltenere Zweifarbländer kommen meist ungetappt – die zuerst.
+        // Rarer dual lands usually enter untapped – those first.
         duals.sort_by(|a, b| {
             b.0.rarity
                 .cmp(&a.0.rarity)
@@ -328,10 +328,10 @@ fn build_one(
     let pool = candidates(db, owned, legal, meta_use, colors);
     let mut sel = Selection::choose(&pool);
     if sel.total < SPELLS || sel.creatures < MIN_CREATURES {
-        return None; // zu wenige spielbare Karten in diesen Farben
+        return None; // too few playable cards in these colors
     }
-    // Jede Farbe eines Zweifarbdecks braucht eigene Karten – sonst wäre es ein
-    // einfarbiges Deck mit nutzlosen Ländern der zweiten Farbe.
+    // Every color of a two-color deck needs its own cards – otherwise it would
+    // be a mono-colored deck with useless lands of the second color.
     if colors.count_ones() == 2
         && (0..5)
             .map(|i| 1u8 << i)
@@ -341,7 +341,7 @@ fn build_one(
     }
     let lands = mana_base(db, owned, legal, colors, sel.pips());
 
-    // Ausgabe: nach Manawert sortiert, Länder am Ende.
+    // Output: sorted by mana value, lands at the end.
     sel.picks.sort_by(|a, b| {
         a.card
             .cmc
@@ -373,10 +373,10 @@ fn build_one(
     })
 }
 
-/// Baut Vorschläge für alle ein- und zweifarbigen Kombinationen, beste zuerst.
+/// Builds suggestions for all mono- and two-colored combinations, best first.
 ///
-/// * `legal` – im Format legale Kartennamen (falls bekannt).
-/// * `meta_use` – in wie vielen Turnierlisten eine Karte vorkommt.
+/// * `legal` – card names legal in the format (if known).
+/// * `meta_use` – in how many tournament lists a card appears.
 pub fn build_all(
     db: &CardDb,
     owned: &HashMap<String, u32>,

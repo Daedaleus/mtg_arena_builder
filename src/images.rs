@@ -1,12 +1,12 @@
-//! Kartenbilder von Scryfall (frei abrufbar, ohne API-Schlüssel).
+//! Card images from Scryfall (freely available, without an API key).
 //!
-//! Ein Hintergrund-Thread holt Bilder nacheinander – Scryfall bittet um
-//! höchstens 10 Anfragen pro Sekunde – und legt sie im Cache ab, sodass jede
-//! Karte nur einmal heruntergeladen wird.
+//! A background thread fetches images one after another – Scryfall asks for
+//! at most 10 requests per second – and stores them in the cache, so each
+//! card is downloaded only once.
 //!
-//! Bilder gibt es je Sprache: Der Schlüssel ist der englische Kartenname,
-//! für andere Sprachen mit angehängtem Kürzel (siehe [`key`]). Gibt es keinen
-//! Druck in der Sprache, kommt das englische Bild.
+//! Images exist per language: the key is the English card name, for other
+//! languages with an appended code (see [`key`]). If there is no printing in
+//! the language, the English image is used.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -30,11 +30,11 @@ fn file_stem(name: &str) -> String {
         .collect()
 }
 
-/// Dekodiertes Kartenbild: RGBA-Pixel Zeile für Zeile (unabhängig von der
-/// Oberfläche; die App macht daraus eine Textur).
+/// Decoded card image: RGBA pixels row by row (independent of the
+/// interface; the app turns it into a texture).
 #[derive(Clone, Debug, PartialEq)]
 pub struct Picture {
-    /// Breite und Höhe in Pixeln.
+    /// Width and height in pixels.
     pub size: [usize; 2],
     pub rgba: Vec<u8>,
 }
@@ -48,11 +48,11 @@ pub(crate) fn decode(bytes: &[u8]) -> Option<Picture> {
     })
 }
 
-/// Trenner zwischen Kartenname und Sprachkürzel im Schlüssel.
+/// Separator between card name and language code in the key.
 const LANG_SEP: char = '@';
 
-/// Schlüssel für Bild und Cache: der englische Kartenname, für andere
-/// Sprachen mit Kürzel, z. B. „Shock@de“.
+/// Key for image and cache: the English card name, for other languages with
+/// a code, e.g. "Shock@de".
 pub fn key(name: &str, locale: Locale) -> String {
     match locale {
         Locale::English => name.to_string(),
@@ -60,7 +60,7 @@ pub fn key(name: &str, locale: Locale) -> String {
     }
 }
 
-/// Kartenname und Sprachkürzel (`None` = Englisch) aus einem Schlüssel.
+/// Card name and language code (`None` = English) from a key.
 fn split_key(key: &str) -> (&str, Option<&str>) {
     match key.rsplit_once(LANG_SEP) {
         Some((name, lang)) => (name, Some(lang)),
@@ -77,7 +77,7 @@ fn encode(text: &str) -> String {
         .collect()
 }
 
-/// Scryfall-Adresse für das Kartenbild (`mode` = `exact` oder `fuzzy`).
+/// Scryfall address for the card image (`mode` = `exact` or `fuzzy`).
 fn image_url(mode: &str, name: &str) -> String {
     format!(
         "https://api.scryfall.com/cards/named?{mode}={}&format=image&version=normal",
@@ -85,7 +85,7 @@ fn image_url(mode: &str, name: &str) -> String {
     )
 }
 
-/// Scryfall-Suche nach Drucken einer Karte in einer Sprache.
+/// Scryfall search for printings of a card in a language.
 fn search_url(name: &str, lang: &str) -> String {
     let query = format!("!\"{name}\" lang:{lang}");
     format!(
@@ -94,8 +94,8 @@ fn search_url(name: &str, lang: &str) -> String {
     )
 }
 
-/// Bildadresse des ersten Treffers einer Scryfall-Suche (bei doppelseitigen
-/// Karten die Vorderseite).
+/// Image address of the first hit of a Scryfall search (the front face for
+/// double-faced cards).
 fn image_from_search(json: &str) -> Option<String> {
     let v: Value = serde_json::from_str(json).ok()?;
     let card = &v["data"][0];
@@ -107,8 +107,8 @@ fn image_from_search(json: &str) -> Option<String> {
 
 const IMAGE: &str = "image/*,*/*;q=0.8";
 
-/// Englisches Bild: erst exakter Name, sonst unscharfe Suche (z. B. bei
-/// doppelseitigen Karten). `Ok(None)` = Scryfall kennt keins.
+/// English image: exact name first, otherwise fuzzy search (e.g. for
+/// double-faced cards). `Ok(None)` = Scryfall knows none.
 fn download_english(http: &dyn Http, name: &str) -> Result<Option<Vec<u8>>, FetchError> {
     for mode in ["exact", "fuzzy"] {
         match http.get(&image_url(mode, name), IMAGE) {
@@ -120,7 +120,7 @@ fn download_english(http: &dyn Http, name: &str) -> Result<Option<Vec<u8>>, Fetc
     Ok(None)
 }
 
-/// `Ok(None)` statt Fehler, wenn es die Adresse nicht gibt.
+/// `Ok(None)` instead of an error if the address doesn't exist.
 fn found(result: Result<Vec<u8>, FetchError>) -> Result<Option<Vec<u8>>, FetchError> {
     match result {
         Ok(bytes) => Ok(Some(bytes)),
@@ -129,7 +129,7 @@ fn found(result: Result<Vec<u8>, FetchError>) -> Result<Option<Vec<u8>>, FetchEr
     }
 }
 
-/// Bild eines Drucks in der Sprache `lang` (`Ok(None)` = keiner vorhanden).
+/// Image of a printing in language `lang` (`Ok(None)` = none available).
 fn download_localized(
     http: &dyn Http,
     name: &str,
@@ -144,7 +144,7 @@ fn download_localized(
     }
 }
 
-/// Bild zu einem Schlüssel (siehe [`key`]); ohne Druck in der Sprache das englische.
+/// Image for a key (see [`key`]); without a printing in the language the English one.
 pub(crate) fn download(http: &dyn Http, key: &str) -> Result<Option<Vec<u8>>, FetchError> {
     match split_key(key) {
         (name, Some(lang)) => match download_localized(http, name, lang)? {
@@ -155,10 +155,10 @@ pub(crate) fn download(http: &dyn Http, key: &str) -> Result<Option<Vec<u8>>, Fe
     }
 }
 
-/// Was der Bild-Cache zu einer Karte weiß.
+/// What the image cache knows about a card.
 enum Cached {
     Image(Picture),
-    /// Scryfall kennt kein Bild (gemerkt, damit nicht erneut gefragt wird).
+    /// Scryfall knows no image (remembered so it isn't asked again).
     Missing,
     Unknown,
 }
@@ -177,7 +177,7 @@ fn from_cache(cache: &Path, name: &str) -> Cached {
         if let Some(img) = decode(&bytes) {
             return Cached::Image(img);
         }
-        // Beschädigte Datei verwerfen und neu laden.
+        // Drop a damaged file and load it again.
         let _ = fs::remove_file(&file);
     }
     if missing.exists() {
@@ -187,7 +187,7 @@ fn from_cache(cache: &Path, name: &str) -> Cached {
     }
 }
 
-/// Merkt ein heruntergeladenes Bild bzw. dass es keines gibt.
+/// Remembers a downloaded image or that there is none.
 fn store(cache: &Path, name: &str, bytes: Option<&[u8]>) -> Option<Picture> {
     let (file, missing) = cache_files(cache, name);
     match bytes {
@@ -205,13 +205,13 @@ fn store(cache: &Path, name: &str, bytes: Option<&[u8]>) -> Option<Picture> {
     }
 }
 
-/// Ergebnis einer Bildanfrage.
+/// Result of an image request.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Fetched {
     Found(Picture),
-    /// Scryfall kennt kein Bild (gemerkt).
+    /// Scryfall knows no image (remembered).
     NotFound,
-    /// Netzfehler: später erneut versuchen.
+    /// Network error: try again later.
     Failed,
 }
 
@@ -228,8 +228,8 @@ fn load(http: &dyn Http, cache: &Path, name: &str) -> Fetched {
     }
 }
 
-/// Startet den Bild-Thread. Kartennamen in den zurückgegebenen Kanal schicken;
-/// `done` wird mit dem Bild (oder `None`) aufgerufen.
+/// Starts the image thread. Send card names into the returned channel; `done`
+/// is called with the image (or `None`).
 pub fn spawn(
     cache: PathBuf,
     http: Arc<dyn Http>,

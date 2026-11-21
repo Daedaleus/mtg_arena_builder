@@ -1,4 +1,4 @@
-//! Länder-Check: zu wenige oder zu viele Länder in den eigenen Partien.
+//! Land check: too few or too many lands in the own games.
 
 use super::*;
 
@@ -15,7 +15,7 @@ pub(super) fn mana_check(group: &DeckGroup, games: &[&GameRecord], db: &CardDb) 
             continue;
         }
         m.games += 1;
-        // Zu wenig: im 3. eigenen Zug weniger als 3 Länder und kein Land auf der Hand.
+        // Too few: fewer than 3 lands on the 3rd own turn and no land in hand.
         let third = mine[2];
         let land_in_hand = third
             .hand
@@ -24,8 +24,8 @@ pub(super) fn mana_check(group: &DeckGroup, games: &[&GameRecord], db: &CardDb) 
         if third.lands_me < 3 && !land_in_hand {
             m.screw += 1;
         }
-        // Zu viel: ab dem 5. eigenen Zug mindestens 5 Länder im Spiel, zwei weitere
-        // auf der Hand und höchstens eine andere Karte.
+        // Too many: from the 5th own turn at least 5 lands in play, two more in
+        // hand and at most one other card.
         let flooded = mine.iter().skip(4).any(|t| {
             let (lands, other): (Vec<_>, Vec<_>) = t
                 .hand

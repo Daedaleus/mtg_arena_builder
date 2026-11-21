@@ -1,4 +1,4 @@
-//! Lädt die Kartendatenbank von MTG Arena (SQLite).
+//! Loads MTG Arena's card database (SQLite).
 
 use super::*;
 
@@ -9,7 +9,7 @@ pub(super) fn parse_list<T: std::str::FromStr>(s: &str) -> Vec<T> {
         .collect()
 }
 
-/// Manawert aus Arenas Schreibweise, z. B. `o2oUoB` oder `o1o(R/G)`.
+/// Mana value from Arena's notation, e.g. `o2oUoB` or `o1o(R/G)`.
 pub(super) fn cmc_of(mana: &str) -> u32 {
     mana.split('o')
         .filter(|t| !t.is_empty())
@@ -21,7 +21,7 @@ pub(super) fn cmc_of(mana: &str) -> u32 {
         .sum()
 }
 
-/// Lesbare Manakosten: `o2oUoB` -> `{2}{U}{B}`.
+/// Readable mana costs: `o2oUoB` -> `{2}{U}{B}`.
 pub(super) fn pretty_mana(mana: &str) -> String {
     mana.split('o')
         .filter(|t| !t.is_empty())
@@ -61,7 +61,7 @@ impl CardDb {
     }
 }
 
-/// SQL für alle Karten; mit deutschem Namen, falls die Datenbank ihn enthält.
+/// SQL for all cards; with the German name if the database contains it.
 fn cards_query(conn: &Connection) -> String {
     let has_de: bool = conn
         .query_row(
@@ -91,11 +91,11 @@ fn cards_query(conn: &Connection) -> String {
     )
 }
 
-/// Supertypen in der Arena-Datenbank (Spalte `Supertypes`).
+/// Supertypes in the Arena database (column `Supertypes`).
 const SUPERTYPE_BASIC: u8 = 1;
 const SUPERTYPE_LEGENDARY: u8 = 2;
 
-/// Eine Karte aus einer Zeile der Kartenabfrage (Rollen kommen später dazu).
+/// A card from a row of the card query (roles are added later).
 fn card_from_row(r: &rusqlite::Row) -> rusqlite::Result<Card> {
     let text = |r: &rusqlite::Row, i: usize| -> String {
         r.get::<_, Option<String>>(i)
@@ -142,7 +142,7 @@ fn card_from_row(r: &rusqlite::Row) -> rusqlite::Result<Card> {
     })
 }
 
-/// Fähigkeitstexte, aus denen Rollen (Removal, Counter, Kartenziehen) folgen.
+/// Ability texts from which roles (removal, counter, card draw) follow.
 fn ability_info(conn: &Connection) -> Result<AbilityInfo> {
     let mut info = AbilityInfo::default();
     if let Ok(mut stmt) = conn.prepare(

@@ -1,10 +1,10 @@
-//! Die fünf Farben in Arena-Reihenfolge (W, U, B, R, G). Der Index entspricht
-//! dem Bit in [`Card::colors`](super::Card::colors).
+//! The five colors in Arena order (W, U, B, R, G). The index matches the
+//! bit in [`Card::colors`](super::Card::colors).
 
-/// Manasymbole.
+/// Mana symbols.
 pub const LETTERS: [char; 5] = ['W', 'U', 'B', 'R', 'G'];
-/// Name einer Farbe (Index wie in [`LETTERS`]) in der eingestellten Sprache,
-/// so wie Arena sie nennt.
+/// Name of a color (index as in [`LETTERS`]) in the selected language, as
+/// Arena calls it.
 pub fn name(index: usize) -> String {
     match index {
         0 => tr!("carddb_color.white"),
@@ -15,10 +15,10 @@ pub fn name(index: usize) -> String {
         _ => "?".to_string(),
     }
 }
-/// Standardländer (englische Kartennamen).
+/// Basic lands (English card names).
 pub const BASIC_LANDS: [&str; 5] = ["Plains", "Island", "Swamp", "Mountain", "Forest"];
 
-/// Farbmaske als Buchstaben, z. B. `0b01010` wird zu „UR“.
+/// Color mask as letters, e.g. `0b01010` becomes "UR".
 pub fn letters(mask: u8) -> String {
     LETTERS
         .iter()
@@ -28,7 +28,7 @@ pub fn letters(mask: u8) -> String {
         .collect()
 }
 
-/// Lesbarer Name aus Farbbuchstaben: „Mono-Rot“, „Blau-Rot“; ohne Farbe „Unbekannt“.
+/// Readable name from color letters: "Mono-Red", "Blue-Red"; without color "Unknown".
 pub fn label(letters: &str) -> String {
     let of = |c: char| {
         LETTERS
