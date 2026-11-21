@@ -1011,3 +1011,53 @@ fn games_filter_by_mode_and_deck() {
     assert_eq!(GamesFilter::like(&no_deck, &db).deck, None);
     assert_eq!(deck_key(&red, &db), deck_key(&ranked_again.deck, &db));
 }
+
+#[test]
+fn game_format_from_arena_events() {
+    use GameFormat::*;
+    // Real event names from Arena logs, plus some by pattern.
+    for (event, size, format) in [
+        ("Ladder", 60, Standard),
+        ("Traditional_Ladder", 60, Standard),
+        ("Play", 60, Standard),
+        ("Traditional_Play", 60, Standard),
+        ("Standard_Event_20261110", 60, Standard),
+        ("Historic_Ladder", 60, Historic),
+        ("Historic_Play", 60, Historic),
+        ("Traditional_Historic_Ladder", 60, Historic),
+        ("Explorer_Ladder", 60, Explorer),
+        ("Alchemy_Play", 60, Alchemy),
+        ("Timeless_Ladder", 60, Timeless),
+        ("Play_Brawl", 100, Brawl),
+        ("Play_Brawl", 60, StandardBrawl),
+        ("Play_Brawl", 0, Brawl),
+        ("Play_Brawl_Historic", 0, Brawl),
+        ("Standard_Brawl_Event", 0, StandardBrawl),
+        ("DemoBrawlDecks_TRK_20261110", 60, StandardBrawl),
+        ("QuickDraft_FDN_20261101", 40, Limited),
+        ("Sealed_TRK_20261110", 40, Limited),
+        ("WelcomeDeckDuels_TRK_20261110", 60, Other),
+        ("DualColorPrecons", 60, Other),
+        ("Jump_In_2024", 40, Other),
+        ("", 60, Other),
+    ] {
+        assert_eq!(GameFormat::of(event, size), format, "{event} ({size})");
+    }
+    let meta: Vec<GameFormat> = GameFormat::ALL
+        .into_iter()
+        .filter(|f| f.meta().is_some())
+        .collect();
+    assert_eq!(meta, vec![Standard, Historic, Explorer, Alchemy]);
+    assert_eq!(Historic.meta(), Some(crate::meta::Format::Historic));
+    assert!(Brawl.is_brawl() && StandardBrawl.is_brawl() && !Standard.is_brawl());
+    // The record counts the commander to the deck size.
+    let g = GameRecord {
+        event: "Play_Brawl".into(),
+        deck: vec![FOREST; 99],
+        commander: vec![LEGEND],
+        ..Default::default()
+    };
+    assert_eq!(g.format(), Brawl);
+    // Play queues of other formats are "play", not an event.
+    assert_eq!(GameMode::of("Historic_Play"), GameMode::Play);
+}
