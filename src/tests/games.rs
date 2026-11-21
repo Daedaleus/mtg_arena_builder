@@ -917,6 +917,11 @@ fn game_modes_group_arena_events() {
         assert_eq!(GameMode::of(event), mode, "{event}");
     }
     assert!(GameMode::ALL.iter().all(|m| !m.label().is_empty()));
+    let constructed: Vec<GameMode> = GameMode::ALL
+        .into_iter()
+        .filter(|m| m.is_constructed())
+        .collect();
+    assert_eq!(constructed, vec![Ranked, Play, Event]);
 }
 
 #[test]

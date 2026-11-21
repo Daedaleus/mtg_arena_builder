@@ -10,7 +10,7 @@
 
 use super::*;
 use crate::carddb::{ROLE_COUNTER, ROLE_DRAW, ROLE_REMOVAL, ROLE_WIPE, keyword};
-use crate::games::{self, GameRecord};
+use crate::games::{self, GameMode, GameRecord};
 
 /// At least this many complete games with opponent data for a profile.
 pub const MIN_PROFILE_GAMES: usize = 5;
@@ -78,11 +78,17 @@ pub struct Habits {
     pub turns: usize,
 }
 
+/// Games that fit the simulation of a constructed deck: complete and not
+/// Brawl or limited (other pace, other decks).
+fn usable(g: &GameRecord) -> bool {
+    g.complete && GameMode::of(&g.event).is_constructed()
+}
+
 /// Opponent profile from the own games (`None` with too little data).
 pub fn opponent_from(history: &[GameRecord], db: &CardDb) -> Option<Opponent> {
     let games: Vec<&GameRecord> = history
         .iter()
-        .filter(|g| g.complete && g.turns.iter().any(|t| !t.opp_creatures.is_empty()))
+        .filter(|g| usable(g) && g.turns.iter().any(|t| !t.opp_creatures.is_empty()))
         .collect();
     if games.len() < MIN_PROFILE_GAMES {
         return None;
@@ -184,7 +190,7 @@ pub fn opponent_from(history: &[GameRecord], db: &CardDb) -> Option<Opponent> {
 pub fn habits_from(history: &[GameRecord], db: &CardDb) -> Option<Habits> {
     let mine: Vec<&games::TurnStat> = history
         .iter()
-        .filter(|g| g.complete)
+        .filter(|g| usable(g))
         .flat_map(|g| g.turns.iter().filter(|t| t.mine && !t.lands.is_empty()))
         .collect();
     if mine.len() < MIN_HABIT_TURNS {

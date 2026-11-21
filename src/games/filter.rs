@@ -52,6 +52,12 @@ impl GameMode {
         }
     }
 
+    /// Games like a constructed deck with up to four copies (not Brawl with a
+    /// commander, not draft or sealed); unknown events count too.
+    pub fn is_constructed(self) -> bool {
+        !matches!(self, GameMode::Brawl | GameMode::Limited)
+    }
+
     pub fn label(self) -> String {
         match self {
             GameMode::Ranked => tr!("games_filter.ranked"),
