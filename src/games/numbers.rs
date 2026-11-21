@@ -1,6 +1,6 @@
-//! Feste Partie-Nummern: chronologisch, die älteste Partie ist #1. Kommt eine
-//! neue Partie dazu, behalten alle bisherigen ihre Nummer – auch wenn die
-//! Liste neueste zuerst zeigt oder nach Modus gefiltert ist.
+//! Fixed game numbers: chronological, the oldest game is #1. When a new game
+//! arrives, all earlier ones keep their number – even when the list shows
+//! the newest first or is filtered by mode.
 
 use std::collections::HashMap;
 
@@ -10,7 +10,7 @@ use super::GameRecord;
 pub struct GameNumbers(HashMap<String, usize>);
 
 impl GameNumbers {
-    /// Nummeriert alle gespeicherten Partien (nicht nur eine gefilterte Auswahl).
+    /// Numbers all stored games (not only a filtered selection).
     pub fn new(all: &[GameRecord]) -> GameNumbers {
         let mut order: Vec<&GameRecord> = all.iter().collect();
         order.sort_by(|a, b| {
@@ -27,7 +27,7 @@ impl GameNumbers {
         )
     }
 
-    /// Nummer der Partie; 0, wenn sie nicht zu den nummerierten gehört.
+    /// Number of the game; 0 if it isn't among the numbered ones.
     pub fn of(&self, g: &GameRecord) -> usize {
         self.0.get(&g.id).copied().unwrap_or(0)
     }

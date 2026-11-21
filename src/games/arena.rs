@@ -1,11 +1,11 @@
-//! Werte aus dem Arena-Log (Nachrichten der Spiel-Engine, „GRE“) an einer
-//! Stelle: die Zugphase als Aufzählung, alles andere als benannte Konstanten.
-//! So steht kein Protokollwert verstreut als Zeichenkette im Code.
+//! Values from the Arena log (messages of the game engine, "GRE") in one
+//! place: the turn phase as an enum, everything else as named constants.
+//! So no protocol value is scattered through the code as a string.
 
-/// Phase eines Zuges.
+/// Phase of a turn.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Phase {
-    /// Noch keine oder eine unbekannte Phase.
+    /// No phase yet or an unknown one.
     #[default]
     Unknown,
     Beginning,
@@ -16,7 +16,7 @@ pub enum Phase {
 }
 
 impl Phase {
-    /// Phase aus dem Log-Wert, z. B. „Phase_Main1“.
+    /// Phase from the log value, e.g. "Phase_Main1".
     pub fn from_arena(value: &str) -> Phase {
         match value {
             "Phase_Beginning" => Phase::Beginning,
@@ -29,13 +29,13 @@ impl Phase {
     }
 }
 
-/// Schritte innerhalb einer Phase (nur die, die die App braucht).
+/// Steps within a phase (only those the app needs).
 pub mod step {
     pub const BEGIN_COMBAT: &str = "Step_BeginCombat";
     pub const DECLARE_ATTACK: &str = "Step_DeclareAttack";
 }
 
-/// Zonen (wo eine Karte liegt).
+/// Zones (where a card is).
 pub mod zone {
     pub const BATTLEFIELD: &str = "ZoneType_Battlefield";
     pub const HAND: &str = "ZoneType_Hand";
@@ -45,7 +45,7 @@ pub mod zone {
     pub const REVEALED: &str = "ZoneType_Revealed";
 }
 
-/// Arten von Nachrichten und Spielständen.
+/// Kinds of messages and game states.
 pub mod message {
     pub const CONNECT_RESP: &str = "GREMessageType_ConnectResp";
     pub const MULLIGAN_REQ: &str = "GREMessageType_MulliganReq";
@@ -56,7 +56,7 @@ pub mod message {
     pub const OBJECT_CARD: &str = "GameObjectType_Card";
 }
 
-/// Kartentypen und Kampfzustände eines Spielobjekts.
+/// Card types and combat states of a game object.
 pub mod card_state {
     pub const LAND: &str = "CardType_Land";
     pub const CREATURE: &str = "CardType_Creature";
@@ -64,18 +64,18 @@ pub mod card_state {
     pub const BLOCKING: [&str; 2] = ["BlockState_Blocking", "BlockState_Declared"];
 }
 
-/// Arena-Events (Spielmodi) einer Partie.
+/// Arena events (game modes) of a game.
 pub mod event {
     pub const LADDER: &str = "Ladder";
     pub const LADDER_BO3: &str = "Traditional_Ladder";
     pub const PLAY: &str = "Play";
     pub const PLAY_BO3: &str = "Traditional_Play";
     pub const STARTER_DECKS: &str = "DualColorPrecons";
-    /// Vorsilben von Events mit fest vorgegebenem Deck.
+    /// Prefixes of events with a fixed deck.
     pub const WELCOME_DUELS_PREFIX: &str = "WelcomeDeckDuels";
     pub const COLOR_CHALLENGE_PREFIX: &str = "ColorChallenge";
 
-    /// Gibt das Event das Deck fest vor?
+    /// Does the event fix the deck?
     pub fn fixed_deck(event: &str) -> bool {
         event.starts_with(WELCOME_DUELS_PREFIX)
             || event.starts_with(COLOR_CHALLENGE_PREFIX)
@@ -83,7 +83,7 @@ pub mod event {
     }
 }
 
-/// Ereignisse („Annotations“) und ihre Kategorien.
+/// Annotations and their categories.
 pub mod annotation {
     pub const DAMAGE_DEALT: &str = "AnnotationType_DamageDealt";
     pub const ZONE_TRANSFER: &str = "AnnotationType_ZoneTransfer";

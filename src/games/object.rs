@@ -1,9 +1,9 @@
-//! Ein Spielobjekt (Karte im Spiel) aus Sicht des Logs und die Frage, ob ein
-//! Angriff gefahrlos ist.
+//! A game object (card in play) as the log sees it, and whether an attack is
+//! safe.
 
 use super::*;
 
-/// Spielobjekt mit den Werten, die die Auswertung braucht.
+/// Game object with the values the analysis needs.
 #[derive(Clone, Default)]
 pub(super) struct Obj {
     pub(super) grp_id: GrpId,
@@ -50,7 +50,7 @@ impl Obj {
     }
 }
 
-/// Kann `attacker` angreifen, ohne dass ein möglicher Block ihn tötet?
+/// Can `attacker` attack without a possible block killing it?
 pub(super) fn safe_attack(attacker: &Obj, blockers: &[&Obj]) -> bool {
     let eligible: Vec<&&Obj> = blockers.iter().filter(|b| b.can_block(attacker)).collect();
     if attacker.has(kw::MENACE) {

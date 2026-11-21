@@ -1,9 +1,9 @@
-//! Dauerhafte Ablage der Partien in `games.json`.
+//! Permanent storage of the games in `games.json`.
 
 use super::*;
 
-/// Version der Auswertung. Wird sie erhöht, werden gespeicherte Partien beim
-/// nächsten Einlesen aus noch vorhandenen Logs neu berechnet.
+/// Version of the analysis. When it is increased, stored games are
+/// recomputed from logs that still exist at the next read.
 pub(super) const PARSER_VERSION: u32 = 6;
 
 #[derive(Default, Serialize, Deserialize)]
@@ -13,23 +13,23 @@ pub(super) struct Store {
     pub(super) games: Vec<GameRecord>,
 }
 
-/// Ergebnis von [`sync`].
+/// Result of [`sync`].
 #[derive(Debug, Default)]
 pub struct Synced {
     pub games: Vec<GameRecord>,
-    /// Problem mit `games.json` für die Statuszeile: nicht lesbar, beschädigt
-    /// (dann gesichert) oder nicht speicherbar. Die Partien sind trotzdem da.
+    /// Problem with `games.json` for the status line: unreadable, damaged
+    /// (then backed up) or not savable. The games are there anyway.
     pub problem: Option<String>,
 }
 
-/// Gespeicherte Partien laden. Eine beschädigte Datei wird gesichert (nicht
-/// überschrieben); ist sie nicht lesbar, darf `sync` sie nicht ersetzen.
+/// Load stored games. A damaged file is backed up (not overwritten); if it
+/// is unreadable, `sync` must not replace it.
 fn load_store(store: &Path) -> (Store, Option<String>, bool) {
     use crate::paths::{LoadError, backup_corrupt, load_json};
     match load_json::<Store>(store) {
         Ok(s) => (s, None, true),
         Err(LoadError::Missing) => (Store::default(), None, true),
-        // Ältere Dateien enthielten nur die Liste der Partien.
+        // Older files contained only the list of games.
         Err(LoadError::Corrupt(_)) if load_json::<Vec<GameRecord>>(store).is_ok() => {
             let games = load_json::<Vec<GameRecord>>(store).unwrap_or_default();
             (Store { version: 1, games }, None, true)
@@ -59,17 +59,17 @@ fn load_store(store: &Path) -> (Store, Option<String>, bool) {
     }
 }
 
-/// Gespeicherte Partien laden, neue aus den Logs dazunehmen und speichern.
+/// Load stored games, add new ones from the logs and save.
 ///
-/// Jede Partie kennt die Version der Auswertung, mit der sie erstellt wurde.
-/// Eine bessere Aufzeichnung ersetzt eine schlechtere; eine gleich gute nur,
-/// wenn die gespeicherte mit einer älteren Auswertung entstand. Partien,
-/// deren Log nicht mehr existiert, behalten ihre alte Version.
+/// Every game knows the version of the analysis that created it. A better
+/// recording replaces a worse one; an equally good one only if the stored
+/// one came from an older analysis. Games whose log no longer exists keep
+/// their old version.
 pub fn sync(store: &Path, logs: &[PathBuf]) -> Synced {
     let (saved, problem, writable) = load_store(store);
     let file_outdated = saved.version < PARSER_VERSION;
     let mut games = saved.games;
-    // Ältere Dateien kannten nur eine Version für alle Partien.
+    // Older files knew only one version for all games.
     for g in games.iter_mut().filter(|g| g.parser == 0) {
         g.parser = saved.version;
     }

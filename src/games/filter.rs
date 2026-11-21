@@ -1,23 +1,23 @@
-//! Auswahl der Partien für „Meine Partien“: nach Spielmodus (Gruppen statt
-//! einzelner Arena-Events) und nach Deck. So mischen sich Brawl- und
-//! Standard-Partien oder verschiedene Decks nicht in einer Auswertung.
+//! Choice of games for "My games": by game mode (groups instead of single
+//! Arena events) and by deck. So Brawl and Standard games or different decks
+//! don't mix in one analysis.
 
 use super::GameRecord;
 use super::arena::event;
 use crate::carddb::{CardDb, GrpId, name_key};
 
-/// Gruppe von Arena-Events mit vergleichbaren Partien.
+/// Group of Arena events with comparable games.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum GameMode {
-    /// Rangliste (Bo1 und Bo3, alle Formate).
+    /// Ranked (Bo1 and Bo3, all formats).
     Ranked,
-    /// „Spielen“ ohne Rang.
+    /// "Play" without rank.
     Play,
     Brawl,
-    /// Draft, Sealed, Cube.
+    /// Draft, sealed, cube.
     Limited,
-    /// Events mit vorgegebenem oder besonderem Deck (Willkommens-Duelle,
-    /// Starterdecks, Jump In, Farb-Challenge …).
+    /// Events with a fixed or special deck (welcome duels, starter decks,
+    /// Jump In, color challenge …).
     Event,
 }
 
@@ -30,7 +30,7 @@ impl GameMode {
         GameMode::Event,
     ];
 
-    /// Ordnet ein Arena-Event einer Gruppe zu.
+    /// Assigns an Arena event to a group.
     pub fn of(event_name: &str) -> GameMode {
         let lower = event_name.to_lowercase();
         if lower.contains("brawl") {
@@ -63,7 +63,7 @@ impl GameMode {
     }
 }
 
-/// Schlüssel einer Deckliste: gleiche Karten in anderem Druck = gleiches Deck.
+/// Key of a decklist: the same cards in another printing = the same deck.
 pub fn deck_key(deck: &[GrpId], db: &CardDb) -> Vec<String> {
     let mut key: Vec<String> = deck
         .iter()
@@ -78,16 +78,16 @@ pub fn deck_key(deck: &[GrpId], db: &CardDb) -> Vec<String> {
     key
 }
 
-/// Welche Partien ausgewertet werden; `None` = alle.
+/// Which games are analysed; `None` = all.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct GamesFilter {
     pub mode: Option<GameMode>,
-    /// Schlüssel der Deckliste (siehe [`deck_key`]).
+    /// Key of the decklist (see [`deck_key`]).
     pub deck: Option<Vec<String>>,
 }
 
 impl GamesFilter {
-    /// Modus und Deck der Partie `g` – Vorbelegung mit der letzten Partie.
+    /// Mode and deck of game `g` – preselection with the last game.
     pub fn like(g: &GameRecord, db: &CardDb) -> GamesFilter {
         GamesFilter {
             mode: Some(GameMode::of(&g.event)),

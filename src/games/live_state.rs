@@ -1,27 +1,27 @@
-//! Momentaufnahme der laufenden Partie für das Begleitfenster.
+//! Snapshot of the running game for the companion window.
 
 use super::*;
 
-/// Kreatur im Spiel, für die Angriffsrechnung des Begleitfensters.
+/// Creature on the battlefield, for the companion's combat calculation.
 #[derive(Clone, Debug, Default)]
 pub struct LiveCreature {
-    /// Kennung im Kampf (Block-Zuordnung). Im Begleitfenster die Karten-ID
-    /// (`GrpId::0`), in der Simulation eine fortlaufende Nummer.
+    /// Identity in combat (block assignment). In the companion the card id
+    /// (`GrpId::0`), in the simulation a sequential number.
     pub grp_id: u32,
     pub power: i32,
     pub toughness: i32,
     pub flying: bool,
-    /// Kann Flieger blocken (Fliegend oder Reichweite).
+    /// Can block flyers (flying or reach).
     pub reach: bool,
     pub menace: bool,
     pub deathtouch: bool,
-    /// Erstschlag oder Doppelschlag.
+    /// First strike or double strike.
     pub first_strike: bool,
     pub trample: bool,
     pub indestructible: bool,
 }
 
-/// Momentaufnahme einer laufenden Partie für das Begleitfenster.
+/// Snapshot of a running game for the companion window.
 #[derive(Clone, Debug, Default)]
 pub struct LiveState {
     pub turn: u32,
@@ -29,39 +29,39 @@ pub struct LiveState {
     pub phase: Phase,
     pub life_me: i32,
     pub life_opp: i32,
-    /// Eigene Handkarten (grpIds).
+    /// Own hand cards (grpIds).
     pub hand: Vec<GrpId>,
     pub lands_me: u32,
     pub lands_untapped: u32,
-    /// grpIds der eigenen ungetappten Länder (für die Farbprüfung).
+    /// grpIds of the own untapped lands (for the color check).
     pub untapped_lands: Vec<GrpId>,
-    /// Kreaturen des Gegners: (grpId, Kraft).
+    /// The opponent's creatures: (grpId, power).
     pub opp_creatures: Vec<(GrpId, i32)>,
-    /// Eigene ungetappte Nichtländer, die jetzt Mana erzeugen könnten
-    /// (Kreaturen ohne Einsatzverzögerung); ob sie es können, weiß die Kartendatenbank.
+    /// Own untapped non-lands that could produce mana now (creatures
+    /// without summoning sickness); whether they can is known by the card database.
     pub mana_permanents: Vec<GrpId>,
-    /// Eigene bleibende Karten außer Ländern (für die Legendary-Regel).
+    /// Own permanents except lands (for the legend rule).
     pub board: Vec<GrpId>,
     pub land_played: bool,
     pub creatures_me: u32,
     pub creatures_opp: u32,
-    /// Starthand wird gerade angeboten (Mulligan-Entscheidung).
+    /// The opening hand is being offered (mulligan decision).
     pub mulligan: bool,
-    /// Kreaturen (grpIds), die gerade gefahrlos angreifen könnten.
+    /// Creatures (grpIds) that could attack safely right now.
     pub safe_attackers: Vec<GrpId>,
-    /// Gegnerzug: Anzahl angreifender gegnerischer Kreaturen.
+    /// Opponent's turn: number of attacking opposing creatures.
     pub opp_attackers: u32,
-    /// Bisher gesehene Karten des Gegners (grpIds).
+    /// The opponent's cards seen so far (grpIds).
     pub opp_cards: Vec<GrpId>,
-    /// Eigene Kreaturen, die jetzt angreifen könnten.
+    /// Own creatures that could attack now.
     pub attackers: Vec<LiveCreature>,
-    /// Ungetappte Kreaturen des Gegners (mögliche Blocker).
+    /// Untapped creatures of the opponent (possible blockers).
     pub blockers: Vec<LiveCreature>,
-    /// Gegnerzug: angreifende Kreaturen des Gegners.
+    /// Opponent's turn: the opponent's attacking creatures.
     pub opp_attacking: Vec<LiveCreature>,
-    /// Gegnerzug: eigene ungetappte Kreaturen, die blocken können.
+    /// Opponent's turn: own untapped creatures that can block.
     pub my_blockers: Vec<LiveCreature>,
-    /// Ungetappte Länder des Gegners (offenes Mana für Tricks).
+    /// Untapped lands of the opponent (open mana for tricks).
     pub opp_untapped_lands: u32,
 }
 

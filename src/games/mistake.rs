@@ -1,30 +1,30 @@
-//! Fehlerarten der Partie-Auswertung mit Titel und Rat.
+//! Kinds of mistakes in the game analysis with title and advice.
 
-/// Eine Art von Fehler, die die Auswertung in den Partien findet.
+/// A kind of mistake that the analysis finds in the games.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Mistake {
-    /// Gefahrlosen Angriff nicht gemacht.
+    /// Safe attack not made.
     SkippedAttack,
-    /// Starthand mit zu wenigen oder zu vielen Ländern behalten.
+    /// Opening hand with too few or too many lands kept.
     RiskyKeep,
-    /// Land auf der Hand, aber keins gespielt.
+    /// Land in hand, but none played.
     MissedLand,
-    /// Mana frei und eine bezahlbare Karte auf der Hand (ältere Aufzeichnungen).
+    /// Mana free and an affordable card in hand (older recordings).
     UnusedMana,
-    /// Der Zugvorschlag hätte deutlich mehr Mana genutzt.
+    /// The turn suggestion would have used clearly more mana.
     BetterTurn,
-    /// Karte lag lange bezahlbar auf der Hand.
+    /// Card was affordable in hand for a long time.
     HeldCard,
-    /// Bei wenig Leben viel Schaden genommen, ohne zu blocken.
+    /// Took a lot of damage at low life without blocking.
     NoBlock,
-    /// In Zug 3–6 keine eigene Kreatur auf dem Feld.
+    /// No own creature on the battlefield in turns 3–6.
     EmptyBoard,
-    /// Mit noch genug Leben aufgegeben.
+    /// Conceded with enough life left.
     EarlyConcede,
 }
 
 impl Mistake {
-    /// Alle Fehlerarten; bei gleich vielen Fundstellen gilt diese Reihenfolge.
+    /// All kinds of mistakes; with equally many findings this order applies.
     pub const ALL: [Mistake; 9] = [
         Mistake::SkippedAttack,
         Mistake::RiskyKeep,
@@ -51,7 +51,7 @@ impl Mistake {
         }
     }
 
-    /// Was man stattdessen tun sollte.
+    /// What to do instead.
     pub fn advice(self) -> String {
         match self {
             Mistake::SkippedAttack => {

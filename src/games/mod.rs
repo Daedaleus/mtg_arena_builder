@@ -1,17 +1,17 @@
-//! Partie-Auswertung aus der `Player.log` von MTG Arena.
+//! Game analysis from MTG Arena's `Player.log`.
 //!
-//! Arena schreibt mit eingeschalteten „Detaillierten Logs“ jeden Spielzustand
-//! als JSON mit. Daraus werden je Partie Zugstatistiken gewonnen und dauerhaft
-//! in `games.json` gespeichert – Arena überschreibt das Log bei jedem Start.
-//! Aus den Statistiken leitet [`report`] konkrete Verbesserungstipps ab.
+//! With "Detailed Logs" turned on, Arena writes every game state as JSON.
+//! From it, turn statistics are gained per game and stored permanently in
+//! `games.json` – Arena overwrites the log on every start.
+//! From the statistics, [`report`] derives concrete tips for improvement.
 //!
-//! Aufbau:
-//! - Mitschreiben: `arena` (Protokollwerte des Logs), `object` (Spielobjekt,
-//!   gefahrloser Angriff), `tracker` (Spielzustand), `live_state`
-//!   (Momentaufnahme fürs Begleitfenster), `parser` (Logdateien)
-//! - Speichern: `record` (Datentypen), `store` (`games.json`)
-//! - Auswerten: `moments` (einzelne Züge), `mistake` (Fehlerarten),
-//!   `report` (alle Partien)
+//! Layout:
+//! - Recording: `arena` (protocol values of the log), `object` (game object,
+//!   safe attack), `tracker` (game state), `live_state`
+//!   (snapshot for the companion), `parser` (log files)
+//! - Storage: `record` (data types), `store` (`games.json`)
+//! - Analysis: `moments` (single turns), `mistake` (kinds of mistakes),
+//!   `report` (all games)
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fs::File;
@@ -50,7 +50,7 @@ pub use report::*;
 pub use store::*;
 use tracker::*;
 
-/// Farben eines Decks als Buchstaben (z. B. „UR“), aus den Manakosten.
+/// Colors of a deck as letters (e.g. "UR"), from the mana costs.
 pub fn deck_colors(deck: &[GrpId], db: &CardDb) -> String {
     let costs: String = deck
         .iter()
@@ -63,7 +63,7 @@ pub fn deck_colors(deck: &[GrpId], db: &CardDb) -> String {
         .collect()
 }
 
-/// Gegnerfarben aus den gesehenen Karten.
+/// Opponent colors from the cards seen.
 pub fn opp_colors(g: &GameRecord, db: &CardDb) -> String {
     let ids: Vec<GrpId> = g.opp_cards.keys().copied().collect();
     deck_colors(&ids, db)
