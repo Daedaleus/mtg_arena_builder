@@ -400,6 +400,32 @@ fn habits_from_history() {
 }
 
 #[test]
+fn profile_ignores_brawl_and_limited() {
+    let db = std_db();
+    let ok = my_turn(&[], &[FOREST], true, &[]);
+    let mut games: Vec<GameRecord> = (0..6)
+        .map(|_| history_game(&[2, 2, 2, 2], ok.clone()))
+        .collect();
+    let constructed = opponent_from(&games, &db).unwrap();
+    assert_eq!(constructed.games, 6);
+    let habits = habits_from(&games, &db).unwrap();
+    // Brawl and draft games with a much faster opponent change nothing.
+    for (i, event) in ["Play_Brawl", "QuickDraft_FDN_20261101"].iter().enumerate() {
+        let mut g = history_game(&[6, 6, 6, 6], ok.clone());
+        g.event = (*event).into();
+        games.push(g);
+        assert_eq!(opponent_from(&games, &db), Some(constructed.clone()), "{i}");
+        assert_eq!(habits_from(&games, &db), Some(habits), "{i}");
+    }
+    // Only Brawl games: no profile at all.
+    for g in &mut games {
+        g.event = "Play_Brawl".into();
+    }
+    assert!(opponent_from(&games, &db).is_none());
+    assert!(habits_from(&games, &db).is_none());
+}
+
+#[test]
 fn personal_simulation() {
     let db = std_db();
     let d = deck(&[(FOREST, 24), (BEAR, 20), (ELF, 16)]);
