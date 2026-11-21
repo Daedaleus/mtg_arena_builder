@@ -222,7 +222,7 @@ fn tabs_fit_the_game_mode() {
     };
     // Saved order: Meta, Paste, Built, Games, DeckCheck, Events.
     assert_eq!(shown(GameFormat::Standard), vec![0, 1, 2, 3, 4, 5]);
-    assert_eq!(shown(GameFormat::Brawl), vec![1, 3, 4]);
+    assert_eq!(shown(GameFormat::Brawl), vec![1, 2, 3, 4]);
     assert_eq!(shown(GameFormat::Timeless), vec![1, 3, 4]);
     assert_eq!(shown(GameFormat::Limited), vec![3]);
 }
@@ -236,8 +236,8 @@ fn areas_group_the_pages() {
         assert!(first.is_some_and(|t| t.area() == tab.area()));
     }
     assert!(Area::Decks.first_tab(GameFormat::Standard) == Some(Tab::Meta));
-    // Brawl: the Decks area only offers the import.
-    assert!(Area::Decks.first_tab(GameFormat::Brawl) == Some(Tab::Paste));
+    // Brawl: the Decks area offers the collection and the import.
+    assert!(Area::Decks.first_tab(GameFormat::Brawl) == Some(Tab::Built));
     // Limited: neither decks nor deck checks.
     assert!(Area::Decks.first_tab(GameFormat::Limited).is_none());
     assert!(Area::Improve.first_tab(GameFormat::Limited).is_none());

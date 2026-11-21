@@ -908,6 +908,27 @@ games_store.games_json_cannot_read:
 games_store.could_save_games:
   de: "Partien konnten nicht gespeichert werden: %{e}"
   en: "Could not save the games: %{e}"
+brawl.no_commander:
+  de: "Kein Commander: Die Liste braucht einen Abschnitt „Commander“."
+  en: "No commander: the list needs a “Commander” section."
+brawl.not_a_commander:
+  de: "%{name} kann kein Commander sein (nur legendäre Kreaturen und Planeswalker)."
+  en: "%{name} can't be a commander (only legendary creatures and planeswalkers)."
+brawl.size:
+  de: "%{have} Karten – Brawl braucht genau %{want} mit Commander."
+  en: "%{have} cards – Brawl needs exactly %{want} including the commander."
+brawl.duplicates:
+  de: "Mehr als ein Exemplar (außer Standardländern): %{v}"
+  en: "More than one copy (basic lands excepted): %{v}"
+brawl.outside_colors:
+  de: "Außerhalb der Farben des Commanders: %{v}"
+  en: "Outside the commander's colours: %{v}"
+brawl.not_legal:
+  de: "Im Format nicht erlaubt: %{v}"
+  en: "Not legal in the format: %{v}"
+brawl.rules_ok:
+  de: "Erfüllt die Brawl-Regeln (Commander, Größe, ein Exemplar, Farben)."
+  en: "Meets the Brawl rules (commander, size, one copy, colours)."
 nav.decks:
   de: "Decks"
   en: "Decks"

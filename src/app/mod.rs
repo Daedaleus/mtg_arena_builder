@@ -136,12 +136,13 @@ impl Tab {
         Tab::Events,
     ];
 
-    /// Does the tab make sense in game mode `mode`? Tournament decks, events
-    /// and building from the collection need a constructed format with
-    /// tournament decks; own lists and deck checks need own decks.
+    /// Does the tab make sense in game mode `mode`? Tournament decks and
+    /// events need a constructed format with tournament decks, building from
+    /// the collection that or Brawl; own lists and deck checks need own decks.
     fn fits(self, mode: GameFormat) -> bool {
         match self {
-            Tab::Meta | Tab::Events | Tab::Built => mode.meta().is_some(),
+            Tab::Meta | Tab::Events => mode.meta().is_some(),
+            Tab::Built => mode.meta().is_some() || mode.is_brawl(),
             Tab::Paste | Tab::DeckCheck => mode.has_own_decks(),
             Tab::Games => true,
         }

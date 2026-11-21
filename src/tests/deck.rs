@@ -159,3 +159,64 @@ fn commander_line_is_marked() {
     let marks: Vec<(bool, bool)> = eval.lines.iter().map(|l| (l.commander, l.side)).collect();
     assert_eq!(marks, vec![(true, false), (false, false)]);
 }
+
+#[test]
+fn brawl_rules_for_a_list() {
+    use crate::deck::brawl::{BrawlProblem, check};
+    use crate::games::GameFormat;
+    let db = crate::testutil::std_db();
+    // Isamaru (white) as commander; Shock is red, two copies of Grizzly Bears.
+    let deck = parse(
+        "Commander
+1 Isamaru, Hound of Konda
+
+Deck
+2 Grizzly Bears
+1 Shock
+55 Plains
+",
+    );
+    let legal: HashSet<String> = ["isamaru, hound of konda", "plains", "grizzly bears"]
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+    let problems = check(&deck, &db, GameFormat::StandardBrawl, Some(&legal));
+    assert_eq!(
+        problems,
+        vec![
+            BrawlProblem::Size { have: 59, want: 60 },
+            BrawlProblem::Duplicates(vec!["Grizzly Bears".into()]),
+            BrawlProblem::OutsideColors(vec!["Grizzly Bears".into(), "Shock".into()]),
+            BrawlProblem::NotLegal(vec!["Shock".into()]),
+        ]
+    );
+    assert!(problems.iter().all(|p| !p.user_text(&db).is_empty()));
+    // Without a commander section; a non-legendary commander.
+    let none = check(
+        &parse(
+            "60 Plains
+",
+        ),
+        &db,
+        GameFormat::StandardBrawl,
+        None,
+    );
+    assert_eq!(none, vec![BrawlProblem::NoCommander]);
+    let bear = parse(
+        "Commander
+1 Grizzly Bears
+Deck
+59 Forest
+",
+    );
+    assert_eq!(
+        check(&bear, &db, GameFormat::StandardBrawl, None),
+        vec![BrawlProblem::NotACommander("Grizzly Bears".into())]
+    );
+    // Historic Brawl wants 100 cards.
+    let p = check(&bear, &db, GameFormat::Brawl, None);
+    assert!(p.contains(&BrawlProblem::Size {
+        have: 60,
+        want: 100
+    }));
+}

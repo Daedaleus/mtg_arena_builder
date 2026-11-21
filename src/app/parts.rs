@@ -149,8 +149,9 @@ pub(super) struct TourState {
     pub sel_arch: Option<u32>,
     pub sel_deck: Option<u32>,
     /// Legal card keys per format.
-    pub legal: HashMap<Format, HashSet<String>>,
-    pub legal_requested: HashSet<Format>,
+    /// Legal card names per game mode (Scryfall).
+    pub legal: HashMap<GameFormat, HashSet<String>>,
+    pub legal_requested: HashSet<GameFormat>,
     /// Open fetches in the queue.
     pub pending: usize,
     /// "Rate all" is running (set the status to "done" at the end).

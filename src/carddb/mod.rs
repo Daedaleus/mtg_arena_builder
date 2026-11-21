@@ -184,6 +184,7 @@ pub const ROLE_WIPE: u8 = 8;
 pub const TYPE_INSTANT: u8 = 4;
 pub const TYPE_CREATURE: u8 = 2;
 pub const TYPE_SORCERY: u8 = 10;
+pub const TYPE_PLANESWALKER: u8 = 8;
 
 impl Card {
     pub fn has_role(&self, role: u8) -> bool {
@@ -211,6 +212,11 @@ impl Card {
 
     pub fn is_instant(&self) -> bool {
         self.types.contains(&TYPE_INSTANT)
+    }
+
+    /// Brawl commander: a legendary creature or planeswalker.
+    pub fn can_be_commander(&self) -> bool {
+        self.legendary && (self.is_creature() || self.types.contains(&TYPE_PLANESWALKER))
     }
 
     /// Mana costs split into generic mana and colored symbols per color

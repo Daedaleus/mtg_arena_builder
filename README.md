@@ -27,8 +27,8 @@ Choose your **game mode** at the top left (Standard, Historic, Explorer, Alchemy
 |---|---|
 | **Decks › Tournament decks** | Archetypes and decklists from MTGTop8 per format. Shows what your collection is missing and whether your wildcards are enough; replacement cards from your collection, *Build budget version*, a **wildcard plan** (what you can craft now and in which order the rest follows), **sample hands** and export for the Arena import. |
 | **Decks › Official events** | Decklists from magic.gg: World Championship, Arena Championship, Regional Championships and the weekly ranked decks. Archetypes are recognised from the MTGTop8 lists. |
-| **Decks › From my collection** | Builds 60-card decks per colour or colour pair using only cards you own (mana curve, creatures, removal, matching lands). |
-| **Decks › Import** | Paste any decklist (Brawl lists with commander too) and check it against your collection. |
+| **Decks › From my collection** | Builds 60-card decks per colour or colour pair using only cards you own (mana curve, creatures, removal, matching lands). In Brawl: one-copy decks around an owned commander in its colours. |
+| **Decks › Import** | Paste any decklist and check it against your collection; Brawl lists with a commander are also checked against the Brawl rules (size, one copy, colours, legality). |
 | **My games** | Analysis of the Arena log in sub tabs: an **overview** with key figures, **improve** (typical mistakes with examples: "land not played", "better play available", "safe attack skipped" …), your **play style** with matching tournament decks, **opponents**, the game list and **progress** (constructed and limited rank, win rate per deck). |
 | **Improve deck** | Per deck in collapsible sections: land check and sample hands, swap suggestions, comparison with the matching tournament archetype and card usage. |
 

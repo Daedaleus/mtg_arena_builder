@@ -23,11 +23,7 @@ impl App {
             .filter_map(|k| db.representative(k))
             .filter(|c| !c.is_land())
             .fold(0u8, |m, c| m | c.colors);
-        let legal = self
-            .settings
-            .mode
-            .meta()
-            .and_then(|f| self.tour.legal.get(&f));
+        let legal = self.tour.legal.get(&self.settings.mode);
         for line in eval.lines.iter().filter(|l| l.missing > 0) {
             let Some(key) = &line.key else { continue };
             let slot = (deck_id, key.clone());
@@ -35,6 +31,32 @@ impl App {
                 let found = similar::suggest(db, &self.owned, legal, colors, &in_deck, key, 6);
                 self.subs.insert(slot, found);
             }
+        }
+    }
+
+    /// Brawl lists: which rules are broken (commander, size, one copy,
+    /// colours, legality). The format is the game mode or, outside Brawl,
+    /// follows from the deck size.
+    fn brawl_rules(&self, ui: &mut egui::Ui, deck_id: DeckId) {
+        let (Some(db), Some(list)) = (&self.db, self.lists.get(&deck_id)) else {
+            return;
+        };
+        if !list.is_brawl() {
+            return;
+        }
+        let mode = self.settings.mode;
+        let size: u32 = list.main.iter().map(|e| e.qty).sum();
+        let format = if mode.is_brawl() {
+            mode
+        } else {
+            GameFormat::of("Brawl", size as usize)
+        };
+        let problems = deck::brawl::check(list, db, format, self.tour.legal.get(&format));
+        if problems.is_empty() {
+            toned(ui, Tone::Good, tr!("brawl.rules_ok"));
+        }
+        for p in &problems {
+            toned(ui, Tone::Warn, p.user_text(db));
         }
     }
 
@@ -48,6 +70,7 @@ impl App {
         });
         let wc = self.wildcards();
         self.summary_section(ui, &summary, wc);
+        self.brawl_rules(ui, deck_id);
         let clicked = self.deck_actions(ui, deck_id, &eval, &summary);
         if clicked.simulate {
             self.simulate_deck(deck_id, &eval);

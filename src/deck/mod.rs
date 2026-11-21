@@ -1,8 +1,12 @@
-//! Reading decklists and checking them against the collection.
+//! Reading decklists and checking them against the collection; `brawl`
+//! checks the Brawl rules (commander, size, one copy, colours, legality).
 
 use std::collections::{HashMap, HashSet};
 
 use crate::carddb::{CardDb, GrpId, Rarity};
+
+pub mod brawl;
+pub use brawl::BrawlProblem;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct DeckEntry {
@@ -282,5 +286,5 @@ pub fn usage_counts<'a>(evals: impl IntoIterator<Item = &'a DeckEval>) -> HashMa
 }
 
 #[cfg(test)]
-#[path = "tests/deck.rs"]
+#[path = "../tests/deck.rs"]
 mod tests;
