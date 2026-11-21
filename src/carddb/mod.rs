@@ -165,6 +165,9 @@ pub struct Card {
     pub mana: Option<u8>,
     /// Has an activated ability that costs tapping ("{T}: …", "{T}, …: …").
     pub tap_ability: bool,
+    /// Token (e.g. Treasure): only looked up by grpId from the log, never by
+    /// name – many tokens share their name with a real card.
+    pub token: bool,
 }
 
 /// Removes or neutralises opposing cards (destroy, damage, exile …).
@@ -262,10 +265,12 @@ impl CardDb {
         let mut cards = HashMap::new();
         let mut by_name: HashMap<String, Vec<GrpId>> = HashMap::new();
         for card in list {
-            by_name
-                .entry(name_key(&card.name))
-                .or_default()
-                .push(card.grp_id);
+            if !card.token {
+                by_name
+                    .entry(name_key(&card.name))
+                    .or_default()
+                    .push(card.grp_id);
+            }
             cards.insert(card.grp_id, card);
         }
         let mut front_names = HashMap::new();
@@ -281,6 +286,11 @@ impl CardDb {
             front_names,
             version: version.into(),
         }
+    }
+
+    /// Number of real cards (without tokens).
+    pub fn card_count(&self) -> usize {
+        self.cards.values().filter(|c| !c.token).count()
     }
 
     /// Resolves a card name (also only the front face) into the database key.

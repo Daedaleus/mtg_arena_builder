@@ -14,7 +14,7 @@ pub fn check() -> i32 {
             return 1;
         }
     };
-    println!("{} Karten geladen (Arena {})", db.cards.len(), db.version);
+    println!("{} Karten geladen (Arena {})", db.card_count(), db.version);
 
     let owned = match collection::read_from_game() {
         Ok(c) => {

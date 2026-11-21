@@ -61,7 +61,7 @@ impl App {
         match &self.db {
             Some(db) => tr!(
                 "state.card_data_cards_arena",
-                cards_n = db.cards.len(),
+                cards_n = db.card_count(),
                 version = db.version
             ),
             None => self.db_error.clone(),
