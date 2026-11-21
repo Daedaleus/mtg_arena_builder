@@ -108,42 +108,30 @@ impl App {
         );
     }
 
-    /// On first opening choose mode and deck of the last game, so different
-    /// modes and decks don't mix in one analysis.
+    /// On first opening show the games of the chosen game mode, so different
+    /// modes don't mix in one analysis.
     fn preset_games_filter(&mut self) {
         if self.games.filter_set {
             return;
         }
-        let (Some(db), Some(last)) = (self.db.as_ref(), self.games.list.first()) else {
-            return;
-        };
-        self.games.filter = games::GamesFilter::like(last, db);
+        self.games.filter = games::GamesFilter::of_format(self.settings.mode);
         self.games.filter_set = true;
     }
 
-    /// Choice of the mode group; on change "all decks" applies again.
+    /// The game mode of the app or all games; on change "all decks" applies
+    /// again.
     fn mode_choice(&mut self, ui: &mut egui::Ui) {
-        let mut modes: Vec<games::GameMode> = self
-            .games
-            .list
-            .iter()
-            .map(|g| games::GameMode::of(&g.event))
-            .collect();
-        modes.sort();
-        modes.dedup();
-        let label =
-            |m: Option<games::GameMode>| m.map_or_else(|| tr!("games_tab.modes"), |m| m.label());
-        let mut mode = self.games.filter.mode;
+        let label = |m: Option<GameFormat>| m.map_or_else(|| tr!("games_tab.modes"), |m| m.label());
+        let mut format = self.games.filter.format;
         egui::ComboBox::from_id_salt("games_mode")
-            .selected_text(label(mode))
+            .selected_text(label(format))
             .show_ui(ui, |ui| {
-                ui.selectable_value(&mut mode, None, label(None));
-                for m in modes {
-                    ui.selectable_value(&mut mode, Some(m), m.label());
-                }
+                let mode = Some(self.settings.mode);
+                ui.selectable_value(&mut format, mode, label(mode));
+                ui.selectable_value(&mut format, None, label(None));
             });
-        if mode != self.games.filter.mode {
-            self.games.filter = games::GamesFilter { mode, deck: None };
+        if format != self.games.filter.format {
+            self.games.filter = games::GamesFilter { format, deck: None };
         }
     }
 

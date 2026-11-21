@@ -994,8 +994,10 @@ fn games_filter_by_mode_and_deck() {
             .all(|g| all.matches(g, &db))
     );
 
-    let filter = GamesFilter::like(&ranked, &db);
-    assert_eq!(filter.mode, Some(GameMode::Ranked));
+    let filter = GamesFilter {
+        deck: Some(deck_key(&ranked.deck, &db)),
+        ..GamesFilter::of_format(GameFormat::Standard)
+    };
     assert!(filter.matches(&ranked, &db) && filter.matches(&ranked_again, &db));
     assert!(!filter.matches(&brawl, &db), "Brawl doesn't mix in");
     assert!(
@@ -1008,7 +1010,8 @@ fn games_filter_by_mode_and_deck() {
         ..filter
     };
     assert!(mode_only.matches(&no_deck, &db) && !mode_only.matches(&brawl, &db));
-    assert_eq!(GamesFilter::like(&no_deck, &db).deck, None);
+    let brawl_only = GamesFilter::of_format(GameFormat::StandardBrawl);
+    assert!(brawl_only.matches(&brawl, &db) && !brawl_only.matches(&ranked, &db));
     assert_eq!(deck_key(&red, &db), deck_key(&ranked_again.deck, &db));
 }
 
@@ -1058,6 +1061,21 @@ fn game_format_from_arena_events() {
         ..Default::default()
     };
     assert_eq!(g.format(), Brawl);
+    // Game mode of the app: codes, tournament formats, own decks.
+    for f in GameFormat::ALL {
+        assert_eq!(GameFormat::from_code(f.code()), Some(f));
+        assert!(!f.label().is_empty());
+    }
+    assert_eq!(GameFormat::from_code("XX"), None);
+    assert!(!GameFormat::SELECTABLE.contains(&Other));
+    use crate::meta::Format;
+    for f in Format::ALL {
+        let mode = GameFormat::from_meta(f);
+        assert_eq!(mode.meta().map(GameFormat::from_meta), Some(mode), "{f:?}");
+    }
+    assert_eq!(GameFormat::from_meta(Format::Pioneer), Explorer);
+    assert!(Brawl.has_own_decks() && Timeless.has_own_decks());
+    assert!(!Limited.has_own_decks() && !Other.has_own_decks());
     // Play queues of other formats are "play", not an event.
     assert_eq!(GameMode::of("Historic_Play"), GameMode::Play);
 }

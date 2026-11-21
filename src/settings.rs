@@ -6,13 +6,14 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
+use crate::games::GameFormat;
 use crate::i18n::Language;
 use crate::meta::Format;
 use crate::paths;
 
 /// Current version of `settings.json`. When it is increased,
 /// [`Settings::migrate`] adapts older files.
-pub const SETTINGS_VERSION: u32 = 1;
+pub const SETTINGS_VERSION: u32 = 2;
 
 /// Everything that should survive a restart.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -33,6 +34,9 @@ pub struct Settings {
     /// of the former format list) are still read.
     #[serde(with = "format_code")]
     pub format: Format,
+    /// Game mode of the whole app (in the file as a code, e.g. "brawl").
+    #[serde(with = "mode_code")]
+    pub mode: GameFormat,
     pub include_side: bool,
     pub with_sets: bool,
     pub sort_by_fit: bool,
@@ -56,6 +60,7 @@ impl Default for Settings {
             zoom: 1.0,
             onboarding_hidden: false,
             format: Format::Standard,
+            mode: GameFormat::Standard,
             include_side: true,
             with_sets: true,
             sort_by_fit: false,
@@ -74,8 +79,14 @@ pub const ZOOM_RANGE: (f32, f32) = (0.8, 1.6);
 
 impl Settings {
     /// Brings settings from an older file up to date.
-    /// Version 0 (without number) has the same fields – only the number is missing.
+    /// Version 0 (without number) has the same fields – only the number is
+    /// missing. Version 2 adds the game mode: taken from the format (Pioneer
+    /// becomes Explorer, Arena has no Pioneer).
     pub fn migrate(mut self) -> Settings {
+        if self.version < 2 {
+            self.mode = GameFormat::from_meta(self.format);
+            self.format = self.mode.meta().unwrap_or_default();
+        }
         self.version = SETTINGS_VERSION;
         self
     }
@@ -203,6 +214,22 @@ mod format_code {
             Stored::Index(i) => Format::ALL[i.min(Format::ALL.len() - 1)],
             Stored::Code(code) => Format::from_code(&code).unwrap_or_default(),
         })
+    }
+}
+
+/// Store the game mode as a code; unknown codes give Standard.
+mod mode_code {
+    use serde::{Deserialize, Deserializer, Serializer};
+
+    use crate::games::GameFormat;
+
+    pub fn serialize<S: Serializer>(mode: &GameFormat, s: S) -> Result<S::Ok, S::Error> {
+        s.serialize_str(mode.code())
+    }
+
+    pub fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<GameFormat, D::Error> {
+        let code = String::deserialize(d)?;
+        Ok(GameFormat::from_code(&code).unwrap_or(GameFormat::Standard))
     }
 }
 

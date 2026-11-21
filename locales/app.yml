@@ -138,11 +138,11 @@ chrome.show_getting_started_again:
   de: "„Erste Schritte“ wieder anzeigen"
   en: "Show “Getting started” again"
 chrome.format:
-  de: "Format:"
-  en: "Format:"
+  de: "Spielmodus:"
+  en: "Game mode:"
 chrome.format_tournament_decks_legality:
-  de: "Format für Turnierdecks, Legalität der Ersatzkarten und Gegner-Erkennung"
-  en: "Format for tournament decks, legality of replacement cards and opponent recognition"
+  de: "Was du spielst: bestimmt die Reiter, Turnierdecks, Legalität der Ersatzkarten und welche Partien ausgewertet werden"
+  en: "What you play: decides the tabs, tournament decks, legality of replacement cards and which games are analysed"
 chrome.cheapest_list_loaded_far:
   de: "Günstigste bisher geladene Liste\n%{v}"
   en: "Cheapest list loaded so far\n%{v}"
@@ -887,6 +887,33 @@ games_store.games_json_cannot_read:
 games_store.could_save_games:
   de: "Partien konnten nicht gespeichert werden: %{e}"
   en: "Could not save the games: %{e}"
+game_format.standard:
+  de: "Standard"
+  en: "Standard"
+game_format.historic:
+  de: "Historic"
+  en: "Historic"
+game_format.explorer:
+  de: "Explorer"
+  en: "Explorer"
+game_format.alchemy:
+  de: "Alchemy"
+  en: "Alchemy"
+game_format.timeless:
+  de: "Timeless"
+  en: "Timeless"
+game_format.brawl:
+  de: "Brawl"
+  en: "Brawl"
+game_format.standard_brawl:
+  de: "Standard-Brawl"
+  en: "Standard Brawl"
+game_format.limited:
+  de: "Limited (Draft, Sealed)"
+  en: "Limited (draft, sealed)"
+game_format.other:
+  de: "Sonstige Events"
+  en: "Other events"
 games_filter.ranked:
   de: "Rangliste"
   en: "Ranked"

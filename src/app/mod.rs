@@ -28,7 +28,7 @@ use crate::carddb::{CardDb, GrpId, Rarity};
 use crate::collection::{self, Collection};
 use crate::deck::{self, Deck, DeckEval, LineEval, Summary};
 use crate::deckcheck;
-use crate::games::{self, GameRecord};
+use crate::games::{self, GameFormat, GameRecord};
 use crate::images;
 use crate::live;
 use crate::magicgg::{self, GgDeck, GgEvent};
@@ -133,6 +133,17 @@ impl Tab {
         Tab::DeckCheck,
         Tab::Events,
     ];
+
+    /// Does the tab make sense in game mode `mode`? Tournament decks, events
+    /// and building from the collection need a constructed format with
+    /// tournament decks; own lists and deck checks need own decks.
+    fn fits(self, mode: GameFormat) -> bool {
+        match self {
+            Tab::Meta | Tab::Events | Tab::Built => mode.meta().is_some(),
+            Tab::Paste | Tab::DeckCheck => mode.has_own_decks(),
+            Tab::Games => true,
+        }
+    }
 
     fn from_saved(n: u8) -> Tab {
         Tab::SAVED.get(usize::from(n)).copied().unwrap_or(Tab::Meta)
@@ -241,7 +252,9 @@ impl App {
             .collect();
         let mut app = App {
             sort_by_fit: settings.sort_by_fit,
-            tab: Tab::from_saved(settings.tab),
+            tab: Some(Tab::from_saved(settings.tab))
+                .filter(|t| t.fits(settings.mode))
+                .unwrap_or(Tab::Games),
             paste_text: settings.paste_text.clone(),
             repl,
             collection: Collection::load(&data_dir.join("collection.json")),
