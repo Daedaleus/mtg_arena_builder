@@ -13,3 +13,4 @@ pub const TRAMPLE: u32 = 14;
 pub const VIGILANCE: u32 = 15;
 pub const INDESTRUCTIBLE: u32 = 104;
 pub const MENACE: u32 = 142;
+pub const PROWESS: u32 = 137;

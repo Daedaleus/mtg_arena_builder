@@ -3,12 +3,13 @@
 //!
 //! - [`Opponent`]: how much power the opponents bring onto the battlefield
 //!   per turn (average over the own games), how often they play removal and
-//!   combat tricks, and which decks are most common.
+//!   combat tricks, how many of their creatures fly, and which decks are most
+//!   common.
 //! - [`Habits`]: how often you skip a better play and how often you don't
 //!   make a safe attack.
 
 use super::*;
-use crate::carddb::{ROLE_COUNTER, ROLE_DRAW, ROLE_REMOVAL, ROLE_WIPE};
+use crate::carddb::{ROLE_COUNTER, ROLE_DRAW, ROLE_REMOVAL, ROLE_WIPE, keyword};
 use crate::games::{self, GameRecord};
 
 /// At least this many complete games with opponent data for a profile.
@@ -38,6 +39,8 @@ pub struct Opponent {
     pub removal: f32,
     /// Chance per combat of a trick (+2/+2 for an opposing creature).
     pub tricks: f32,
+    /// Share of new opposing creatures that fly.
+    pub flying: f32,
 }
 
 impl Opponent {
@@ -51,6 +54,7 @@ impl Opponent {
             turns: FAST_TURNS,
             removal: 0.0,
             tricks: 0.0,
+            flying: 0.0,
         }
     }
 
@@ -117,14 +121,23 @@ pub fn opponent_from(history: &[GameRecord], db: &CardDb) -> Option<Opponent> {
         turns: TURNS,
         removal: 0.0,
         tricks: 0.0,
+        flying: 0.0,
     };
-    // Removal and tricks seen per opponent turn.
+    // Removal and tricks seen per opponent turn; share of flying creatures.
     let (mut removal, mut tricks, mut opp_turns) = (0u32, 0u32, 0usize);
+    let (mut creatures, mut flyers) = (0u32, 0u32);
     for g in &games {
         opp_turns += g.turns.iter().filter(|t| !t.mine).count();
         for (grp, n) in &g.opp_cards {
             let Some(c) = db.cards.get(grp) else { continue };
-            if c.is_creature() || c.is_land() {
+            if c.is_creature() {
+                creatures += n;
+                if c.has_ability(keyword::FLYING) {
+                    flyers += n;
+                }
+                continue;
+            }
+            if c.is_land() {
                 continue;
             }
             if c.has_role(ROLE_REMOVAL) || c.has_role(ROLE_WIPE) {
@@ -137,6 +150,11 @@ pub fn opponent_from(history: &[GameRecord], db: &CardDb) -> Option<Opponent> {
     let rate = |n: u32| (n as f32 / opp_turns.max(1) as f32).min(MAX_RATE);
     opp.removal = rate(removal);
     opp.tricks = rate(tricks);
+    opp.flying = if creatures == 0 {
+        0.0
+    } else {
+        flyers as f32 / creatures as f32
+    };
     for k in 0..TURNS {
         if count[k] >= MIN_TURN_SAMPLES {
             opp.power[k] = power[k] / count[k] as f32;

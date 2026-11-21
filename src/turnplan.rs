@@ -7,7 +7,7 @@
 //! not taken into account.
 
 use crate::carddb::{
-    Card, CardDb, GrpId, ROLE_COUNTER, ROLE_DRAW, ROLE_REMOVAL, ROLE_WIPE, keyword,
+    Card, CardDb, GrpId, ROLE_COUNTER, ROLE_DRAW, ROLE_PUMP, ROLE_REMOVAL, ROLE_WIPE, keyword,
 };
 
 /// Keyword ability "haste" in the Arena database.
@@ -179,7 +179,9 @@ pub fn plan(
     let mut held: Vec<&Card> = Vec::new();
     for c in cards.iter().filter(|c| !c.is_land() && c.cmc > 0) {
         let removal = c.has_role(ROLE_REMOVAL) && !c.is_creature();
-        if c.has_role(ROLE_COUNTER) && !removal {
+        let trick = c.is_instant() && c.has_role(ROLE_PUMP);
+        if (c.has_role(ROLE_COUNTER) || trick) && !removal {
+            // Counters and combat tricks are kept open for the right moment.
             held.push(c);
         } else if c.has_role(ROLE_WIPE) && opp_creatures.len() as u32 <= my_creatures {
             // Board wipes only when the opponent has more creatures.

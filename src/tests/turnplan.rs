@@ -116,9 +116,13 @@ fn wipes_only_when_behind() {
 
 #[test]
 fn tricks_are_kept_open() {
-    // Giant Growth (instant, no removal) is only cast if nothing else works.
+    // Giant Growth (instant combat trick) isn't cast in the main phase.
     let p = plan_for(&[GROWTH, ELF], &[FOREST], true, &[]);
     assert_eq!(p.spells, vec![ELF]);
+    // A combat trick is never cast in the main phase, but kept open.
+    let p = plan_for(&[GROWTH], &[FOREST], true, &[]);
+    assert!(p.spells.is_empty());
+    assert_eq!(p.hold, vec![GROWTH]);
 }
 
 #[test]

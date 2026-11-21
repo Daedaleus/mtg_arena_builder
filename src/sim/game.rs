@@ -82,13 +82,42 @@ impl<'a> Game<'a> {
         }
     }
 
-    /// The opponent's turn: new creature, maybe removal, attack with a trick.
+    /// The opponent's turn: new creature (maybe flying), maybe removal, attack
+    /// with a trick; an own trick with the mana left over helps a blocker.
     pub(super) fn opp_turn(&mut self, turn: usize, opponent: &Opponent, rng: &mut Rng) {
         let new = opponent.creature(turn, rng);
-        let removal = opponent.removal > 0.0 && rng.chance(opponent.removal);
-        let trick = opponent.tricks > 0.0 && rng.chance(opponent.tricks);
-        let died = self.board.opp_turn_with(new, removal, trick);
+        let own_trick = self.trick_in_hand(self.mana_left);
+        let how = OppTurn {
+            flying: opponent.flying > 0.0 && rng.chance(opponent.flying),
+            removal: opponent.removal > 0.0 && rng.chance(opponent.removal),
+            trick: opponent.tricks > 0.0 && rng.chance(opponent.tricks),
+            own_trick: own_trick.is_some(),
+        };
+        let died = self.board.opp_turn_with(new, how);
+        self.use_trick(own_trick);
         self.lose_mana_sources(&died);
+    }
+
+    /// A combat trick in the hand that the given mana pays for (by mana value).
+    fn trick_in_hand(&self, mana: u32) -> Option<GrpId> {
+        self.hand.iter().copied().find(|g| {
+            self.db
+                .cards
+                .get(g)
+                .is_some_and(|c| c.is_instant() && c.has_role(ROLE_PUMP) && c.cmc <= mana)
+        })
+    }
+
+    /// The board used the offered trick: it leaves the hand and costs mana.
+    fn use_trick(&mut self, trick: Option<GrpId>) {
+        let Some(grp) = trick.filter(|_| self.board.trick_used) else {
+            return;
+        };
+        if let Some(i) = self.hand.iter().position(|g| *g == grp) {
+            self.hand.remove(i);
+        }
+        let cmc = self.db.cards.get(&grp).map_or(0, |c| c.cmc);
+        self.mana_left = self.mana_left.saturating_sub(cmc);
     }
 
     /// Own turn: draw, land and spells following the turn suggestion, attack.
@@ -135,10 +164,14 @@ impl<'a> Game<'a> {
             self.stats.on_curve[turn - 1] = true;
         }
         let hesitant = habits.is_some_and(|h| rng.chance(h.skip_attack));
-        let trick = opponent.tricks > 0.0 && rng.chance(opponent.tricks);
-        let died = self.board.my_attack_with(hesitant, trick);
+        let opp_trick = opponent.tricks > 0.0 && rng.chance(opponent.tricks);
+        self.mana_left = plan.mana_total - mana_used;
+        let own_trick = self.trick_in_hand(self.mana_left);
+        let died = self
+            .board
+            .my_attack_with(hesitant, opp_trick, own_trick.is_some());
+        self.use_trick(own_trick);
         self.lose_mana_sources(&died);
-        self.mana_left = plan.mana_total - plan.mana_used;
     }
 
     /// Plays a card from the hand.

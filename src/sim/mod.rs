@@ -11,7 +11,7 @@
 //! (battlefield, combat and race), `profile` (opponents and habits from the
 //! own games), `advice` (recommendations from the key figures).
 
-use crate::carddb::{Card, CardDb, GrpId};
+use crate::carddb::{Card, CardDb, GrpId, ROLE_PUMP};
 use crate::turnplan;
 
 mod advice;
@@ -21,7 +21,7 @@ mod profile;
 
 use advice::advice;
 use game::{Game, Tally};
-use pressure::Board;
+use pressure::{Board, OppTurn};
 pub use pressure::{OPP_CURVE, Pressure, START_LIFE};
 pub use profile::{
     Habits, MIN_HABIT_TURNS, MIN_PROFILE_GAMES, Opponent, Trial, habits_from, opponent_from, trial,

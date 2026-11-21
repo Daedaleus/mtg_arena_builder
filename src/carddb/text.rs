@@ -69,6 +69,13 @@ pub(super) fn roles_of(text: &str) -> u8 {
         roles |= ROLE_COUNTER;
     }
     if has(&[
+        "target creature gets +",
+        "target creature you control gets +",
+    ]) && t.contains("until end of turn")
+    {
+        roles |= ROLE_PUMP;
+    }
+    if has(&[
         "draw a card",
         "draw two cards",
         "draw three cards",
