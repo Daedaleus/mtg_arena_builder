@@ -6,6 +6,40 @@ use eframe::egui::{self, Color32};
 
 use crate::carddb::Rarity;
 
+/// Text size of the heading of a collapsible section.
+pub(super) const FOLD_TITLE: f32 = 17.0;
+/// Space between sections of a page.
+pub(super) const SECTION_GAP: f32 = 10.0;
+/// Key figure tiles: minimum width and inner padding.
+pub(super) const TILE_WIDTH: f32 = 150.0;
+pub(super) const TILE_PADDING: f32 = 10.0;
+/// Text size of the value in a key figure tile.
+pub(super) const TILE_VALUE: f32 = 22.0;
+/// Cards: inner padding and corner rounding.
+pub(super) const CARD_PADDING: f32 = 12.0;
+pub(super) const CARD_ROUNDING: f32 = 8.0;
+
+/// Background of key figure tiles.
+pub(super) fn tile_fill(ctx: &egui::Context) -> Color32 {
+    ctx.style().visuals.faint_bg_color
+}
+
+/// Frame line of cards.
+pub(super) fn card_stroke(ctx: &egui::Context) -> egui::Stroke {
+    ctx.style().visuals.widgets.noninteractive.bg_stroke
+}
+
+/// Text size of the main areas in the navigation.
+pub(super) const AREA_TEXT: f32 = 16.0;
+/// Corner rounding and inner padding of the game mode box.
+pub(super) const NAV_ROUNDING: f32 = 6.0;
+pub(super) const NAV_PADDING: f32 = 4.0;
+
+/// Background that highlights the frame of everything: the game mode.
+pub(super) fn accent_fill(ctx: &egui::Context) -> Color32 {
+    ctx.style().visuals.selection.bg_fill.gamma_multiply(0.35)
+}
+
 /// Meaning of a color; the color itself depends on the design.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum Tone {

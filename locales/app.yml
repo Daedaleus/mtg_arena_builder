@@ -120,8 +120,8 @@ chrome.detailed_logs_off_arena:
   de: "„Detaillierte Logs“ sind in Arena aus – ohne sie bleiben Begleitfenster und Partien leer."
   en: "“Detailed Logs” are off in Arena – without them the companion and games stay empty."
 chrome.own_list:
-  de: "Eigene Liste"
-  en: "Own list"
+  de: "Importieren"
+  en: "Import"
 chrome.settings:
   de: "⚙ Einstellungen"
   en: "⚙ Settings"
@@ -330,8 +330,8 @@ deck_check.swap_cards_replacements_collection:
   de: "Dort kannst du Karten gegen Ersatz aus deiner Sammlung tauschen und das Deck für Arena kopieren."
   en: "There you can swap cards for replacements from your collection and copy the deck for Arena."
 deck_check.copy_own_list:
-  de: "In „Eigene Liste prüfen“ übernehmen"
-  en: "Copy to “Own list”"
+  de: "In „Importieren“ übernehmen"
+  en: "Copy to “Import”"
 deck_check.played:
   de: "Gespielt"
   en: "Played"
@@ -764,18 +764,42 @@ games_overview.discarded_cards_e_g:
 games_overview.findings:
   de: "Alle Auffälligkeiten"
   en: "All findings"
-games_overview.play_draw_games_last:
-  de: "Als Erster: %{v} · Als Zweiter: %{v2} · Partien dauern im Schnitt %{avg_turns} Züge"
-  en: "On the play: %{v} · On the draw: %{v2} · Games last %{avg_turns} turns on average"
+games_overview.top_tips:
+  de: "Die wichtigsten Tipps"
+  en: "Top tips"
+games_overview.all_findings:
+  de: "Alle Funde ansehen"
+  en: "See all findings"
+games_overview.style_and_decks:
+  de: "Stil und passende Decks ansehen"
+  en: "See style and matching decks"
+games_overview.recommended_short:
+  de: "Empfehlung: %{recommended}"
+  en: "Recommendation: %{recommended}"
+games_overview.tile_win_rate:
+  de: "Siegquote"
+  en: "Win rate"
+games_overview.tile_play_draw:
+  de: "Gewonnen als Erster · Zweiter"
+  en: "Won on the play · draw"
+games_overview.tile_play_draw_sub:
+  de: "Siege von Partien"
+  en: "wins of games"
+games_overview.tile_turns:
+  de: "Züge je Partie"
+  en: "Turns per game"
+games_overview.tile_conceded:
+  de: "Aufgegeben"
+  en: "Conceded"
+games_overview.tile_conceded_sub:
+  de: "Partien, die du aufgegeben hast"
+  en: "games you conceded"
 games_overview.games:
   de: "aus %{games} Partien"
   en: "in %{games} games"
 games_overview.record:
   de: "Bilanz"
   en: "Record"
-games_overview.them_conceded:
-  de: "· %{conceded} davon aufgegeben"
-  en: "· %{conceded} of them conceded"
 games_overview.recommendation:
   de: "Empfehlung: %{recommended} – %{v}"
   en: "Recommendation: %{recommended} – %{v}"
@@ -827,9 +851,6 @@ games_overview.wins_losses:
 games_overview.wins_losses_2:
   de: "%{wins} Siege, %{v} Niederlagen"
   en: "%{wins} wins, %{v} losses"
-games_overview.play_style:
-  de: "Dein Spielstil"
-  en: "Your play style"
 games_overview.opening_hand:
   de: "Starthand"
   en: "Opening hand"
@@ -887,6 +908,12 @@ games_store.games_json_cannot_read:
 games_store.could_save_games:
   de: "Partien konnten nicht gespeichert werden: %{e}"
   en: "Could not save the games: %{e}"
+nav.decks:
+  de: "Decks"
+  en: "Decks"
+nav.decks_hint:
+  de: "Decks aus Turnieren, offiziellen Events, deiner Sammlung oder als eingefügte Liste"
+  en: "Decks from tournaments, official events, your collection or a pasted list"
 game_format.standard:
   de: "Standard"
   en: "Standard"
@@ -947,12 +974,21 @@ games_tab.no_games_yet_play:
 games_tab.games_saved:
   de: "%{games_n} Partien gespeichert"
   en: "%{games_n} games saved"
+games_tab.overview:
+  de: "Übersicht"
+  en: "Overview"
+games_tab.improve:
+  de: "Verbessern"
+  en: "Improve"
+games_tab.style:
+  de: "Dein Stil"
+  en: "Your style"
+games_tab.opponents:
+  de: "Gegner"
+  en: "Opponents"
 games_tab.game_list:
   de: "Partienliste"
   en: "Game list"
-games_tab.overview_tips:
-  de: "Übersicht & Tipps"
-  en: "Overview & tips"
 games_tab.progress:
   de: "Verlauf"
   en: "Progress"

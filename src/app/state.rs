@@ -115,7 +115,8 @@ impl App {
             self.games.page.set(0);
         }
         if !self.tab.fits(mode) {
-            self.tab = Tab::Games;
+            // Stay in the area if it has a fitting page, otherwise My games.
+            self.tab = self.tab.area().first_tab(mode).unwrap_or(Tab::Games);
         }
         let format_changed = mode.meta().is_some_and(|f| f != self.settings.format);
         if let Some(f) = mode.meta() {

@@ -16,7 +16,6 @@ impl App {
         ui.horizontal(|ui| self.games_toolbar(ui));
         ui.horizontal(|ui| self.games_views(ui));
         ui.separator();
-        let overview = self.games.view == 0;
         if self.games.logs_disabled {
             toned(ui, Tone::Warn, tr!("games_tab.detailed_logs_turned_off"));
         }
@@ -31,33 +30,26 @@ impl App {
             self.games.cache = Some(a);
             return;
         }
-        if self.games.view == 2 {
+        if self.games.view == GamesView::Progress {
             progress_view(ui, &a.games, &db);
             self.games.cache = Some(a);
             return;
         }
         // Index in `a.games` of the clicked game.
         let mut clicked: Option<usize> = None;
-        let mut open: Option<u32> = None;
+        let mut clicks = PageClicks::default();
 
         egui::ScrollArea::vertical()
             .id_salt("games_scroll")
             .auto_shrink([false, false])
-            .show(ui, |ui| {
-                if overview {
-                    let number;
-                    (number, open) = self.games_overview(
-                        ui,
-                        &a.report,
-                        &a.opp_groups,
-                        &a.player,
-                        &a.recs,
-                        a.loaded,
-                    );
-                    // Findings name the fixed number, not the list position.
-                    clicked =
-                        number.and_then(|n| a.games.iter().position(|g| a.numbers.of(g) == n));
-                } else {
+            .show(ui, |ui| match self.games.view {
+                GamesView::Overview => clicks = self.overview_page(ui, &a.report, &a.player),
+                GamesView::Improve => clicks = self.improve_page(ui, &a.report),
+                GamesView::Style => {
+                    clicks = self.style_page(ui, &a.player, &a.recs, a.loaded);
+                }
+                GamesView::Opponents => self.opponents_page(ui, &a.report, &a.opp_groups),
+                GamesView::List | GamesView::Progress => {
                     clicked = self.game_list(ui, &a.games, &a.numbers, &db, &a.opp_names);
                     if let Some(i) = self.games.sel
                         && let Some(g) = a.games.get(i)
@@ -66,15 +58,22 @@ impl App {
                     }
                 }
             });
+        // Findings name the fixed number, not the list position.
+        if let Some(n) = clicks.game {
+            clicked = a.games.iter().position(|g| a.numbers.of(g) == n);
+        }
         self.games.cache = Some(a);
-        if let Some(id) = open {
+        if let Some(id) = clicks.deck {
             self.open_deck(id);
+        }
+        if let Some(view) = clicks.view {
+            self.games.view = view;
         }
         if let Some(i) = clicked {
             self.games.sel = Some(i);
             // Jump to the page of the clicked game.
             self.games.page.set(i / present::PAGE_SIZE);
-            self.games.view = 1;
+            self.games.view = GamesView::List;
         }
     }
 
@@ -162,22 +161,14 @@ impl App {
         self.games.filter.deck = deck;
     }
 
-    /// Sub pages: overview, game list, progress.
+    /// Sub pages: overview, improve, style, opponents, game list, progress.
     fn games_views(&mut self, ui: &mut egui::Ui) {
-        ui.selectable_value(
-            &mut self.games.view,
-            0,
-            RichText::new(tr!("games_tab.overview_tips")).strong(),
-        );
-        ui.selectable_value(
-            &mut self.games.view,
-            1,
-            RichText::new(tr!("games_tab.game_list")).strong(),
-        );
-        ui.selectable_value(
-            &mut self.games.view,
-            2,
-            RichText::new(tr!("games_tab.progress")).strong(),
-        );
+        for view in GamesView::ALL {
+            ui.selectable_value(
+                &mut self.games.view,
+                view,
+                RichText::new(view.label()).strong(),
+            );
+        }
     }
 }

@@ -10,6 +10,7 @@ impl App {
             ui.add_space(6.0);
             ui.horizontal(|ui| {
                 ui.heading(RichText::new(tr!("chrome.mtg_arena_builder")).strong());
+                self.mode_switch(ui);
                 ui.separator();
                 collection_summary(ui, self.collection.as_ref());
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
@@ -17,13 +18,16 @@ impl App {
                 });
             });
             ui.add_space(4.0);
-            ui.horizontal(|ui| self.tab_bar(ui));
+            ui.horizontal(|ui| self.area_bar(ui));
+            if self.tab.area() == nav::Area::Decks {
+                ui.horizontal(|ui| self.sub_bar(ui));
+            }
             ui.add_space(4.0);
         });
         self.status_bar(ctx);
     }
 
-    /// Top right: settings, companion, read collection, format.
+    /// Top right: settings, companion, read collection.
     fn header_controls(&mut self, ui: &mut egui::Ui) {
         if ui.button(tr!("chrome.settings")).clicked() {
             self.show_settings = !self.show_settings;
@@ -47,67 +51,6 @@ impl App {
             .clicked()
         {
             self.sync_collection();
-        }
-        let mut mode = self.settings.mode;
-        egui::ComboBox::from_id_salt("format")
-            .selected_text(mode.label())
-            .show_ui(ui, |ui| {
-                for m in GameFormat::SELECTABLE {
-                    ui.selectable_value(&mut mode, m, m.label());
-                }
-            })
-            .response
-            .on_hover_text(tr!("chrome.format_tournament_decks_legality"));
-        if mode != self.settings.mode {
-            self.set_mode(mode);
-        }
-        ui.label(tr!("chrome.format"));
-    }
-
-    /// The tabs.
-    fn tab_bar(&mut self, ui: &mut egui::Ui) {
-        let tabs = [
-            (
-                Tab::Meta,
-                tr!("chrome.tournament_decks"),
-                tr!("chrome.current_tournament_decks_what"),
-            ),
-            (
-                Tab::Events,
-                tr!("chrome.official_events"),
-                tr!("chrome.decklists_magic_gg_championships"),
-            ),
-            (
-                Tab::Built,
-                tr!("chrome.my_collection"),
-                tr!("chrome.decks_made_only_cards"),
-            ),
-            (
-                Tab::Paste,
-                tr!("chrome.own_list"),
-                tr!("chrome.paste_decklist_check_against"),
-            ),
-            (
-                Tab::Games,
-                tr!("chrome.my_games"),
-                tr!("chrome.record_tips_games_played"),
-            ),
-            (
-                Tab::DeckCheck,
-                tr!("chrome.improve_deck"),
-                tr!("chrome.which_cards_deck_should"),
-            ),
-        ];
-        let mode = self.settings.mode;
-        for (tab, label, hint) in tabs.into_iter().filter(|(t, _, _)| t.fits(mode)) {
-            let text = RichText::new(label).size(15.0);
-            if ui
-                .add(egui::SelectableLabel::new(self.tab == tab, text))
-                .on_hover_text(hint)
-                .clicked()
-            {
-                self.tab = tab;
-            }
         }
     }
 
