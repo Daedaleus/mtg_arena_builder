@@ -39,15 +39,15 @@ impl Mistake {
 
     pub fn title(self) -> String {
         match self {
-            Mistake::SkippedAttack => tr!("games_mistake.gefahrlosen_angriff_ausgelassen"),
-            Mistake::RiskyKeep => tr!("games_mistake.riskante_starthand_behalten"),
-            Mistake::MissedLand => tr!("games_mistake.land_nicht_gespielt"),
-            Mistake::UnusedMana => tr!("games_mistake.mana_ungenutzt"),
-            Mistake::BetterTurn => tr!("games_mistake.besserer_zug_moeglich"),
-            Mistake::HeldCard => tr!("games_mistake.karte_lange_nicht_gespielt"),
-            Mistake::NoBlock => tr!("games_mistake.bei_wenig_leben_nicht"),
-            Mistake::EmptyBoard => tr!("games_mistake.keine_kreatur_feld"),
-            Mistake::EarlyConcede => tr!("games_mistake.frueh_aufgegeben"),
+            Mistake::SkippedAttack => tr!("games_mistake.safe_attack_skipped"),
+            Mistake::RiskyKeep => tr!("games_mistake.risky_opening_hand_kept"),
+            Mistake::MissedLand => tr!("games_mistake.land_played"),
+            Mistake::UnusedMana => tr!("games_mistake.mana_unused"),
+            Mistake::BetterTurn => tr!("games_mistake.better_play_possible"),
+            Mistake::HeldCard => tr!("games_mistake.card_played_long_time"),
+            Mistake::NoBlock => tr!("games_mistake.did_block_low_life"),
+            Mistake::EmptyBoard => tr!("games_mistake.no_creature_battlefield"),
+            Mistake::EarlyConcede => tr!("games_mistake.conceded_early"),
         }
     }
 
@@ -55,31 +55,31 @@ impl Mistake {
     pub fn advice(self) -> String {
         match self {
             Mistake::SkippedAttack => {
-                tr!("games_mistake.wenn_keine_gegnerische_kreatur")
+                tr!("games_mistake.no_opposing_creature_block")
             }
             Mistake::RiskyKeep => {
-                tr!("games_mistake.behalte_nur_starthaende_2")
+                tr!("games_mistake.only_keep_opening_hands")
             }
             Mistake::MissedLand => {
-                tr!("games_mistake.lege_jeden_zug_land")
+                tr!("games_mistake.play_land_every_turn")
             }
             Mistake::UnusedMana => {
-                tr!("games_mistake.nutze_mana_jedem_zug")
+                tr!("games_mistake.use_mana_every_turn")
             }
             Mistake::BetterTurn => {
-                tr!("games_mistake.zugvorschlag_begleitfensters_haette_diesen")
+                tr!("games_mistake.companions_turn_suggestion_would")
             }
             Mistake::HeldCard => {
-                tr!("games_mistake.diese_karten_lagen_mehrere")
+                tr!("games_mistake.these_cards_castable_hand")
             }
             Mistake::NoBlock => {
-                tr!("games_mistake.bei_wenig_leben_lohnt")
+                tr!("games_mistake.low_life_pays_off")
             }
             Mistake::EmptyBoard => {
-                tr!("games_mistake.zug_3_6_lag")
+                tr!("games_mistake.turns_3_6_had")
             }
             Mistake::EarlyConcede => {
-                tr!("games_mistake.gerade_niedrigen_raengen_machen")
+                tr!("games_mistake.especially_low_ranks_opponents")
             }
         }
     }

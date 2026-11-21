@@ -133,7 +133,7 @@ pub fn deck_label(deck: &crate::deck::Deck, db: &CardDb, shares: &[ArchShare]) -
 pub fn classify(g: &GameRecord, db: &CardDb, shares: &[ArchShare]) -> String {
     let seen = seen_keys(g.opp_cards.keys(), db);
     match match_archetype(&seen, shares) {
-        Some(arch) => tr!("opponents.erkannt", name = arch.name),
+        Some(arch) => tr!("opponents.recognized", name = arch.name),
         None => color::label(&games::opp_colors(g, db)),
     }
 }

@@ -51,7 +51,7 @@ impl App {
             .collect();
         self.settings.set_replacements(&raw);
         if let Err(e) = self.settings_file.save(&self.settings) {
-            self.status = tr!("state.einstellungen_nicht_gespeichert", e = e);
+            self.status = tr!("state.could_save_settings", e = e);
         }
     }
 
@@ -60,7 +60,7 @@ impl App {
     pub(super) fn db_status(&self) -> String {
         match &self.db {
             Some(db) => tr!(
-                "state.kartendaten_karten_arena",
+                "state.card_data_cards_arena",
                 cards_n = db.cards.len(),
                 version = db.version
             ),
@@ -121,7 +121,7 @@ impl App {
         self.gg.format = None;
         self.gg.sel_event = None;
         self.gg.sel_deck = None;
-        self.status = tr!("state.lade_metagame_mtgtop8", v = format.name());
+        self.status = tr!("state.loading_metagame_mtgtop8", v = format.name());
         if self.tour.legal_requested.insert(format) {
             let (cache, net) = (self.data_dir.join("cache"), self.net.clone());
             self.tasks.run(move || {
@@ -135,7 +135,7 @@ impl App {
 
     pub(super) fn sync_collection(&mut self) {
         self.syncing = true;
-        self.status = tr!("state.lese_sammlung_aus_mtg");
+        self.status = tr!("state.reading_collection_mtg_arena");
         let path = self.data_dir.join("collection.json");
         self.tasks
             .run(move || Msg::Collection(collection::sync(&path)));
@@ -285,7 +285,7 @@ impl App {
                     out.push(style::Candidate {
                         deck_id: d.id,
                         label: a.name.clone(),
-                        source: tr!("state.turnierdecks"),
+                        source: tr!("state.tournament_decks"),
                         style: style::DeckProfile::of_deck(list, db).style(),
                         summary,
                     });
@@ -306,7 +306,7 @@ impl App {
                 out.push(style::Candidate {
                     deck_id: *id,
                     label,
-                    source: tr!("state.offizielle_events"),
+                    source: tr!("state.official_events"),
                     style: style::DeckProfile::of_deck(&d.deck, db).style(),
                     summary,
                 });

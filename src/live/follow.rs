@@ -110,7 +110,7 @@ pub fn spawn(db: Arc<CardDb>, shared: Arc<Shared>, repaint: impl Fn() + Send + '
                     follower.poll(&path, &db, &meta)
                 }
                 None => CompanionView {
-                    status: tr!("live_follow.arena_log_nicht_gefunden"),
+                    status: tr!("live_follow.arena_log_found"),
                     ..Default::default()
                 },
             };

@@ -169,7 +169,7 @@ impl App {
                 Msg::Pending(n) => self.on_pending(n),
                 Msg::GgEvents(format, result) if format == current => match result {
                     Ok(list) => {
-                        self.status = tr!("worker.events_magic_gg_geladen", list_n = list.len());
+                        self.status = tr!("worker.events_loaded_magic_gg", list_n = list.len());
                         self.gg.events = list;
                     }
                     Err(e) => self.status = e,
@@ -184,7 +184,7 @@ impl App {
     fn on_archetypes(&mut self, format: Format, result: Result<Vec<Archetype>, String>) {
         match result {
             Ok(list) => {
-                self.status = tr!("worker.archetypen_geladen", list_n = list.len());
+                self.status = tr!("worker.archetypes_loaded", list_n = list.len());
                 let _ = self.tx_job.send(Job::Restore {
                     format,
                     archetypes: list.clone(),
@@ -220,7 +220,7 @@ impl App {
             Err(e) => {
                 // Beim nächsten Laden des Formats erneut versuchen.
                 self.tour.legal_requested.remove(&format);
-                self.status = tr!("worker.format_legalitaet_nicht_verfuegbar", e = e);
+                self.status = tr!("worker.format_legality_available_replacement", e = e);
             }
         }
     }
@@ -232,12 +232,12 @@ impl App {
                 let c = synced.collection;
                 self.status = match synced.save_error {
                     Some(e) => e.user_text(),
-                    None => tr!("worker.sammlung_gelesen_karten", v = c.total_cards()),
+                    None => tr!("worker.collection_read_cards", v = c.total_cards()),
                 };
                 self.collection = Some(c);
                 self.refresh_owned();
             }
-            Err(e) => self.status = tr!("worker.sammlung_konnte_nicht_gelesen", e = e.user_text()),
+            Err(e) => self.status = tr!("worker.could_read_collection", e = e.user_text()),
         }
     }
 
@@ -304,14 +304,14 @@ impl App {
         self.tour.pending = n;
         if n == 0 && self.tour.rating_all {
             self.tour.rating_all = false;
-            self.status = tr!("worker.alle_archetypen_bewertet");
+            self.status = tr!("worker.archetypes_rated");
         }
     }
 
     fn on_gg_decks(&mut self, slug: String, result: Result<Vec<GgDeck>, String>) {
         match result {
             Ok(decks) => {
-                self.status = tr!("worker.decks_magic_gg_geladen", decks_n = decks.len());
+                self.status = tr!("worker.decks_loaded_magic_gg", decks_n = decks.len());
                 let mut list = Vec::new();
                 for (i, d) in decks.into_iter().enumerate() {
                     let id = magicgg::deck_id(&slug, i);

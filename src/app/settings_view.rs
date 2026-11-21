@@ -9,14 +9,14 @@ impl App {
         use crate::i18n::{Language, Locale};
         let label = |l: Language| match l {
             Language::System => tr!(
-                "chrome.sprache_system",
+                "chrome.same_operating_system",
                 lang = Locale::system().native_name()
             ),
             Language::Fixed(locale) => locale.native_name().to_string(),
         };
         let before = self.settings.language;
         ui.horizontal(|ui| {
-            ui.label(tr!("chrome.sprache"));
+            ui.label(tr!("chrome.language"));
             egui::ComboBox::from_id_salt("language")
                 .selected_text(label(self.settings.language))
                 .show_ui(ui, |ui| {
@@ -40,20 +40,20 @@ impl App {
         }
         let mut open = true;
         let mut reload_db = false;
-        egui::Window::new(tr!("chrome.einstellungen_2"))
+        egui::Window::new(tr!("chrome.settings_2"))
             .open(&mut open)
             .collapsible(false)
             .resizable(false)
             .default_width(440.0)
             .show(ctx, |ui| {
-                ui.strong(tr!("chrome.darstellung"));
+                ui.strong(tr!("chrome.display"));
                 self.language_choice(ui);
                 let mut zoom = self.settings.zoom;
                 if ui
                     .add(
                         egui::Slider::new(&mut zoom, 0.8..=1.6)
                             .step_by(0.05)
-                            .text(tr!("chrome.textgroesse")),
+                            .text(tr!("chrome.text_size")),
                     )
                     .changed()
                 {
@@ -61,44 +61,36 @@ impl App {
                     ctx.set_zoom_factor(zoom);
                 }
                 ui.separator();
-                ui.strong(tr!("chrome.decks_exportieren"));
+                ui.strong(tr!("chrome.export_decks"));
                 ui.checkbox(
                     &mut self.settings.include_side,
-                    tr!("chrome.sideboard_einbeziehen"),
+                    tr!("chrome.include_sideboard"),
                 )
-                .on_hover_text(tr!("chrome.best_of_one_ausschalten"));
-                ui.checkbox(
-                    &mut self.settings.with_sets,
-                    tr!("chrome.set_kuerzeln_exportieren"),
-                )
-                .on_hover_text(tr!("chrome.empfohlen_wenn_arena_nicht"));
+                .on_hover_text(tr!("chrome.turn_off_best_one"));
+                ui.checkbox(&mut self.settings.with_sets, tr!("chrome.export_set_codes"))
+                    .on_hover_text(tr!("chrome.recommended_arena_running_english"));
                 ui.separator();
-                ui.strong(tr!("chrome.waehrend_partie"));
+                ui.strong(tr!("chrome.during_game"));
                 if ui
-                    .checkbox(
-                        &mut self.settings.companion,
-                        tr!("chrome.begleitfenster_anzeigen"),
-                    )
+                    .checkbox(&mut self.settings.companion, tr!("chrome.show_companion"))
                     .changed()
                 {
                     self.save_settings();
                 }
                 if self.games.logs_disabled {
-                    ui.label(
-                        RichText::new(tr!("chrome.detaillierte_logs_arena_aus")).color(YELLOW),
-                    );
+                    ui.label(RichText::new(tr!("chrome.detailed_logs_off_arena")).color(YELLOW));
                 }
                 ui.separator();
                 ui.strong(tr!("chrome.mtg_arena"));
-                ui.label(tr!("chrome.installationsordner_leer_automatisch_erkennen"));
+                ui.label(tr!("chrome.installation_folder_empty_detect"));
                 ui.text_edit_singleline(&mut self.settings.mtga_dir);
                 ui.horizontal(|ui| {
-                    reload_db = ui.button(tr!("chrome.kartendaten_neu_laden")).clicked();
+                    reload_db = ui.button(tr!("chrome.reload_card_data")).clicked();
                     ui.label(RichText::new(self.db_status()).weak());
                 });
                 ui.separator();
                 if ui
-                    .button(tr!("chrome.erste_schritte_wieder_anzeigen"))
+                    .button(tr!("chrome.show_getting_started_again"))
                     .clicked()
                 {
                     self.settings.onboarding_hidden = false;

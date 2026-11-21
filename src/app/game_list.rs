@@ -32,15 +32,15 @@ impl App {
                 .header(20.0, |mut h| {
                     for title in [
                         "#".to_string(),
-                        tr!("game_list.wann"),
-                        tr!("game_list.modus"),
-                        tr!("game_list.ergebnis"),
-                        tr!("game_list.anfang"),
+                        tr!("game_list.when"),
+                        tr!("game_list.mode"),
+                        tr!("game_list.result"),
+                        tr!("game_list.start"),
                         tr!("game_list.mull"),
-                        tr!("game_list.zuege"),
-                        tr!("game_list.leben"),
+                        tr!("game_list.turns"),
+                        tr!("game_list.life"),
                         tr!("game_list.deck"),
-                        tr!("game_list.gegner"),
+                        tr!("game_list.opponent"),
                     ] {
                         h.col(|ui| {
                             ui.strong(title);
@@ -71,13 +71,13 @@ impl App {
         if pages > 1 {
             ui.horizontal(|ui| {
                 if ui
-                    .add_enabled(page > 0, egui::Button::new(tr!("game_list.zurueck")))
+                    .add_enabled(page > 0, egui::Button::new(tr!("game_list.back")))
                     .clicked()
                 {
                     self.games.page.set(page - 1);
                 }
                 ui.label(tr!(
-                    "game_list.seite_partien",
+                    "game_list.page_games",
                     v = page + 1,
                     pages = pages,
                     v2 = start + 1,
@@ -85,7 +85,7 @@ impl App {
                     games_n = total
                 ));
                 if ui
-                    .add_enabled(page + 1 < pages, egui::Button::new(tr!("game_list.weiter")))
+                    .add_enabled(page + 1 < pages, egui::Button::new(tr!("game_list.next")))
                     .clicked()
                 {
                     self.games.page.set(page + 1);
@@ -117,17 +117,17 @@ fn game_row(
     });
     row.col(|ui| {
         let (text, color) = match g.won {
-            Some(true) => (tr!("game_list.sieg"), GREEN),
-            Some(false) if g.conceded() => (tr!("game_list.aufgegeben"), RED),
-            Some(false) => (tr!("game_list.niederlage"), RED),
+            Some(true) => (tr!("game_list.win"), GREEN),
+            Some(false) if g.conceded() => (tr!("game_list.conceded"), RED),
+            Some(false) => (tr!("game_list.loss"), RED),
             None => ("?".to_string(), Color32::GRAY),
         };
         ui.label(RichText::new(text).color(color));
     });
     row.col(|ui| {
         ui.label(match g.on_play {
-            Some(true) => tr!("game_list.erster"),
-            Some(false) => tr!("game_list.zweiter"),
+            Some(true) => tr!("game_list.play"),
+            Some(false) => tr!("game_list.draw"),
             None => "?".to_string(),
         });
     });
@@ -166,7 +166,7 @@ impl App {
         ui.add_space(8.0);
         ui.separator();
         ui.heading(tr!(
-            "game_list.partie",
+            "game_list.game",
             v = numbers.of(g),
             v2 = event_label(&g.event)
         ));
@@ -175,19 +175,19 @@ impl App {
         biggest_threat(ui, g, db);
         ui.add_space(4.0);
         if g.turns.is_empty() {
-            ui.label(tr!("game_list.diese_partie_stehen_keine"));
+            ui.label(tr!("game_list.no_turn_data_game"));
             return;
         }
         if !g.complete {
             ui.label(
                 RichText::new(tr!(
-                    "game_list.erst_ab_zug_mitgeschrieben",
+                    "game_list.only_logged_turn_lands",
                     v = g.turns.first().map(|t| t.turn).unwrap_or(0)
                 ))
                 .color(YELLOW),
             );
         }
-        ui.label(RichText::new(tr!("game_list.stand_jeweils_ende_zuges")).weak());
+        ui.label(RichText::new(tr!("game_list.state_end_each_turn")).weak());
         turn_table(ui, numbers.of(g), g, db);
     }
 
@@ -207,17 +207,17 @@ impl App {
             .collect();
         if found.is_empty() {
             if g.complete {
-                ui.label(RichText::new(tr!("game_list.dieser_partie_hat_app")).color(GREEN));
+                ui.label(RichText::new(tr!("game_list.app_found_no_typical")).color(GREEN));
             }
         } else {
-            ui.strong(tr!("game_list.was_dieser_partie_besser"));
+            ui.strong(tr!("game_list.what_do_better_game"));
             let mut sorted = found;
             sorted.sort_by_key(|(_, f)| f.turn);
             for (title, f) in sorted {
                 let when = if f.turn == 0 {
-                    tr!("game_list.starthand")
+                    tr!("game_list.opening_hand")
                 } else {
-                    tr!("game_list.zug", turn = f.turn)
+                    tr!("game_list.turn", turn = f.turn)
                 };
                 let line = ui.label(tr!(
                     "game_list.text_2",
@@ -244,7 +244,7 @@ fn opening_hand(ui: &mut egui::Ui, g: &GameRecord, db: &CardDb) {
     let lands = hand.iter().filter(|c| c.is_land()).count();
     let names: Vec<&str> = hand.iter().map(|c| c.display_name()).collect();
     ui.label(tr!(
-        "game_list.starthand_karten_laender",
+        "game_list.opening_hand_cards_lands",
         hand_n = hand.len(),
         lands = lands,
         v = names.join(", ")
@@ -259,9 +259,7 @@ fn biggest_threat(ui: &mut egui::Ui, g: &GameRecord, db: &CardDb) {
         .max_by_key(|(grp, dmg)| (**dmg, std::cmp::Reverse(**grp)))
         .and_then(|(grp, dmg)| db.cards.get(grp).map(|c| (c.display_name(), *dmg)));
     if let Some((name, dmg)) = top {
-        ui.label(
-            RichText::new(tr!("game_list.meisten_schaden_dir", name = name, dmg = dmg)).weak(),
-        );
+        ui.label(RichText::new(tr!("game_list.most_damage", name = name, dmg = dmg)).weak());
     }
 }
 
@@ -283,16 +281,16 @@ fn turn_table(ui: &mut egui::Ui, i: usize, g: &GameRecord, db: &CardDb) {
             .column(Column::remainder().at_least(50.0))
             .header(20.0, |mut h| {
                 for title in [
-                    tr!("game_list.zug_kurz"),
-                    tr!("game_list.wer"),
-                    tr!("game_list.leben"),
-                    tr!("game_list.laender"),
-                    tr!("game_list.kreaturen"),
-                    tr!("game_list.frei"),
+                    tr!("game_list.turn_2"),
+                    tr!("game_list.who"),
+                    tr!("game_list.life"),
+                    tr!("game_list.lands"),
+                    tr!("game_list.creatures"),
+                    tr!("game_list.free"),
                     tr!("game_list.hand"),
                     tr!("game_list.land"),
-                    tr!("game_list.zauber"),
-                    tr!("game_list.angriff"),
+                    tr!("game_list.spells"),
+                    tr!("game_list.attack"),
                 ] {
                     h.col(|ui| {
                         ui.strong(title);
@@ -310,9 +308,9 @@ fn turn_table(ui: &mut egui::Ui, i: usize, g: &GameRecord, db: &CardDb) {
 /// Eine Zeile der Zugtabelle.
 fn turn_row(row: &mut egui_extras::TableRow, t: &games::TurnStat, db: &CardDb) {
     let who = if t.mine {
-        RichText::new(tr!("game_list.ich")).strong()
+        RichText::new(tr!("game_list.me")).strong()
     } else {
-        RichText::new(tr!("game_list.gegner"))
+        RichText::new(tr!("game_list.opponent"))
     };
     row.col(|ui| {
         ui.label(t.turn.to_string());

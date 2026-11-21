@@ -127,17 +127,23 @@ impl SettingsFile {
             Err(paths::LoadError::Corrupt(e)) => match paths::backup_corrupt(&path) {
                 Ok(backup) => {
                     let text = tr!(
-                        "settings.beschaedigt_gesichert",
+                        "settings.settings_json_corrupt_saved",
                         e = e,
                         backup = backup.display()
                     );
                     (None, Some(text), true)
                 }
-                Err(io) => (None, Some(tr!("settings.nicht_lesbar", e = io)), false),
+                Err(io) => (
+                    None,
+                    Some(tr!("settings.settings_json_cannot_read", e = io)),
+                    false,
+                ),
             },
-            Err(paths::LoadError::Unreadable(e)) => {
-                (None, Some(tr!("settings.nicht_lesbar", e = e)), false)
-            }
+            Err(paths::LoadError::Unreadable(e)) => (
+                None,
+                Some(tr!("settings.settings_json_cannot_read", e = e)),
+                false,
+            ),
         };
         // Gespeicherten Stand vor der Migration merken – dann wird eine
         // angepasste Datei beim nächsten Speichern neu geschrieben.

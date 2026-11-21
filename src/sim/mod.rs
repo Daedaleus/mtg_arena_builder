@@ -156,8 +156,7 @@ pub fn simulate_with(
     r.advice = advice(&r);
     r.smooth = r.advice.is_empty();
     if r.smooth {
-        r.advice
-            .push(tr!("sim_advice.deck_laeuft_probehaenden_rund"));
+        r.advice.push(tr!("sim_advice.deck_runs_smoothly_sample"));
     }
     r
 }

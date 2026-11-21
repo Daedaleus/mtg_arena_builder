@@ -111,7 +111,7 @@ impl Suggestion {
             owned: owned.get(key).copied().unwrap_or(0),
             score: 0.0,
             info: if c.basic {
-                tr!("state.standardland")
+                tr!("state.basic_land")
             } else {
                 c.mana_cost.clone()
             },

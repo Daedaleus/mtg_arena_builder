@@ -13,7 +13,7 @@ pub(super) fn progress_view(ui: &mut egui::Ui, games: &[GameRecord], db: &CardDb
         .auto_shrink([false, false])
         .show(ui, |ui| {
             // --- Rang ---
-            ui.heading(tr!("progress_view.rang"));
+            ui.heading(tr!("progress_view.rank"));
             let latest = games
                 .iter()
                 .filter(|g| g.rank_after.is_some())
@@ -22,13 +22,13 @@ pub(super) fn progress_view(ui: &mut egui::Ui, games: &[GameRecord], db: &CardDb
             match latest {
                 Some(r) => {
                     ui.label(
-                        RichText::new(tr!("progress_view.constructed_saison_siege_niederlagen", v = progress::rank_label(r), season = r.season, won = r.won, lost = r.lost))
+                        RichText::new(tr!("progress_view.constructed_season_wins_losses", v = progress::rank_label(r), season = r.season, won = r.won, lost = r.lost))
                         .strong(),
                     );
                     ui.label(tr!("progress_view.limited", v = progress::queue_label(r, progress::Queue::Limited)));
                 }
                 None => {
-                    ui.label(tr!("progress_view.noch_kein_rang_bekannt"));
+                    ui.label(tr!("progress_view.no_rank_known_yet"));
                 }
             }
             let ranks = progress::rank_series(games);
@@ -39,7 +39,7 @@ pub(super) fn progress_view(ui: &mut egui::Ui, games: &[GameRecord], db: &CardDb
                     .include_y(4.0)
                     .allow_scroll(false)
                     .y_axis_formatter(|mark, _| progress::points_label(mark.value))
-                    .x_axis_label(tr!("progress_view.partie"))
+                    .x_axis_label(tr!("progress_view.game"))
                     .legend(Legend::default())
                     .show(ui, |plot| {
                         plot.line(Line::new(PlotPoints::from(ranks)).name(tr!("progress_view.constructed")).color(GREEN));
@@ -56,7 +56,7 @@ pub(super) fn progress_view(ui: &mut egui::Ui, games: &[GameRecord], db: &CardDb
 
             // --- Siegquote ---
             ui.add_space(8.0);
-            ui.heading(tr!("progress_view.siegquote"));
+            ui.heading(tr!("progress_view.win_rate"));
             if let Some((recent, before)) = progress::trend(games, TREND_WINDOW) {
                 let color = if recent > before + 0.5 {
                     GREEN
@@ -66,18 +66,18 @@ pub(super) fn progress_view(ui: &mut egui::Ui, games: &[GameRecord], db: &CardDb
                     YELLOW
                 };
                 ui.label(
-                    RichText::new(tr!("progress_view.letzte_partien_gewonnen_davor", TREND_WINDOW = TREND_WINDOW, recent = recent : {:.0}, before = before : {:.0}))
+                    RichText::new(tr!("progress_view.last_games_won_before", TREND_WINDOW = TREND_WINDOW, recent = recent : {:.0}, before = before : {:.0}))
                     .color(color)
                     .strong(),
                 );
             }
             ui.label(
-                RichText::new(tr!("progress_view.gleitend_ueber_letzten_partien", TREND_WINDOW = TREND_WINDOW))
+                RichText::new(tr!("progress_view.rolling_over_last_games", TREND_WINDOW = TREND_WINDOW))
                 .weak(),
             );
             let overall = progress::winrate_series(games, TREND_WINDOW, |_| true);
             if overall.len() < 2 {
-                ui.label(tr!("progress_view.einen_verlauf_braucht_mindestens"));
+                ui.label(tr!("progress_view.history_needs_least_2"));
                 return;
             }
             let groups = deckcheck::group_decks(games, db);
@@ -89,11 +89,11 @@ pub(super) fn progress_view(ui: &mut egui::Ui, games: &[GameRecord], db: &CardDb
                 .allow_scroll(false)
                 .legend(Legend::default())
                 .y_axis_formatter(|mark, _| format!("{:.0} %", mark.value))
-                .x_axis_label(tr!("progress_view.partie"))
+                .x_axis_label(tr!("progress_view.game"))
                 .show(ui, |plot| {
                     plot.line(
                         Line::new(PlotPoints::from(overall))
-                            .name(tr!("progress_view.alle_partien"))
+                            .name(tr!("progress_view.games"))
                             .width(2.5_f32),
                     );
                     for (label, series) in decks {

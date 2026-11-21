@@ -35,12 +35,7 @@ impl CardDb {
             path,
             OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
         )
-        .with_context(|| {
-            tr!(
-                "carddb_load.kartendatenbank_konnte_nicht_geoeffnet",
-                v = path.display()
-            )
-        })?;
+        .with_context(|| tr!("carddb_load.could_open_card_database", v = path.display()))?;
 
         let version: String = conn
             .query_row(

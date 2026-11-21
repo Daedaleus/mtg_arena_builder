@@ -25,22 +25,22 @@ impl App {
 
     /// Rechts oben: Einstellungen, Begleitfenster, Sammlung lesen, Format.
     fn header_controls(&mut self, ui: &mut egui::Ui) {
-        if ui.button(tr!("chrome.einstellungen")).clicked() {
+        if ui.button(tr!("chrome.settings")).clicked() {
             self.show_settings = !self.show_settings;
         }
         if ui
-            .toggle_value(&mut self.settings.companion, tr!("chrome.begleitfenster"))
-            .on_hover_text(tr!("chrome.kleines_fenster_waehrend_einer"))
+            .toggle_value(&mut self.settings.companion, tr!("chrome.companion"))
+            .on_hover_text(tr!("chrome.small_window_gives_live"))
             .changed()
         {
             self.save_settings();
         }
         let button = egui::Button::new(if self.syncing {
-            tr!("chrome.lese")
+            tr!("chrome.reading")
         } else {
-            tr!("chrome.sammlung_aktualisieren")
+            tr!("chrome.update_collection")
         });
-        let hint = tr!("chrome.liest_karten_wildcards_aus");
+        let hint = tr!("chrome.reads_cards_wildcards_running");
         if ui
             .add_enabled(!self.syncing, button)
             .on_hover_text(hint)
@@ -57,7 +57,7 @@ impl App {
                 }
             })
             .response
-            .on_hover_text(tr!("chrome.format_turnierdecks_legalitaet_ersatzkarten"));
+            .on_hover_text(tr!("chrome.format_tournament_decks_legality"));
         if before != self.settings.format {
             self.save_settings();
             self.load_format(false);
@@ -70,33 +70,33 @@ impl App {
         let tabs = [
             (
                 Tab::Meta,
-                tr!("chrome.turnierdecks"),
-                tr!("chrome.aktuelle_turnierdecks_was_kannst"),
+                tr!("chrome.tournament_decks"),
+                tr!("chrome.current_tournament_decks_what"),
             ),
             (
                 Tab::Events,
-                tr!("chrome.offizielle_events"),
-                tr!("chrome.decklisten_magic_gg_championships"),
+                tr!("chrome.official_events"),
+                tr!("chrome.decklists_magic_gg_championships"),
             ),
             (
                 Tab::Built,
-                tr!("chrome.aus_meiner_sammlung"),
-                tr!("chrome.decks_nur_aus_karten"),
+                tr!("chrome.my_collection"),
+                tr!("chrome.decks_made_only_cards"),
             ),
             (
                 Tab::Paste,
-                tr!("chrome.eigene_liste"),
-                tr!("chrome.deckliste_einfuegen_gegen_sammlung"),
+                tr!("chrome.own_list"),
+                tr!("chrome.paste_decklist_check_against"),
             ),
             (
                 Tab::Games,
-                tr!("chrome.meine_partien"),
-                tr!("chrome.bilanz_tipps_aus_deinen"),
+                tr!("chrome.my_games"),
+                tr!("chrome.record_tips_games_played"),
             ),
             (
                 Tab::DeckCheck,
-                tr!("chrome.deck_verbessern"),
-                tr!("chrome.welche_karten_deines_decks"),
+                tr!("chrome.improve_deck"),
+                tr!("chrome.which_cards_deck_should"),
             ),
         ];
         for (tab, label, hint) in tabs {
@@ -119,10 +119,7 @@ impl App {
                     ui.spinner();
                 }
                 if self.tour.pending > 0 {
-                    ui.label(tr!(
-                        "chrome.abrufe_warteschlange",
-                        pending = self.tour.pending
-                    ));
+                    ui.label(tr!("chrome.requests_queued", pending = self.tour.pending));
                 }
                 ui.label(&self.status);
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
@@ -137,10 +134,10 @@ impl App {
             .default_width(310.0)
             .show(ctx, |ui| {
                 ui.add_space(6.0);
-                ui.strong(tr!("chrome.archetypen", v = self.settings.format.name()));
+                ui.strong(tr!("chrome.archetypes", v = self.settings.format.name()));
                 ui.horizontal(|ui| self.archetype_buttons(ui));
-                ui.checkbox(&mut self.sort_by_fit, tr!("chrome.guenstigste_zuerst"))
-                    .on_hover_text(tr!("chrome.sortiert_nach_benoetigten_wildcards"));
+                ui.checkbox(&mut self.sort_by_fit, tr!("chrome.cheapest_first"))
+                    .on_hover_text(tr!("chrome.sorted_required_wildcards_rares"));
                 ui.separator();
 
                 let mut rows: Vec<(Archetype, Option<Summary>)> = self
@@ -164,9 +161,7 @@ impl App {
                     .auto_shrink([false, false])
                     .show(ui, |ui| {
                         if rows.is_empty() {
-                            ui.label(
-                                RichText::new(tr!("chrome.noch_keine_archetypen_geladen")).weak(),
-                            );
+                            ui.label(RichText::new(tr!("chrome.no_archetypes_loaded_yet")).weak());
                         }
                         for (arch, best) in &rows {
                             ui.horizontal(|ui| {
@@ -184,7 +179,7 @@ impl App {
                                         |ui| {
                                             ui.label(RichText::new(text).color(color))
                                                 .on_hover_text(tr!(
-                                                    "chrome.guenstigste_bisher_geladene_liste",
+                                                    "chrome.cheapest_list_loaded_far",
                                                     v = cost_tooltip(s)
                                                 ));
                                         },
@@ -208,16 +203,13 @@ impl App {
             .filter(|a| !self.tour.decks.contains_key(&a.id))
             .cloned()
             .collect();
-        let hint = tr!("chrome.laedt_jedem_archetyp_neueste");
+        let hint = tr!("chrome.loads_newest_tournament_deck");
         if ui
-            .add_enabled(
-                !todo.is_empty(),
-                egui::Button::new(tr!("chrome.alle_bewerten")),
-            )
+            .add_enabled(!todo.is_empty(), egui::Button::new(tr!("chrome.rate")))
             .on_hover_text(hint)
             .clicked()
         {
-            self.status = tr!("chrome.bewerte_archetypen", todo_n = todo.len());
+            self.status = tr!("chrome.rating_archetypes", todo_n = todo.len());
             self.tour.rating_all = true;
             for arch in todo {
                 let _ = self.tx_job.send(Job::Decks {
@@ -228,8 +220,8 @@ impl App {
             }
         }
         if ui
-            .button(tr!("chrome.aktualisieren"))
-            .on_hover_text(tr!("chrome.metagame_neu_mtgtop8_laden"))
+            .button(tr!("chrome.refresh"))
+            .on_hover_text(tr!("chrome.reload_metagame_mtgtop8"))
             .clicked()
         {
             self.load_format(true);
@@ -249,7 +241,7 @@ impl App {
         if self.tour.decks.contains_key(&arch.id) {
             self.queue_variants(arch.id);
         } else {
-            self.status = tr!("chrome.lade_decks", name = arch.name);
+            self.status = tr!("chrome.loading_decks", name = arch.name);
             let _ = self.tx_job.send(Job::Decks {
                 format: self.settings.format,
                 arch,
@@ -267,23 +259,23 @@ impl App {
         let steps = [
             (
                 self.db.is_some(),
-                tr!("chrome.kartendaten_mtg_arena_gefunden"),
-                tr!("chrome.installationsordner_einstellungen_angeben"),
+                tr!("chrome.mtg_arena_card_data"),
+                tr!("chrome.set_installation_folder_settings"),
             ),
             (
                 self.collection.is_some(),
-                tr!("chrome.sammlung_gelesen_2"),
-                tr!("chrome.arena_starten_ins_hauptmenue"),
+                tr!("chrome.collection_read_2"),
+                tr!("chrome.start_arena_go_main"),
             ),
             (
                 logs_known && !self.games.logs_disabled,
-                tr!("chrome.detaillierte_logs_arena_aktiv"),
-                tr!("chrome.arena_zahnrad_konto_detaillierte"),
+                tr!("chrome.detailed_logs_active_arena"),
+                tr!("chrome.arena_gear_account_detailed"),
             ),
             (
                 !self.tour.archetypes.is_empty(),
-                tr!("chrome.turnierdecks_geladen"),
-                tr!("chrome.internetverbindung_pruefen_dann_aktualisieren"),
+                tr!("chrome.tournament_decks_loaded"),
+                tr!("chrome.check_internet_connection_refresh"),
             ),
         ];
         if steps.iter().all(|(done, _, _)| *done) {
@@ -292,9 +284,9 @@ impl App {
         let mut sync = false;
         egui::Frame::group(ui.style()).show(ui, |ui| {
             ui.horizontal(|ui| {
-                ui.strong(tr!("chrome.erste_schritte"));
+                ui.strong(tr!("chrome.getting_started"));
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    if ui.small_button(tr!("chrome.ausblenden")).clicked() {
+                    if ui.small_button(tr!("chrome.hide")).clicked() {
                         self.settings.onboarding_hidden = true;
                     }
                 });
@@ -307,7 +299,7 @@ impl App {
                         ui.label(RichText::new(tr!("chrome.text_2", title = title)).strong());
                         ui.label(RichText::new(how.as_str()).weak());
                         if i == 1 && !self.syncing {
-                            sync = ui.small_button(tr!("chrome.jetzt_lesen")).clicked();
+                            sync = ui.small_button(tr!("chrome.read_now")).clicked();
                         }
                     }
                 });
@@ -324,8 +316,8 @@ impl App {
 fn collection_summary(ui: &mut egui::Ui, collection: Option<&Collection>) {
     match collection {
         Some(c) => {
-            ui.label(tr!("chrome.karten", v = c.total_cards()))
-                .on_hover_text(tr!("chrome.sammlung_gelesen", v = c.age_text()));
+            ui.label(tr!("chrome.cards", v = c.total_cards()))
+                .on_hover_text(tr!("chrome.collection_read", v = c.age_text()));
             ui.label(RichText::new(tr!("chrome.wildcards_2")).weak());
             for (i, n) in c.wildcards.as_array().iter().enumerate() {
                 ui.label(
@@ -341,7 +333,7 @@ fn collection_summary(ui: &mut egui::Ui, collection: Option<&Collection>) {
             }
         }
         None => {
-            ui.label(RichText::new(tr!("chrome.sammlung_noch_nicht_gelesen")).color(YELLOW));
+            ui.label(RichText::new(tr!("chrome.collection_read_yet")).color(YELLOW));
         }
     }
 }

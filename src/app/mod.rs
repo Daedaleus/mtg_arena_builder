@@ -319,7 +319,7 @@ impl eframe::App for App {
         egui::CentralPanel::default().show(ctx, |ui| {
             if self.db.is_none() {
                 ui.label(RichText::new(self.db_status()).color(RED));
-                ui.label(tr!("app.arena_ordner_kannst_unter"));
+                ui.label(tr!("app.set_arena_folder_under"));
                 ui.separator();
             }
             self.onboarding(ui);

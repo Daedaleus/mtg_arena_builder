@@ -14,10 +14,10 @@ const STEPS_PER_LEVEL: f64 = 6.0;
 /// Deutscher Name einer Klasse.
 pub fn class_name(class: &str) -> String {
     match class {
-        "Silver" => tr!("progress.silber"),
-        "Platinum" => tr!("progress.platin"),
-        "Diamond" => tr!("progress.diamant"),
-        "Mythic" => tr!("progress.mythisch"),
+        "Silver" => tr!("progress.silver"),
+        "Platinum" => tr!("progress.platinum"),
+        "Diamond" => tr!("progress.diamond"),
+        "Mythic" => tr!("progress.mythic"),
         c => c.to_string(),
     }
 }
@@ -48,7 +48,7 @@ pub fn queue_label(r: &Rank, q: Queue) -> String {
         return class_name(class).to_string();
     }
     tr!(
-        "progress.schritt",
+        "progress.step",
         v = class_name(class),
         level = level,
         step = step
@@ -75,7 +75,7 @@ pub fn points_label(points: f64) -> String {
     let p = points.max(0.0);
     let class = ((p / 4.0) as usize).min(CLASSES.len() - 1);
     if CLASSES[class] == "Mythic" {
-        return tr!("progress.mythisch");
+        return tr!("progress.mythic");
     }
     let level = 4 - ((p - class as f64 * 4.0) as u32).min(3);
     tr!(

@@ -7,11 +7,11 @@ pub const LETTERS: [char; 5] = ['W', 'U', 'B', 'R', 'G'];
 /// so wie Arena sie nennt.
 pub fn name(index: usize) -> String {
     match index {
-        0 => tr!("carddb_color.weiss"),
-        1 => tr!("carddb_color.blau"),
-        2 => tr!("carddb_color.schwarz"),
-        3 => tr!("carddb_color.rot"),
-        4 => tr!("carddb_color.gruen"),
+        0 => tr!("carddb_color.white"),
+        1 => tr!("carddb_color.blue"),
+        2 => tr!("carddb_color.black"),
+        3 => tr!("carddb_color.red"),
+        4 => tr!("carddb_color.green"),
         _ => "?".to_string(),
     }
 }
@@ -37,7 +37,7 @@ pub fn label(letters: &str) -> String {
             .map_or_else(|| "?".to_string(), name)
     };
     match letters.len() {
-        0 => tr!("carddb_color.unbekannt"),
+        0 => tr!("carddb_color.unknown"),
         1 => tr!(
             "carddb_color.mono",
             v = of(letters.chars().next().unwrap_or('?'))

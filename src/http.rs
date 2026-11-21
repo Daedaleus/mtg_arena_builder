@@ -51,10 +51,10 @@ impl FetchError {
     /// Meldung für die Oberfläche, in der eingestellten Sprache.
     pub fn user_text(&self) -> String {
         match self {
-            FetchError::NotFound => tr!("http.nicht_gefunden"),
-            FetchError::Status(code) => tr!("http.status", code = code),
-            FetchError::RateLimited(secs) => tr!("http.gedrosselt", secs = secs),
-            FetchError::Network(e) => tr!("http.netzfehler", e = e),
+            FetchError::NotFound => tr!("http.found"),
+            FetchError::Status(code) => tr!("http.server_answered_error", code = code),
+            FetchError::RateLimited(secs) => tr!("http.too_many_requests_site", secs = secs),
+            FetchError::Network(e) => tr!("http.network_error", e = e),
         }
     }
 }

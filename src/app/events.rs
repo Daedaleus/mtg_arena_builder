@@ -8,7 +8,7 @@ impl App {
         let format = self.settings.format;
         if force || self.gg.format != Some(format) {
             self.gg.format = Some(format);
-            self.status = tr!("events.lade_decklisten_magic_gg");
+            self.status = tr!("events.loading_decklists_magic_gg");
             let _ = self.tx_job.send(Job::GgEvents { format, force });
         }
     }
@@ -23,13 +23,13 @@ impl App {
                 ui.strong(tr!("events.events", v = self.settings.format.name()));
                 ui.horizontal(|ui| {
                     if ui
-                        .button(tr!("events.aktualisieren"))
-                        .on_hover_text(tr!("events.liste_neu_magic_gg"))
+                        .button(tr!("events.refresh"))
+                        .on_hover_text(tr!("events.reload_list_magic_gg"))
                         .clicked()
                     {
                         self.ensure_gg_events(true);
                     }
-                    ui.label(RichText::new(tr!("events.quelle_magic_gg")).weak());
+                    ui.label(RichText::new(tr!("events.source_magic_gg")).weak());
                 });
                 ui.separator();
                 let mut clicked: Option<String> = None;
@@ -37,7 +37,7 @@ impl App {
                     .auto_shrink([false, false])
                     .show(ui, |ui| {
                         if self.gg.events.is_empty() {
-                            ui.label(RichText::new(tr!("events.noch_keine_events_geladen")).weak());
+                            ui.label(RichText::new(tr!("events.no_events_loaded_yet")).weak());
                         }
                         for e in &self.gg.events {
                             let selected = self.gg.sel_event.as_deref() == Some(e.slug.as_str());
@@ -60,7 +60,7 @@ impl App {
     pub(super) fn select_event(&mut self, slug: String) {
         self.gg.sel_deck = None;
         if !self.gg.decks.contains_key(&slug) && self.gg.requested.insert(slug.clone()) {
-            self.status = tr!("events.lade_decks_magic_gg");
+            self.status = tr!("events.loading_decks_magic_gg");
             let _ = self.tx_job.send(Job::GgDecks { slug: slug.clone() });
         }
         self.gg.sel_event = Some(slug);
@@ -70,12 +70,12 @@ impl App {
     pub(super) fn events_tab(&mut self, ui: &mut egui::Ui) {
         let Some(slug) = self.gg.sel_event.clone() else {
             ui.add_space(20.0);
-            ui.label(tr!("events.links_event_waehlen_magic"));
+            ui.label(tr!("events.choose_event_left_magic"));
             return;
         };
         let Some(decks) = self.gg.decks.get(&slug).cloned() else {
             ui.add_space(20.0);
-            ui.label(tr!("events.decks_werden_geladen"));
+            ui.label(tr!("events.loading_decks"));
             return;
         };
         let Some(db) = self.db.clone() else { return };
@@ -87,7 +87,7 @@ impl App {
             .map(|e| e.title.clone())
             .unwrap_or(slug.clone());
         ui.heading(title);
-        ui.checkbox(&mut self.sort_by_fit, tr!("events.guenstigste_zuerst"));
+        ui.checkbox(&mut self.sort_by_fit, tr!("events.cheapest_first"));
 
         let shares = opponents::arch_shares(&self.meta_archetypes(), &db);
         let mut rows: Vec<(u32, String, String, Option<Summary>)> = decks

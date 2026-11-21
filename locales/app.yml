@@ -2,16 +2,16 @@
 # Platzhalter: %{name}. Kartennamen stehen nicht hier (kommen aus Arena).
 _version: 2
 
-app.arena_ordner_kannst_unter:
+app.set_arena_folder_under:
   de: "Den Arena-Ordner kannst du unter „⚙ Einstellungen“ angeben."
   en: "You can set the Arena folder under “⚙ Settings”."
-budget.budget_version_karten_durch:
+budget.budget_version_cards_replaced:
   de: "Budget-Version: %{replaced} Karten durch eigene ersetzt, mit Wildcards herzustellen: %{v} Common, %{v2} Uncommon, %{v3} Rare, %{v4} Mythic."
   en: "Budget version: %{replaced} cards replaced with your own, to craft with wildcards: %{v} Common, %{v2} Uncommon, %{v3} Rare, %{v4} Mythic."
-budget.ohne_passenden_ersatz:
+budget.no_suitable_replacement:
   de: " Ohne passenden Ersatz: %{v}."
   en: " No suitable replacement: %{v}."
-card_info.bild_gerade_nicht_erreichbar:
+card_info.image_reachable_right_now:
   de: "Bild gerade nicht erreichbar – wird später erneut versucht."
   en: "Image not reachable right now – will try again later."
 carddb.common:
@@ -32,163 +32,163 @@ carddb.uncommon:
 carddb_color.mono:
   de: "Mono-%{v}"
   en: "Mono-%{v}"
-carddb_color.weiss:
+carddb_color.white:
   de: "Weiß"
   en: "White"
-carddb_color.blau:
+carddb_color.blue:
   de: "Blau"
   en: "Blue"
-carddb_color.schwarz:
+carddb_color.black:
   de: "Schwarz"
   en: "Black"
-carddb_color.rot:
+carddb_color.red:
   de: "Rot"
   en: "Red"
-carddb_color.gruen:
+carddb_color.green:
   de: "Grün"
   en: "Green"
-carddb_color.unbekannt:
+carddb_color.unknown:
   de: "Unbekannt"
   en: "Unknown"
-carddb_load.kartendatenbank_konnte_nicht_geoeffnet:
+carddb_load.could_open_card_database:
   de: "Kartendatenbank %{v} konnte nicht geöffnet werden"
   en: "Could not open card database %{v}"
-chrome.abrufe_warteschlange:
+chrome.requests_queued:
   de: "%{pending} Abrufe in der Warteschlange ·"
   en: "%{pending} requests queued ·"
-chrome.aktualisieren:
+chrome.refresh:
   de: "Aktualisieren"
   en: "Refresh"
-chrome.aktuelle_turnierdecks_was_kannst:
+chrome.current_tournament_decks_what:
   de: "Aktuelle Turnierdecks: Was kannst du nachbauen, was kostet es?"
   en: "Current tournament decks: what can you build, what does it cost?"
-chrome.alle_bewerten:
+chrome.rate:
   de: "Alle bewerten"
   en: "Rate all"
-chrome.archetypen:
+chrome.archetypes:
   de: "Archetypen · %{v}"
   en: "Archetypes · %{v}"
-chrome.arena_starten_ins_hauptmenue:
+chrome.start_arena_go_main:
   de: "Arena starten, ins Hauptmenü gehen und „Sammlung aktualisieren“ klicken."
   en: "Start Arena, go to the main menu and click “Update collection”."
-chrome.arena_zahnrad_konto_detaillierte:
+chrome.arena_gear_account_detailed:
   de: "In Arena: Zahnrad > Account > „Detaillierte Logs“, dann Arena neu starten."
   en: "In Arena: gear > Account > “Detailed Logs (Plugin Support)”, then restart Arena."
-chrome.aus_meiner_sammlung:
+chrome.my_collection:
   de: "Aus meiner Sammlung"
   en: "From my collection"
-chrome.ausblenden:
+chrome.hide:
   de: "Ausblenden"
   en: "Hide"
-chrome.begleitfenster:
+chrome.companion:
   de: "Begleitfenster"
   en: "Companion"
-chrome.begleitfenster_anzeigen:
+chrome.show_companion:
   de: "Begleitfenster anzeigen"
   en: "Show companion"
-chrome.best_of_one_ausschalten:
+chrome.turn_off_best_one:
   de: "Für Best-of-One ausschalten – dann zählt das Sideboard auch nicht bei den Wildcards."
   en: "Turn off for Best-of-One – then the sideboard does not count for wildcards either."
-chrome.bewerte_archetypen:
+chrome.rating_archetypes:
   de: "Bewerte %{todo_n} Archetypen …"
   en: "Rating %{todo_n} archetypes …"
-chrome.bilanz_tipps_aus_deinen:
+chrome.record_tips_games_played:
   de: "Bilanz und Tipps aus deinen gespielten Partien"
   en: "Record and tips from the games you played"
-chrome.darstellung:
+chrome.display:
   de: "Darstellung"
   en: "Display"
-chrome.deck_verbessern:
+chrome.improve_deck:
   de: "Deck verbessern"
   en: "Improve deck"
-chrome.deckliste_einfuegen_gegen_sammlung:
+chrome.paste_decklist_check_against:
   de: "Eine Deckliste einfügen und gegen deine Sammlung prüfen"
   en: "Paste a decklist and check it against your collection"
-chrome.decklisten_magic_gg_championships:
+chrome.decklists_magic_gg_championships:
   de: "Decklisten von magic.gg: Championships, Arena-Events und Ranglisten-Decks"
   en: "Decklists from magic.gg: Championships, Arena events and ranked decks"
-chrome.decks_exportieren:
+chrome.export_decks:
   de: "Decks exportieren"
   en: "Export decks"
-chrome.decks_nur_aus_karten:
+chrome.decks_made_only_cards:
   de: "Decks nur aus Karten, die du schon besitzt"
   en: "Decks made only from cards you already own"
-chrome.detaillierte_logs_arena_aktiv:
+chrome.detailed_logs_active_arena:
   de: "„Detaillierte Logs“ in Arena aktiv"
   en: "“Detailed Logs” active in Arena"
-chrome.detaillierte_logs_arena_aus:
+chrome.detailed_logs_off_arena:
   de: "„Detaillierte Logs“ sind in Arena aus – ohne sie bleiben Begleitfenster und Partien leer."
   en: "“Detailed Logs” are off in Arena – without them the companion and games stay empty."
-chrome.eigene_liste:
+chrome.own_list:
   de: "Eigene Liste"
   en: "Own list"
-chrome.einstellungen:
+chrome.settings:
   de: "⚙ Einstellungen"
   en: "⚙ Settings"
-chrome.einstellungen_2:
+chrome.settings_2:
   de: "Einstellungen"
   en: "Settings"
-chrome.empfohlen_wenn_arena_nicht:
+chrome.recommended_arena_running_english:
   de: "Empfohlen, wenn Arena nicht auf Englisch läuft."
   en: "Recommended if Arena is not running in English."
-chrome.erste_schritte:
+chrome.getting_started:
   de: "Erste Schritte"
   en: "Getting started"
-chrome.erste_schritte_wieder_anzeigen:
+chrome.show_getting_started_again:
   de: "„Erste Schritte“ wieder anzeigen"
   en: "Show “Getting started” again"
 chrome.format:
   de: "Format:"
   en: "Format:"
-chrome.format_turnierdecks_legalitaet_ersatzkarten:
+chrome.format_tournament_decks_legality:
   de: "Format für Turnierdecks, Legalität der Ersatzkarten und Gegner-Erkennung"
   en: "Format for tournament decks, legality of replacement cards and opponent recognition"
-chrome.guenstigste_bisher_geladene_liste:
+chrome.cheapest_list_loaded_far:
   de: "Günstigste bisher geladene Liste\n%{v}"
   en: "Cheapest list loaded so far\n%{v}"
-chrome.guenstigste_zuerst:
+chrome.cheapest_first:
   de: "Günstigste zuerst"
   en: "Cheapest first"
-chrome.installationsordner_einstellungen_angeben:
+chrome.set_installation_folder_settings:
   de: "Installationsordner in den Einstellungen angeben."
   en: "Set the installation folder in the settings."
-chrome.installationsordner_leer_automatisch_erkennen:
+chrome.installation_folder_empty_detect:
   de: "Installationsordner (leer = automatisch erkennen):"
   en: "Installation folder (empty = detect automatically):"
-chrome.internetverbindung_pruefen_dann_aktualisieren:
+chrome.check_internet_connection_refresh:
   de: "Internetverbindung prüfen, dann „Aktualisieren“ unter Turnierdecks."
   en: "Check the internet connection, then “Refresh” under Tournament decks."
-chrome.jetzt_lesen:
+chrome.read_now:
   de: "Jetzt lesen"
   en: "Read now"
-chrome.karten:
+chrome.cards:
   de: "%{v} Karten"
   en: "%{v} cards"
-chrome.kartendaten_mtg_arena_gefunden:
+chrome.mtg_arena_card_data:
   de: "Kartendaten von MTG Arena gefunden"
   en: "MTG Arena card data found"
-chrome.kartendaten_neu_laden:
+chrome.reload_card_data:
   de: "Kartendaten neu laden"
   en: "Reload card data"
-chrome.kleines_fenster_waehrend_einer:
+chrome.small_window_gives_live:
   de: "Kleines Fenster, das während einer Partie live Hinweise gibt (Land legen, gefahrlos angreifen, tödlicher Angriff …). Es liest nur das Arena-Log. Arena dafür im Fenstermodus oder randlosen Vollbild spielen."
   en: "Small window that gives live hints during a game (play a land, attack safely, lethal attack …). It only reads the Arena log. Play Arena in windowed or borderless fullscreen mode for this."
-chrome.lade_decks:
+chrome.loading_decks:
   de: "Lade Decks für %{name} …"
   en: "Loading decks for %{name} …"
-chrome.laedt_jedem_archetyp_neueste:
+chrome.loads_newest_tournament_deck:
   de: "Lädt zu jedem Archetyp das neueste Turnierdeck und prüft es gegen deine Sammlung. Dauert ca. 10 s pro Archetyp (MTGTop8 erlaubt nur eine Anfrage alle 5 s); Ergebnisse werden zwischengespeichert."
   en: "Loads the newest tournament deck for each archetype and checks it against your collection. Takes about 10 s per archetype (MTGTop8 only allows one request every 5 s); results are cached."
-chrome.lese:
+chrome.reading:
   de: "Lese …"
   en: "Reading …"
-chrome.liest_karten_wildcards_aus:
+chrome.reads_cards_wildcards_running:
   de: "Liest Karten und Wildcards aus dem laufenden MTG Arena (Hauptmenü). Falls Windows nach Administratorrechten fragt: Die werden nur gebraucht, um den Speicher des Spiels zu lesen."
   en: "Reads cards and wildcards from the running MTG Arena (main menu). If Windows asks for administrator rights: they are only needed to read the game's memory."
-chrome.meine_partien:
+chrome.my_games:
   de: "Meine Partien"
   en: "My games"
-chrome.metagame_neu_mtgtop8_laden:
+chrome.reload_metagame_mtgtop8:
   de: "Metagame neu von MTGTop8 laden"
   en: "Reload the metagame from MTGTop8"
 chrome.mtg_arena:
@@ -197,37 +197,37 @@ chrome.mtg_arena:
 chrome.mtg_arena_builder:
   de: "MTG Arena Builder"
   en: "MTG Arena Builder"
-chrome.noch_keine_archetypen_geladen:
+chrome.no_archetypes_loaded_yet:
   de: "Noch keine Archetypen geladen."
   en: "No archetypes loaded yet."
-chrome.offizielle_events:
+chrome.official_events:
   de: "Offizielle Events"
   en: "Official events"
-chrome.sammlung_aktualisieren:
+chrome.update_collection:
   de: "Sammlung aktualisieren"
   en: "Update collection"
-chrome.sammlung_gelesen:
+chrome.collection_read:
   de: "Sammlung gelesen %{v}"
   en: "Collection read %{v}"
-chrome.sammlung_gelesen_2:
+chrome.collection_read_2:
   de: "Sammlung gelesen"
   en: "Collection read"
-chrome.sammlung_noch_nicht_gelesen:
+chrome.collection_read_yet:
   de: "Sammlung noch nicht gelesen"
   en: "Collection not read yet"
-chrome.set_kuerzeln_exportieren:
+chrome.export_set_codes:
   de: "Mit Set-Kürzeln exportieren"
   en: "Export with set codes"
-chrome.sideboard_einbeziehen:
+chrome.include_sideboard:
   de: "Sideboard einbeziehen"
   en: "Include sideboard"
-chrome.sortiert_nach_benoetigten_wildcards:
+chrome.sorted_required_wildcards_rares:
   de: "Sortiert nach benötigten Wildcards (Rares und Mythics zuerst)."
   en: "Sorted by required wildcards (rares and mythics first)."
-chrome.sprache:
+chrome.language:
   de: "Sprache"
   en: "Language"
-chrome.sprache_system:
+chrome.same_operating_system:
   de: "Wie das Betriebssystem (%{lang})"
   en: "Same as the operating system (%{lang})"
 chrome.text:
@@ -236,19 +236,19 @@ chrome.text:
 chrome.text_2:
   de: "○ %{title}"
   en: "○ %{title}"
-chrome.textgroesse:
+chrome.text_size:
   de: "Textgröße"
   en: "Text size"
-chrome.turnierdecks:
+chrome.tournament_decks:
   de: "Turnierdecks"
   en: "Tournament decks"
-chrome.turnierdecks_geladen:
+chrome.tournament_decks_loaded:
   de: "Turnierdecks geladen"
   en: "Tournament decks loaded"
-chrome.waehrend_partie:
+chrome.during_game:
   de: "Während der Partie"
   en: "During the game"
-chrome.welche_karten_deines_decks:
+chrome.which_cards_deck_should:
   de: "Welche Karten deines Decks du tauschen solltest"
   en: "Which cards of your deck you should swap"
 chrome.wildcards:
@@ -257,412 +257,412 @@ chrome.wildcards:
 chrome.wildcards_2:
   de: "Wildcards"
   en: "Wildcards"
-collection.arena_hat_keine_karten:
+collection.arena_returned_no_cards:
   de: "Arena hat keine Karten geliefert – bitte im Spiel bis ins Hauptmenü gehen und erneut versuchen."
   en: "Arena returned no cards – please go to the main menu in the game and try again."
-collection.bitte_app_root_rechten:
+collection.please_start_app_root:
   de: "Bitte die App mit root-Rechten starten (sudo), um die Sammlung zu lesen."
   en: "Please start the app with root rights (sudo) to read the collection."
-collection.gespeicherte_sammlung_unlesbar:
+collection.saved_collection_unreadable:
   de: "Gespeicherte Sammlung ist unlesbar."
   en: "The saved collection is unreadable."
-collection.helfer:
+collection.reading_administrator_rights_failed:
   de: "Lesen mit Administratorrechten fehlgeschlagen: %{e}"
   en: "Reading with administrator rights failed: %{e}"
-collection.kein_zugriff:
+collection.no_access_arena_process:
   de: "Kein Zugriff auf den Arena-Prozess – dafür sind Administratorrechte (unter Linux root) nötig."
   en: "No access to the Arena process – this needs administrator rights (root on Linux)."
-collection.lesen_administratorrechten_wurde_abgebrochen:
+collection.reading_administrator_rights_cancelled:
   de: "Lesen mit Administratorrechten wurde abgebrochen oder ist fehlgeschlagen."
   en: "Reading with administrator rights was cancelled or failed."
-collection.nicht_im_hauptmenue:
+collection.arena_main_menu_please:
   de: "Arena ist nicht im Hauptmenü – bitte im Spiel ins Hauptmenü gehen und erneut versuchen."
   en: "Arena is not in the main menu – please go to the main menu in the game and try again."
-collection.plattform_nicht_unterstuetzt:
+collection.platform_supported:
   de: "Plattform wird nicht unterstützt"
   en: "Platform not supported"
-collection.powershell_konnte_nicht_gestartet:
+collection.could_start_powershell:
   de: "PowerShell konnte nicht gestartet werden: %{e}"
   en: "Could not start PowerShell: %{e}"
-collection.speicher_mtg_arena_konnte:
+collection.could_read_mtg_arenas:
   de: "Speicher von MTG Arena konnte nicht gelesen werden (läuft das Spiel und ist es im Hauptmenü?)"
   en: "Could not read MTG Arena's memory (is the game running and in the main menu?)"
-collection.speicherleser:
+collection.memory_reader_reports:
   de: "Speicherleser meldet: %{e}"
   en: "Memory reader reports: %{e}"
-collection.speichern_fehlgeschlagen:
+collection.collection_read_but_saved:
   de: "Sammlung gelesen, aber nicht gespeichert: %{e}"
   en: "Collection read, but not saved: %{e}"
-common.dann:
+common.then:
   de: ", dann "
   en: ", then "
-common.keine:
+common.none:
   de: "keine"
   en: "none"
-common.rechne:
+common.calculating:
   de: "Rechne …"
   en: "Calculating …"
-common.und:
+common.and:
   de: " und "
   en: " and "
-companion.mtg_begleiter:
+companion.mtg_companion:
   de: "MTG Begleiter"
   en: "MTG Companion"
-deck_check.aehnlichsten_geladene_turnierlisten_uebereinstimmung:
+deck_check.most_similar_loaded_tournament:
   de: "Am ähnlichsten: %{archetype} (%{lists} geladene Turnierlisten, %{v} % Übereinstimmung der Nichtland-Karten)"
   en: "Most similar: %{archetype} (%{lists} loaded tournament lists, %{v} % match of the nonland cards)"
-deck_check.anz:
+deck_check.qty:
   de: "Anz."
   en: "Qty"
-deck_check.davon_daten_gezogenen_gespielten:
+deck_check.them_data_drawn_played:
   de: "· %{tracked} davon mit Daten zu gezogenen und gespielten Karten"
   en: "· %{tracked} of them with data on drawn and played cards"
 deck_check.deck:
   de: "Deck:"
   en: "Deck:"
-deck_check.diese_karten_spielt_mindestens:
+deck_check.least_half_tournament_lists:
   de: "Diese Karten spielt mindestens die Hälfte der Turnierlisten, du aber nicht:"
   en: "At least half of the tournament lists play these cards, but you don't:"
-deck_check.dieses_deck_gibt_event:
+deck_check.deck_set_event_cannot:
   de: "Dieses Deck gibt das Event vor – in Arena kannst du es nicht ändern. Die Auswertung zeigt trotzdem, wie du die Karten nutzt."
   en: "This deck is set by the event – you cannot change it in Arena. The analysis still shows how you use the cards."
-deck_check.dort_kannst_karten_gegen:
+deck_check.swap_cards_replacements_collection:
   de: "Dort kannst du Karten gegen Ersatz aus deiner Sammlung tauschen und das Deck für Arena kopieren."
   en: "There you can swap cards for replacements from your collection and copy the deck for Arena."
-deck_check.eigene_liste_pruefen_uebernehmen:
+deck_check.copy_own_list:
   de: "In „Eigene Liste prüfen“ übernehmen"
   en: "Copy to “Own list”"
-deck_check.gespielt:
+deck_check.played:
   de: "Gespielt"
   en: "Played"
-deck_check.gewinnraten_einzelner_karten_zeigt:
+deck_check.win_rates_single_cards:
   de: "Gewinnraten einzelner Karten zeigt die App ab %{min_games_for_winrate} Partien mit Kartendaten – bisher %{tracked}. Bis dahin zählt, wie du die Karten tatsächlich nutzt."
   en: "Win rates of single cards are shown from %{min_games_for_winrate} games with card data – so far %{tracked}. Until then, what counts is how you actually use the cards."
-deck_check.gezogen:
+deck_check.drawn:
   de: "Gezogen"
   en: "Drawn"
-deck_check.gezogen_gespielt_wie_vielen:
+deck_check.drawn_played_how_many:
   de: "Gezogen/Gespielt = in wie vielen Partien. „Lange auf der Hand“ = mindestens drei eigene Züge bezahlbar, aber nicht gespielt. „Turnier“ = Anteil der Turnierlisten mit dieser Karte."
   en: "Drawn/Played = in how many games. “Long in hand” = castable for at least three of your turns, but not played. “Tournament” = share of tournament lists with this card."
-deck_check.hast:
+deck_check.you_have:
   de: "du hast %{own}"
   en: "you have %{own}"
-deck_check.karte:
+deck_check.card:
   de: "Karte"
   en: "Card"
-deck_check.karten_deck:
+deck_check.cards_deck:
   de: "Karten im Deck"
   en: "Cards in the deck"
-deck_check.kein_passender_turnier_archetyp:
+deck_check.no_matching_tournament_archetype:
   de: "Kein passender Turnier-Archetyp geladen. Unter „Turnierdecks“ den Archetyp anklicken oder „Alle bewerten“ – dann vergleicht die App hier."
   en: "No matching tournament archetype loaded. Click the archetype under “Tournament decks” or “Rate all” – then the app compares here."
-deck_check.laender:
+deck_check.lands:
   de: "Länder"
   en: "Lands"
-deck_check.laender_bei_karten_wenig:
+deck_check.lands_cards_too_few:
   de: "%{lands} Länder bei %{size} Karten · zu wenig Länder in %{screw} von %{games} Partien · zu viele in %{flood}"
   en: "%{lands} lands in %{size} cards · too few lands in %{screw} of %{games} games · too many in %{flood}"
-deck_check.lange_hand:
+deck_check.long_hand:
   de: "Lange auf Hand"
   en: "Long in hand"
-deck_check.listen:
+deck_check.lists:
   de: "• %{name} – in %{v} % der Listen"
   en: "• %{name} – in %{v} % of the lists"
-deck_check.nicht_deiner_sammlung:
+deck_check.collection:
   de: "nicht in deiner Sammlung"
   en: "not in your collection"
-deck_check.noch_keine_klaren_kandidaten:
+deck_check.no_clear_candidates_yet:
   de: "Noch keine klaren Kandidaten. Je mehr Partien du mit dem Deck spielst, desto genauer werden die Vorschläge."
   en: "No clear candidates yet. The more games you play with the deck, the more precise the suggestions get."
-deck_check.noch_keine_partien_bekannter:
+deck_check.no_games_known_decklist:
   de: "Noch keine Partien mit bekannter Deckliste. Spiel mit eingeschalteten „Detaillierten Logs“ – die App erkennt das Deck dann automatisch."
   en: "No games with a known decklist yet. Play with “Detailed Logs” turned on – the app then recognizes the deck automatically."
-deck_check.probehaende_testen:
+deck_check.test_sample_hands:
   de: "Probehände testen"
   en: "Test sample hands"
-deck_check.raus:
+deck_check.out:
   de: "Raus: %{out}"
   en: "Out: %{out}"
-deck_check.rein:
+deck_check.in:
   de: "Rein: %{name}"
   en: "In: %{name}"
-deck_check.schaden:
+deck_check.damage:
   de: "Schaden"
   en: "Damage"
-deck_check.siege_aus_partien:
+deck_check.wins_games:
   de: "%{wins} Siege aus %{games} Partien"
   en: "%{wins} wins in %{games} games"
-deck_check.siegquote:
+deck_check.win_rate:
   de: "Siegquote"
   en: "Win rate"
-deck_check.spielst_alle_karten_meisten:
+deck_check.play_cards_most_these:
   de: "Du spielst alle Karten, die die meisten dieser Turnierlisten spielen."
   en: "You play all cards that most of these tournament lists play."
-deck_check.spielt_dieses_deck_1000:
+deck_check.plays_deck_1000_times:
   de: "Spielt dieses Deck 1000-mal durch – gegen einen schnellen Gegner bis Zug 6 und, mit genug eigenen Partien, gegen deine echten Gegner bis Zug 10 – und zeigt, wie oft Länder oder Farben fehlen."
   en: "Plays this deck 1000 times – against a fast opponent up to turn 6 and, with enough of your own games, against your real opponents up to turn 10 – and shows how often lands or colors are missing."
-deck_check.tausch_vorschlaege:
+deck_check.swap_suggestions:
   de: "Tausch-Vorschläge"
   en: "Swap suggestions"
 deck_check.text:
   de: "(%{why})"
   en: "(%{why})"
-deck_check.turnier:
+deck_check.tournament:
   de: "Turnier"
   en: "Tournament"
-deck_check.vergleich_turnierdecks:
+deck_check.comparison_tournament_decks:
   de: "Vergleich mit Turnierdecks"
   en: "Comparison with tournament decks"
-deck_view.arena_decks_importieren:
+deck_view.arena_decks_import:
   de: "In Arena: Decks > Importieren"
   en: "In Arena: Decks > Import"
-deck_view.arena_kopieren:
+deck_view.copy_arena:
   de: "Für Arena kopieren"
   en: "Copy for Arena"
-deck_view.benoetigte_wildcards:
+deck_view.required_wildcards:
   de: "Benötigte Wildcards:"
   en: "Required wildcards:"
-deck_view.besitz:
+deck_view.owned:
   de: "Besitz"
   en: "Owned"
-deck_view.bild_geladen:
+deck_view.loading_image:
   de: "Bild wird geladen …"
   en: "Loading image …"
-deck_view.budget_version_bauen:
+deck_view.build_budget_version:
   de: "Budget-Version bauen"
   en: "Build budget version"
-deck_view.deck_zwischenablage_kopiert_arena:
+deck_view.deck_copied_clipboard_paste:
   de: "Deck in die Zwischenablage kopiert – in Arena unter Decks > Importieren einfügen."
   en: "Deck copied to the clipboard – paste it in Arena under Decks > Import."
-deck_view.deinen_wildcards_baubar:
+deck_view.buildable_wildcards:
   de: "Mit deinen Wildcards baubar."
   en: "Buildable with your wildcards."
-deck_view.empfohlen_wenn_arena_nicht:
+deck_view.recommended_arena_running_english:
   de: "Empfohlen, wenn Arena nicht auf Englisch läuft."
   en: "Recommended if Arena is not running in English."
-deck_view.ersatz_aus_deiner_sammlung:
+deck_view.replacement_collection:
   de: "Ersatz aus deiner Sammlung"
   en: "Replacement from your collection"
-deck_view.ersetzungen_zurueckgesetzt:
+deck_view.replacements_reset:
   de: "Ersetzungen zurückgesetzt."
   en: "Replacements reset."
-deck_view.ersetzungen_zuruecksetzen:
+deck_view.reset_replacements:
   de: "Ersetzungen zurücksetzen"
   en: "Reset replacements"
-deck_view.fehlt:
+deck_view.missing:
   de: "Fehlt"
   en: "Missing"
-deck_view.hast:
+deck_view.you_have:
   de: "%{need} %{rarity_names} (du hast %{wc})"
   en: "%{need} %{rarity_names} (you have %{wc})"
-deck_view.kannst_dieses_deck_komplett:
+deck_view.build_deck_completely:
   de: "Du kannst dieses Deck komplett bauen."
   en: "You can build this deck completely."
-deck_view.karte:
+deck_view.card:
   de: "Karte"
   en: "Card"
-deck_view.karten_gibt_arena_nicht:
+deck_view.cards_available_arena:
   de: "%{unavailable} Karten gibt es in Arena nicht"
   en: "%{unavailable} cards are not available in Arena"
-deck_view.karten_vorhanden:
+deck_view.cards_owned:
   de: "%{missing} von %{total} Karten vorhanden (%{v} %)"
   en: "%{missing} of %{total} cards owned (%{v} %)"
-deck_view.kein_bild_verfuegbar:
+deck_view.no_image_available:
   de: "Kein Bild verfügbar"
   en: "No image available"
-deck_view.kein_vorschlag:
+deck_view.no_suggestion:
   de: "kein Vorschlag"
   en: "no suggestion"
-deck_view.nicht_arena_verfuegbar:
+deck_view.available_arena:
   de: "nicht in Arena verfügbar"
   en: "not available in Arena"
-deck_view.noch_nicht_baubar:
+deck_view.buildable_yet:
   de: "Noch nicht baubar."
   en: "Not buildable yet."
-deck_view.ohne_gelesene_sammlung_gilt:
+deck_view.without_read_collection_everything:
   de: "Ohne gelesene Sammlung gilt alles als fehlend."
   en: "Without a read collection, everything counts as missing."
-deck_view.probehaende_testen:
+deck_view.test_sample_hands:
   de: "Probehände testen"
   en: "Test sample hands"
-deck_view.seltenheit:
+deck_view.rarity:
   de: "Seltenheit"
   en: "Rarity"
-deck_view.set_kuerzeln_exportieren:
+deck_view.export_set_codes:
   de: "Mit Set-Kürzeln exportieren"
   en: "Export with set codes"
 deck_view.sideboard:
   de: "Sideboard"
   en: "Sideboard"
-deck_view.sideboard_einbeziehen:
+deck_view.include_sideboard:
   de: "Sideboard einbeziehen"
   en: "Include sideboard"
-deck_view.spielt_deck_1000_mal:
+deck_view.plays_deck_1000_times:
   de: "Spielt das Deck 1000-mal durch (mit deinen Ersatzkarten) und zeigt, wie oft Länder oder Farben fehlen, wie gut das Mana genutzt wird und wie es gegen Gegner besteht."
   en: "Plays the deck 1000 times (with your replacement cards) and shows how often lands or colors are missing, how well the mana is used and how it holds up against opponents."
-deck_view.stellt_wichtigsten_fehlenden_karten:
+deck_view.crafts_most_important_missing:
   de: "Stellt die wichtigsten fehlenden Karten mit deinen Wildcards her und ersetzt den Rest durch ähnliche Karten aus deiner Sammlung. Ergebnis siehst du in der Spalte „Ersatz“."
   en: "Crafts the most important missing cards with your wildcards and replaces the rest with similar cards from your collection. You see the result in the “Replacement” column."
-deck_view.vorschlaege:
+deck_view.suggestions:
   de: "– (%{options_n} Vorschläge)"
   en: "– (%{options_n} suggestions)"
-deck_view.wildcard_nutzen:
+deck_view.use_wildcard:
   de: "– (Wildcard nutzen)"
   en: "– (use wildcard)"
-deckcheck.aussage_ueber_laenderzahl_braucht:
+deckcheck.statement_about_land_count:
   de: "Für eine Aussage über die Länderzahl braucht es mindestens 3 vollständige Partien."
   en: "A statement about the land count needs at least 3 fully logged games."
-deckcheck.dir_fehlten_oft_laender:
+deckcheck.often_short_lands_play:
   de: "Dir fehlten oft Länder: 1–2 Länder mehr spielen (statt der teuersten Karten)."
   en: "You were often short on lands: play 1–2 more lands (instead of the most expensive cards)."
-deckcheck.hattest_oft_viele_laender:
+deckcheck.often_had_too_many:
   de: "Du hattest oft zu viele Länder: 1–2 Länder durch günstige Karten ersetzen."
   en: "You often had too many lands: replace 1–2 lands with cheap cards."
-deckcheck.laenderzahl_passt_deinen_bisherigen:
+deckcheck.land_count_fits_games:
   de: "Die Länderzahl passt zu deinen bisherigen Partien."
   en: "The land count fits your games so far."
-deckcheck_analysis.aehnliche_karte_aus_deiner:
+deckcheck_analysis.similar_card_collection:
   de: "ähnliche Karte aus deiner Sammlung (%{owned}×)"
   en: "similar card from your collection (%{owned}×)"
-deckcheck_analysis.partien_gezogen_aber_nie:
+deckcheck_analysis.drawn_games_but_never:
   de: "in %{seen} Partien gezogen, aber nie gespielt"
   en: "drawn in %{seen} games, but never played"
-deckcheck_analysis.partien_lange_ungespielt_hand:
+deckcheck_analysis.long_unplayed_hand_games:
   de: "in %{held} Partien lange ungespielt auf der Hand"
   en: "long unplayed in hand in %{held} games"
-deckcheck_analysis.spielt_turnier_archetyp_kaum:
+deckcheck_analysis.hardly_anyone_plays_tournament:
   de: "spielt im Turnier-Archetyp kaum jemand"
   en: "hardly anyone plays it in the tournament archetype"
-deckcheck_groups.farb_challenge:
+deckcheck_groups.color_challenge:
   de: "Farb-Challenge"
   en: "Color Challenge"
-deckcheck_groups.karten_partien:
+deckcheck_groups.cards_games:
   de: "%{v} %{v2} – %{signature} (%{deck_n} Karten, %{games_n} Partien)"
   en: "%{v} %{v2} – %{signature} (%{deck_n} cards, %{games_n} games)"
-deckcheck_groups.rangliste:
+deckcheck_groups.ranked:
   de: "Rangliste"
   en: "Ranked"
-deckcheck_groups.sonstiges:
+deckcheck_groups.other:
   de: "Sonstiges"
   en: "Other"
-deckcheck_groups.spielen:
+deckcheck_groups.play:
   de: "Spielen"
   en: "Play"
-deckcheck_groups.starterdeck:
+deckcheck_groups.starter_deck:
   de: "Starterdeck"
   en: "Starter deck"
-deckcheck_groups.willkommens_duell:
+deckcheck_groups.welcome_duel:
   de: "Willkommens-Duell"
   en: "Welcome duel"
-events.aktualisieren:
+events.refresh:
   de: "Aktualisieren"
   en: "Refresh"
-events.decks_werden_geladen:
+events.loading_decks:
   de: "Decks werden geladen …"
   en: "Loading decks …"
 events.events:
   de: "Events · %{v}"
   en: "Events · %{v}"
-events.guenstigste_zuerst:
+events.cheapest_first:
   de: "Günstigste zuerst"
   en: "Cheapest first"
-events.lade_decklisten_magic_gg:
+events.loading_decklists_magic_gg:
   de: "Lade Decklisten von magic.gg …"
   en: "Loading decklists from magic.gg …"
-events.lade_decks_magic_gg:
+events.loading_decks_magic_gg:
   de: "Lade Decks von magic.gg …"
   en: "Loading decks from magic.gg …"
-events.links_event_waehlen_magic:
+events.choose_event_left_magic:
   de: "Links ein Event wählen. magic.gg veröffentlicht die Decks von Championships, Arena-Events und jede Woche Decks aus der Ranglisten-Spitze (Traditional, Bo3)."
   en: "Choose an event on the left. magic.gg publishes the decks of Championships, Arena events and every week decks from the top of the ranked ladder (Traditional, Bo3)."
-events.liste_neu_magic_gg:
+events.reload_list_magic_gg:
   de: "Liste neu von magic.gg laden"
   en: "Reload the list from magic.gg"
-events.noch_keine_events_geladen:
+events.no_events_loaded_yet:
   de: "Noch keine Events geladen."
   en: "No events loaded yet."
-events.quelle_magic_gg:
+events.source_magic_gg:
   de: "Quelle: magic.gg"
   en: "Source: magic.gg"
-game_list.anfang:
+game_list.start:
   de: "Anfang"
   en: "Start"
-game_list.angriff:
+game_list.attack:
   de: "Angriff"
   en: "Attack"
-game_list.aufgegeben:
+game_list.conceded:
   de: "Aufgegeben"
   en: "Conceded"
 game_list.deck:
   de: "Deck"
   en: "Deck"
-game_list.diese_partie_stehen_keine:
+game_list.no_turn_data_game:
   de: "Für diese Partie stehen keine Zugdaten im Log."
   en: "There is no turn data for this game in the log."
-game_list.dieser_partie_hat_app:
+game_list.app_found_no_typical:
   de: "In dieser Partie hat die App keine typischen Fehler gefunden."
   en: "The app found no typical mistakes in this game."
-game_list.ergebnis:
+game_list.result:
   de: "Ergebnis"
   en: "Result"
-game_list.erst_ab_zug_mitgeschrieben:
+game_list.only_logged_turn_lands:
   de: "Erst ab Zug %{v} mitgeschrieben – Länder und Handkarten aus der Zeit davor fehlen."
   en: "Only logged from turn %{v} – lands and hand cards from before are missing."
-game_list.erster:
+game_list.play:
   de: "Erster"
   en: "Play"
-game_list.frei:
+game_list.free:
   de: "Frei"
   en: "Free"
-game_list.gegner:
+game_list.opponent:
   de: "Gegner"
   en: "Opponent"
 game_list.hand:
   de: "Hand"
   en: "Hand"
-game_list.ich:
+game_list.me:
   de: "ich"
   en: "me"
-game_list.kreaturen:
+game_list.creatures:
   de: "Kreaturen"
   en: "Creatures"
-game_list.laender:
+game_list.lands:
   de: "Länder"
   en: "Lands"
 game_list.land:
   de: "Land"
   en: "Land"
-game_list.leben:
+game_list.life:
   de: "Leben"
   en: "Life"
-game_list.meisten_schaden_dir:
+game_list.most_damage:
   de: "Am meisten Schaden an dir: %{name} (%{dmg})"
   en: "Most damage to you: %{name} (%{dmg})"
-game_list.modus:
+game_list.mode:
   de: "Modus"
   en: "Mode"
 game_list.mull:
   de: "Mull."
   en: "Mull."
-game_list.niederlage:
+game_list.loss:
   de: "Niederlage"
   en: "Loss"
-game_list.partie:
+game_list.game:
   de: "Partie #%{v} – %{v2}"
   en: "Game #%{v} – %{v2}"
-game_list.seite_partien:
+game_list.page_games:
   de: "Seite %{v} von %{pages} · Partien %{v2}–%{end} von %{games_n}"
   en: "Page %{v} of %{pages} · games %{v2}–%{end} of %{games_n}"
-game_list.sieg:
+game_list.win:
   de: "Sieg"
   en: "Win"
-game_list.stand_jeweils_ende_zuges:
+game_list.state_end_each_turn:
   de: "Stand jeweils am Ende des Zuges. „Frei“ = ungetappte eigene Länder."
   en: "State at the end of each turn. “Free” = your untapped lands."
-game_list.starthand:
+game_list.opening_hand:
   de: "Starthand"
   en: "Opening hand"
-game_list.starthand_karten_laender:
+game_list.opening_hand_cards_lands:
   de: "Starthand (%{hand_n} Karten, %{lands} Länder): %{v}"
   en: "Opening hand (%{hand_n} cards, %{lands} lands): %{v}"
 game_list.text:
@@ -671,610 +671,610 @@ game_list.text:
 game_list.text_2:
   de: "• %{when} – %{title}: %{text}"
   en: "• %{when} – %{title}: %{text}"
-game_list.wann:
+game_list.when:
   de: "Wann"
   en: "When"
-game_list.was_dieser_partie_besser:
+game_list.what_do_better_game:
   de: "Was du in dieser Partie besser machen kannst"
   en: "What you can do better in this game"
-game_list.weiter:
+game_list.next:
   de: "Weiter"
   en: "Next"
-game_list.wer:
+game_list.who:
   de: "Wer"
   en: "Who"
-game_list.zauber:
+game_list.spells:
   de: "Zauber"
   en: "Spells"
-game_list.zuege:
+game_list.turns:
   de: "Züge"
   en: "Turns"
-game_list.zug:
+game_list.turn:
   de: "Zug %{turn}"
   en: "Turn %{turn}"
-game_list.zug_kurz:
+game_list.turn_2:
   de: "Zug"
   en: "Turn"
-game_list.zurueck:
+game_list.back:
   de: "Zurück"
   en: "Back"
-game_list.zweiter:
+game_list.draw:
   de: "Zweiter"
   en: "Draw"
-games_mistake.behalte_nur_starthaende_2:
+games_mistake.only_keep_opening_hands:
   de: "Behalte nur Starthände mit 2–4 Ländern. Mit 0–1 Land fehlt dir das Mana, mit 5 oder mehr fehlen die Zauber. Ein Mulligan auf 6 Karten ist meist besser als so eine Hand."
   en: "Only keep opening hands with 2–4 lands. With 0–1 land you lack mana, with 5 or more you lack spells. A mulligan to 6 cards is usually better than such a hand."
-games_mistake.bei_wenig_leben_lohnt:
+games_mistake.low_life_pays_off:
   de: "Bei wenig Leben lohnt es sich zu blocken, auch wenn deine Kreatur dabei stirbt. Dann sind deine Lebenspunkte wichtiger als die Kreatur."
   en: "At low life it pays off to block, even if your creature dies. Then your life total matters more than the creature."
-games_mistake.bei_wenig_leben_nicht:
+games_mistake.did_block_low_life:
   de: "Bei wenig Leben nicht geblockt"
   en: "Did not block at low life"
-games_mistake.besserer_zug_moeglich:
+games_mistake.better_play_possible:
   de: "Besserer Zug möglich"
   en: "Better play possible"
-games_mistake.diese_karten_lagen_mehrere:
+games_mistake.these_cards_castable_hand:
   de: "Diese Karten lagen mehrere Züge bezahlbar auf deiner Hand. Spiel sie früher – oder tausch sie im Deck gegen etwas, das du wirklich spielst. (Spontanzauber zählen hier nicht mit.)"
   en: "These cards were castable in your hand for several turns. Cast them earlier – or swap them in the deck for something you really play. (Instants do not count here.)"
-games_mistake.frueh_aufgegeben:
+games_mistake.conceded_early:
   de: "Früh aufgegeben"
   en: "Conceded early"
-games_mistake.gefahrlosen_angriff_ausgelassen:
+games_mistake.safe_attack_skipped:
   de: "Gefahrlosen Angriff ausgelassen"
   en: "Safe attack skipped"
-games_mistake.gerade_niedrigen_raengen_machen:
+games_mistake.especially_low_ranks_opponents:
   de: "Gerade auf niedrigen Rängen machen Gegner oft Fehler, und Partien drehen sich. Spiel weiter, solange du noch Leben hast."
   en: "Especially at low ranks, opponents often make mistakes and games turn around. Keep playing as long as you still have life."
-games_mistake.karte_lange_nicht_gespielt:
+games_mistake.card_played_long_time:
   de: "Karte lange nicht gespielt"
   en: "Card not played for a long time"
-games_mistake.keine_kreatur_feld:
+games_mistake.no_creature_battlefield:
   de: "Keine Kreatur auf dem Feld"
   en: "No creature on the battlefield"
-games_mistake.land_nicht_gespielt:
+games_mistake.land_played:
   de: "Land nicht gespielt"
   en: "Land not played"
-games_mistake.lege_jeden_zug_land:
+games_mistake.play_land_every_turn:
   de: "Lege jeden Zug ein Land, wenn du eins hast – auch wenn du es gerade nicht brauchst. Später fehlt es sonst."
   en: "Play a land every turn if you have one – even if you don't need it right now. Otherwise it will be missing later."
-games_mistake.mana_ungenutzt:
+games_mistake.mana_unused:
   de: "Mana ungenutzt"
   en: "Mana unused"
-games_mistake.nutze_mana_jedem_zug:
+games_mistake.use_mana_every_turn:
   de: "Nutze dein Mana in jedem Zug. Eine Kreatur auf der Hand macht keinen Schaden – spiel sie, sobald du kannst. (Die Farben prüft die App nicht; manchmal fehlte also die passende Farbe.)"
   en: "Use your mana every turn. A creature in your hand deals no damage – cast it as soon as you can. (The app does not check colors; sometimes the right color was missing.)"
-games_mistake.riskante_starthand_behalten:
+games_mistake.risky_opening_hand_kept:
   de: "Riskante Starthand behalten"
   en: "Risky opening hand kept"
-games_mistake.wenn_keine_gegnerische_kreatur:
+games_mistake.no_opposing_creature_block:
   de: "Wenn keine gegnerische Kreatur deinen Angreifer blocken und dabei töten kann, greif an. Schlimmstenfalls opfert der Gegner einen Blocker, sonst verliert er Leben. (Fliegend, Reichweite, Todesberührung und Bedrohlich sind berücksichtigt, Zaubertricks des Gegners nicht.)"
   en: "If no opposing creature can block your attacker and kill it, attack. At worst the opponent sacrifices a blocker, otherwise they lose life. (Flying, reach, deathtouch and menace are taken into account, the opponent's tricks are not.)"
-games_mistake.zug_3_6_lag:
+games_mistake.turns_3_6_had:
   de: "In Zug 3–6 lag keine eigene Kreatur auf dem Feld – dann kannst du keinen Druck machen und nicht blocken. Spiel früh günstige Kreaturen; ein Deck braucht genug davon für die Züge 1–3."
   en: "On turns 3–6 you had no creature on the battlefield – then you cannot put on pressure or block. Play cheap creatures early; a deck needs enough of them for turns 1–3."
-games_mistake.zugvorschlag_begleitfensters_haette_diesen:
+games_mistake.companions_turn_suggestion_would:
   de: "Der Zugvorschlag des Begleitfensters hätte in diesen Zügen mehr aus deinem Mana gemacht – mit Blick auf Farben und gegnerische Kreaturen. Oft lohnen zwei günstige Karten statt einer teuren oder Entfernung vor der nächsten Kreatur."
   en: "The companion's turn suggestion would have made more of your mana in these turns – considering colors and opposing creatures. Often two cheap cards are better than one expensive card, or removal before the next creature."
-games_moments.mana_genutzt_moeglich_mana:
+games_moments.mana_used_possible_mana:
   de: "%{used} von %{mana_total} Mana genutzt – möglich: %{v} (%{mana_used} Mana)"
   en: "%{used} of %{mana_total} mana used – possible: %{v} (%{mana_used} mana)"
-games_overview.abgeworfene_karten_weil_hand:
+games_overview.discarded_cards_e_g:
   de: "Abgeworfene Karten: %{discards} (z. B. weil die Hand am Zugende zu voll war)"
   en: "Discarded cards: %{discards} (e.g. because the hand was too full at end of turn)"
-games_overview.alle_auffaelligkeiten:
+games_overview.findings:
   de: "Alle Auffälligkeiten"
   en: "All findings"
-games_overview.als_erster_als_zweiter:
+games_overview.play_draw_games_last:
   de: "Als Erster: %{v} · Als Zweiter: %{v2} · Partien dauern im Schnitt %{avg_turns} Züge"
   en: "On the play: %{v} · On the draw: %{v2} · Games last %{avg_turns} turns on average"
-games_overview.aus_partien:
+games_overview.games:
   de: "aus %{games} Partien"
   en: "in %{games} games"
-games_overview.bilanz:
+games_overview.record:
   de: "Bilanz"
   en: "Record"
-games_overview.davon_aufgegeben:
+games_overview.them_conceded:
   de: "· %{conceded} davon aufgegeben"
   en: "· %{conceded} of them conceded"
-games_overview.empfehlung:
+games_overview.recommendation:
   de: "Empfehlung: %{recommended} – %{v}"
   en: "Recommendation: %{recommended} – %{v}"
-games_overview.gegen_diese_karten_lohnt:
+games_overview.against_these_cards_pays:
   de: "Gegen diese Karten lohnt es sich, Removal aufzuheben oder zu blocken."
   en: "Against these cards it pays off to save removal or to block."
-games_overview.gegen_wen_gewinnst_verlierst:
+games_overview.who_win_lose_against:
   de: "Gegen wen du gewinnst und verlierst"
   en: "Who you win and lose against"
-games_overview.gegnerische_deck_erkennt_app:
+games_overview.app_recognizes_opponents_deck:
   de: "Das gegnerische Deck erkennt die App an den Karten, die du gesehen hast: passend zu einem geladenen Turnier-Archetyp („erkannt“), sonst nach Farben."
   en: "The app recognizes the opponent's deck from the cards you saw: matching a loaded tournament archetype (“recognized”), otherwise by colors."
-games_overview.gespielt:
+games_overview.played:
   de: "Gespielt: %{v}"
   en: "Played: %{v}"
-games_overview.haeufigste_karten_deiner_gegner:
+games_overview.most_common_cards_opponents:
   de: "Häufigste Karten deiner Gegner (%{opp_cards_n})"
   en: "Most common cards of your opponents (%{opp_cards_n})"
-games_overview.hat_dir_meisten_schaden:
+games_overview.dealt_most_damage:
   de: "Hat dir den meisten Schaden gemacht"
   en: "Dealt the most damage to you"
-games_overview.keine_typischen_fehler_gefunden:
+games_overview.no_typical_mistakes_found:
   de: "Keine typischen Fehler gefunden. Die App erkennt allerdings nur einfache Muster."
   en: "No typical mistakes found. The app only recognizes simple patterns, though."
-games_overview.partie:
+games_overview.game:
   de: "Partie #%{game}, %{when}: %{text}"
   en: "Game #%{game}, %{when}: %{text}"
-games_overview.partie_n:
+games_overview.game_2:
   de: "%{name} – in %{n} Partie(n)"
   en: "%{name} – in %{n} game(s)"
-games_overview.partien:
+games_overview.games_2:
   de: "– %{items_n}× in %{in_games_n} von %{games} Partien"
   en: "– %{items_n}× in %{in_games_n} of %{games} games"
-games_overview.partien_siege:
+games_overview.games_wins:
   de: "%{style} %{games} Partien (%{wins} Siege)"
   en: "%{style} %{games} games (%{wins} wins)"
-games_overview.passende_decks_schlaegt_app:
+games_overview.app_suggests_matching_decks:
   de: "Passende Decks schlägt die App vor, sobald Turnierlisten geladen sind: unter „Turnierdecks“ auf „Alle bewerten“ klicken oder unter „Offizielle Events“ ein Event öffnen."
   en: "The app suggests matching decks once tournament lists are loaded: click “Rate all” under “Tournament decks” or open an event under “Official events”."
-games_overview.passende_turnierdecks_sammlung_guenstigste:
+games_overview.matching_tournament_decks_cheapest:
   de: "Passende Turnierdecks, für deine Sammlung günstigste zuerst:"
   en: "Matching tournament decks, cheapest for your collection first:"
-games_overview.schaden:
+games_overview.damage:
   de: "%{name} – %{dmg} Schaden"
   en: "%{name} – %{dmg} damage"
-games_overview.siege_niederlagen:
+games_overview.wins_losses:
   de: "%{wins} Siege, %{losses} Niederlagen"
   en: "%{wins} wins, %{losses} losses"
-games_overview.siege_niederlagen_2:
+games_overview.wins_losses_2:
   de: "%{wins} Siege, %{v} Niederlagen"
   en: "%{wins} wins, %{v} losses"
-games_overview.spielstil:
+games_overview.play_style:
   de: "Dein Spielstil"
   en: "Your play style"
-games_overview.starthand:
+games_overview.opening_hand:
   de: "Starthand"
   en: "Opening hand"
-games_overview.starthand_2_4_laendern:
+games_overview.opening_hand_2_4:
   de: "Starthand mit 2–4 Ländern: %{v} · andere Starthände: %{v2}"
   en: "Opening hand with 2–4 lands: %{v} · other opening hands: %{v2}"
-games_overview.unter_geladenen_turnierlisten_kein:
+games_overview.no_deck_among_loaded:
   de: "Unter den %{loaded} geladenen Turnierlisten ist kein %{recommended}-Deck. Weitere Listen: unter „Turnierdecks“ auf „Alle bewerten“ klicken oder unter „Offizielle Events“ ein Event öffnen."
   en: "There is no %{recommended} deck among the %{loaded} loaded tournament lists. More lists: click “Rate all” under “Tournament decks” or open an event under “Official events”."
-games_overview.was_als_naechstes_verbessern:
+games_overview.what_improve_next:
   de: "Was du als Nächstes verbessern kannst"
   en: "What you can improve next"
-games_overview.was_dir_meisten_schaden:
+games_overview.what_dealt_most_damage:
   de: "Was dir am meisten Schaden gemacht hat (%{damage_sources_n})"
   en: "What dealt the most damage to you (%{damage_sources_n})"
-games_overview.zuege:
+games_overview.turns:
   de: "Ø Züge"
   en: "Ø turns"
-games_overview.zug:
+games_overview.turn:
   de: "Zug %{turn}"
   en: "Turn %{turn}"
-games_overview.zug_auswertung_ueber_eigene:
+games_overview.turn_analysis_over_turns:
   de: "Zug-Auswertung über %{my_turns} eigene Züge aus vollständig mitgeschriebenen Partien. Ein Klick auf einen Eintrag öffnet die Partie."
   en: "Turn analysis over %{my_turns} of your turns from fully logged games. Click an entry to open the game."
-games_report.aufgegeben_leben_gegner:
+games_report.conceded_life_opponent:
   de: "aufgegeben mit %{life_me} Leben (Gegner %{life_opp})"
   en: "conceded with %{life_me} life (opponent %{life_opp})"
-games_report.haette_n_gefahrlos_angreifen:
+games_report.could_attacked_safely:
   de: "%{v} hätte(n) gefahrlos angreifen können"
   en: "%{v} could have attacked safely"
-games_report.karten_laendern_behalten:
+games_report.kept_cards_lands:
   de: "%{hand_n} Karten mit %{lands} Ländern behalten"
   en: "kept %{hand_n} cards with %{lands} lands"
-games_report.keine_eigene_kreatur_feld:
+games_report.no_creature_yours_battlefield:
   de: "keine eigene Kreatur auf dem Feld"
   en: "no creature of yours on the battlefield"
-games_report.laender_frei_hand:
+games_report.lands_free_hand:
   de: "%{untapped_lands} Länder frei, %{name} (%{mana_cost}) auf der Hand"
   en: "%{untapped_lands} lands free, %{name} (%{mana_cost}) in hand"
-games_report.lag_eigene_zuege_bezahlbar:
+games_report.castable_hand_turns:
   de: "%{name} lag %{turns} eigene Züge bezahlbar auf der Hand"
   en: "%{name} was castable in hand for %{turns} of your turns"
-games_report.lag_hand:
+games_report.hand:
   de: "%{name} lag auf der Hand"
   en: "%{name} was in your hand"
-games_report.schaden_bei_leben_genommen:
+games_report.took_damage_life_creature:
   de: "%{lost} Schaden bei %{before} Leben genommen, %{my_untapped_creatures} eigene Kreatur(en) hätten blocken können"
   en: "took %{lost} damage at %{before} life, %{my_untapped_creatures} of your creature(s) could have blocked"
-games_store.beschaedigt_gesichert:
+games_store.games_json_corrupt_saved:
   de: "games.json war beschädigt (%{e}) und wurde als %{backup} gesichert – Partien aus den Arena-Logs werden neu eingelesen."
   en: "games.json was corrupt (%{e}) and was saved as %{backup} – games are read again from the Arena logs."
-games_store.nicht_lesbar:
+games_store.games_json_cannot_read:
   de: "games.json ist nicht lesbar (%{e}) – sie wird nicht überschrieben."
   en: "games.json cannot be read (%{e}) – it will not be overwritten."
-games_store.speichern_fehlgeschlagen:
+games_store.could_save_games:
   de: "Partien konnten nicht gespeichert werden: %{e}"
   en: "Could not save the games: %{e}"
-games_filter.rangliste:
+games_filter.ranked:
   de: "Rangliste"
   en: "Ranked"
-games_filter.spielen:
+games_filter.play:
   de: "Spielen"
   en: "Play"
 games_filter.brawl:
   de: "Brawl"
   en: "Brawl"
-games_filter.limited:
+games_filter.limited_draft_sealed:
   de: "Limited (Draft, Sealed)"
   en: "Limited (draft, sealed)"
-games_filter.events:
+games_filter.events_starter_decks:
   de: "Events und Starterdecks"
   en: "Events and starter decks"
-games_tab.alle_decks:
+games_tab.decks:
   de: "Alle Decks"
   en: "All decks"
-games_tab.alle_modi:
+games_tab.modes:
   de: "Alle Modi"
   en: "All modes"
-games_tab.arena_detaillierte_logs_ausgeschaltet:
+games_tab.detailed_logs_turned_off:
   de: "In Arena sind „Detaillierte Logs“ ausgeschaltet – neue Partien werden nicht mitgeschrieben. Einschalten: Zahnrad > Account > „Detaillierte Logs“, danach Arena neu starten."
   en: "“Detailed Logs” are turned off in Arena – new games are not logged. To turn them on: gear > Account > “Detailed Logs (Plugin Support)”, then restart Arena."
-games_tab.logs_neu_einlesen:
+games_tab.re_read_logs:
   de: "Logs neu einlesen"
   en: "Re-read logs"
-games_tab.noch_keine_partien_spiel:
+games_tab.no_games_yet_play:
   de: "Noch keine Partien. Spiel mit eingeschalteten „Detaillierten Logs“ ein paar Runden – die App liest sie dann hier ein."
   en: "No games yet. Play a few rounds with “Detailed Logs” turned on – the app then reads them here."
-games_tab.partien_gespeichert:
+games_tab.games_saved:
   de: "%{games_n} Partien gespeichert"
   en: "%{games_n} games saved"
-games_tab.partienliste:
+games_tab.game_list:
   de: "Partienliste"
   en: "Game list"
-games_tab.uebersicht_tipps:
+games_tab.overview_tips:
   de: "Übersicht & Tipps"
   en: "Overview & tips"
-games_tab.verlauf:
+games_tab.progress:
   de: "Verlauf"
   en: "Progress"
-http.gedrosselt:
+http.too_many_requests_site:
   de: "zu viele Anfragen – die Seite bremst, nächster Versuch frühestens in %{secs} s"
   en: "too many requests – the site is throttling, next attempt in %{secs} s at the earliest"
-http.netzfehler:
+http.network_error:
   de: "Netzfehler: %{e}"
   en: "network error: %{e}"
-http.nicht_gefunden:
+http.found:
   de: "nicht gefunden"
   en: "not found"
-http.status:
+http.server_answered_error:
   de: "Server antwortet mit Fehler %{code}"
   en: "server answered with error %{code}"
-lists.4_watery_grave_4:
+lists.4_watery_grave_n4:
   de: "4 Watery Grave\n4 Island\n…\n\nSideboard\n2 Duress"
   en: "4 Watery Grave\n4 Island\n…\n\nSideboard\n2 Duress"
-lists.aus_deiner_sammlung_laesst:
+lists.no_complete_deck_built:
   de: "Aus deiner Sammlung lässt sich in diesem Format noch kein vollständiges Deck bauen."
   en: "No complete deck can be built from your collection in this format yet."
-lists.baue_decks:
+lists.building_decks_collection:
   de: "Baue Decks aus deiner Sammlung …"
   en: "Building decks from your collection …"
-lists.dafuer_muss_zuerst_sammlung:
+lists.collection_must_read_first:
   de: "Dafür muss zuerst die Sammlung gelesen werden (oben rechts)."
   en: "For this the collection must be read first (top right)."
-lists.datum:
+lists.date:
   de: "Datum"
   en: "Date"
-lists.deckliste_arena_oder_mtgo:
+lists.paste_decklist_arena_mtgo:
   de: "Deckliste im Arena- oder MTGO-Textformat einfügen (z. B. von MTGGoldfish, Untapped oder aus Arena exportiert):"
   en: "Paste a decklist in Arena or MTGO text format (e.g. from MTGGoldfish, Untapped or exported from Arena):"
-lists.decks_sofort_ohne_wildcards:
+lists.decks_build_right_away:
   de: "Decks, die du sofort und ohne Wildcards bauen kannst – zusammengestellt aus deinen stärksten %{v}-legalen Karten je Farbkombination."
   en: "Decks you can build right away without wildcards – put together from your strongest %{v}-legal cards for each color combination."
-lists.diesen_archetyp_wurden_keine:
+lists.no_decks_found_archetype:
   de: "Für diesen Archetyp wurden keine Decks gefunden."
   en: "No decks found for this archetype."
-lists.geschaetzte_staerke_hoeher_besser:
+lists.estimated_strength_higher_better:
   de: "Geschätzte Stärke (höher = besser), nur untereinander vergleichbar"
   en: "Estimated strength (higher = better), only comparable with each other"
-lists.guenstigsten:
+lists.cheapest:
   de: "  · am günstigsten"
   en: "  · cheapest"
-lists.kartenstaerke_geschaetzt_seltenheit_vorkommen:
+lists.card_strength_estimated_rarity:
   de: "Die Kartenstärke ist geschätzt (Seltenheit, Vorkommen in Turnierdecks, Werte, Removal). Je mehr Turnierdecks unter „Turnierdecks“ geladen sind, desto besser die Schätzung."
   en: "Card strength is estimated (rarity, appearance in tournament decks, stats, removal). The more tournament decks are loaded under “Tournament decks”, the better the estimate."
-lists.kreaturen_removal_mana_rares:
+lists.creatures_removal_mana_rares:
   de: "%{label}: %{creatures} Kreaturen · %{removal} Removal · Ø %{avg_cmc} Mana · %{rares} Rares/Mythics · %{meta_cards} Karten, die auch in Turnierdecks gespielt werden"
   en: "%{label}: %{creatures} creatures · %{removal} removal · Ø %{avg_cmc} mana · %{rares} rares/mythics · %{meta_cards} cards that are also played in tournament decks"
-lists.lade_deckliste:
+lists.loading_decklist:
   de: "Lade Deckliste …"
   en: "Loading decklist …"
-lists.lade_turnierdecks:
+lists.loading_tournament_decks:
   de: "Lade Turnierdecks …"
   en: "Loading tournament decks …"
-lists.links_einen_archetyp_auswaehlen:
+lists.choose_archetype_left_rate:
   de: "Links einen Archetyp auswählen – oder „Alle bewerten“, um zu sehen, welche Turnierdecks du schon (fast) bauen kannst."
   en: "Choose an archetype on the left – or “Rate all” to see which tournament decks you can (almost) build already."
-lists.listen_bewertet_uebrigen_werden:
+lists.lists_rated_rest_loading:
   de: "%{summaries_n} von %{decks_n} Listen bewertet – die übrigen werden im Hintergrund geladen."
   en: "%{summaries_n} of %{decks_n} lists rated – the rest are loading in the background."
-lists.neu_berechnen:
+lists.recalculate:
   de: "Neu berechnen"
   en: "Recalculate"
-lists.nicht_geladen:
+lists.loaded:
   de: "nicht geladen"
   en: "not loaded"
-lists.platz:
+lists.place:
   de: "Platz"
   en: "Place"
-lists.pruefen:
+lists.check:
   de: "Prüfen"
   en: "Check"
-lists.spieler:
+lists.player:
   de: "Spieler"
   en: "Player"
-lists.turnier:
+lists.tournament:
   de: "Turnier"
   en: "Tournament"
-lists.wildcards_noetig:
+lists.wildcards_needed:
   de: "Wildcards nötig"
   en: "Wildcards needed"
-live_draw.du:
+live_draw.you:
   de: "Du: %{me}"
   en: "You: %{me}"
-live_draw.gegner:
+live_draw.opponent:
   de: "Gegner: %{opp}"
   en: "Opponent: %{opp}"
-live_draw.gegner_2:
+live_draw.opponent_2:
   de: "Gegner: %{opponent}"
   en: "Opponent: %{opponent}"
-live_follow.arena_log_nicht_gefunden:
+live_follow.arena_log_found:
   de: "Arena-Log nicht gefunden"
   en: "Arena log not found"
-live_hints.achtung_selbst_allen_blocks:
+live_hints.careful_even_blocks_damage:
   de: "Achtung: Selbst mit allen Blocks kommen %{damage} Schaden durch, du hast %{life_me} Leben – nur ein Trick rettet dich."
   en: "Careful: even with all blocks %{damage} damage gets through and you have %{life_me} life – only a trick saves you."
-live_hints.auf:
+live_hints.on:
   de: " auf %{v}"
   en: " on %{v}"
-live_hints.block_many:
+live_hints.block:
   de: "%{blockers} blocken %{attacker} (%{how})"
   en: "%{blockers} block %{attacker} (%{how})"
-live_hints.block_one:
+live_hints.blocks:
   de: "%{blockers} blockt %{attacker} (%{how})"
   en: "%{blockers} blocks %{attacker} (%{how})"
-live_hints.blocken_nimmst_statt_schaden:
+live_hints.block_take_instead_damage:
   de: "Blocken: %{v}. Du nimmst %{damage} statt %{damage_unblocked} Schaden."
   en: "Block: %{v}. You take %{damage} instead of %{damage_unblocked} damage."
-live_hints.danach_mana_offen_lassen:
+live_hints.keep_mana_open_during:
   de: "Danach Mana offen lassen für %{v} im Zug des Gegners."
   en: "Then keep mana open for %{v} during the opponent's turn."
-live_hints.gewinnt:
+live_hints.wins:
   de: "gewinnt"
   en: "wins"
-live_hints.haelt_ueberlebt:
+live_hints.holds_survives:
   de: "hält auf, überlebt"
   en: "holds, survives"
-live_hints.kein_lohnender_block_nicht:
+live_hints.no_worthwhile_block_dont:
   de: "Kein lohnender Block – nicht blocken, du nimmst %{damage} Schaden."
   en: "No worthwhile block – don't block, you take %{damage} damage."
-live_hints.kommt_getappt:
+live_hints.enters_tapped:
   de: " (kommt getappt)"
   en: " (enters tapped)"
-live_hints.legen:
+live_hints.play:
   de: "%{v} legen%{v2}"
   en: "play %{v}%{v2}"
 live_hints.mana:
   de: " (%{mana_used} von %{mana_total} Mana)"
   en: " (%{mana_used} of %{mana_total} mana)"
-live_hints.nichts_sinnvolles_bezahlbar:
+live_hints.nothing_useful_castable:
   de: " – nichts Sinnvolles bezahlbar"
   en: " – nothing useful castable"
-live_hints.opfern_sonst_toedlich:
+live_hints.chump_otherwise_lethal:
   de: "opfern, sonst tödlich"
   en: "chump, otherwise lethal"
-live_hints.tausch:
+live_hints.trade:
   de: "Tausch"
   en: "trade"
-live_hints.tipp_erst_angreifen_kreaturen:
+live_hints.tip_attack_first_cast:
   de: "Tipp: Erst angreifen, die Kreaturen danach in der 2. Hauptphase spielen – so verrätst du dem Gegner weniger."
   en: "Tip: attack first, then cast the creatures in the second main phase – that way you reveal less to the opponent."
-live_hints.vorschlag:
+live_hints.suggestion:
   de: "Vorschlag: %{v}%{mana}"
   en: "Suggestion: %{v}%{mana}"
-live_view.1_hauptphase:
+live_view.main_phase_1:
   de: "1. Hauptphase"
   en: "Main phase 1"
-live_view.2_hauptphase:
+live_view.main_phase_2:
   de: "2. Hauptphase"
   en: "Main phase 2"
-live_view.auswertung_steht_gleich_unter:
+live_view.analysis_available_shortly_under:
   de: "Die Auswertung steht gleich unter „Meine Partien“."
   en: "The analysis is available shortly under “My games”."
-live_view.brand:
+live_view.burn:
   de: " + Brand %{burn} (%{v})"
   en: " + burn %{burn} (%{v})"
-live_view.gefahrlos_angreifen:
+live_view.attack_safely:
   de: "Gefahrlos angreifen: %{v}"
   en: "Attack safely: %{v}"
-live_view.gegner_fast_besiegt_leben:
+live_view.opponent_almost_beaten_life:
   de: "Gegner fast besiegt: %{life_opp} Leben, du schaffst jetzt mindestens %{total} (Angriff %{combat}%{burn_text})."
   en: "Opponent almost beaten: %{life_opp} life, you deal at least %{total} now (attack %{combat}%{burn_text})."
-live_view.gegner_hat_nur_noch:
+live_view.opponent_only_life_left:
   de: "Gegner hat nur noch %{life_opp} Leben – nicht aufgeben!"
   en: "The opponent has only %{life_opp} life left – don't concede!"
-live_view.gegner_zug:
+live_view.opponents_turn:
   de: "Gegner am Zug"
   en: "opponent's turn"
-live_view.gerade_nichts_beachten:
+live_view.nothing_watch_out_right:
   de: "Gerade nichts zu beachten."
   en: "Nothing to watch out for right now."
-live_view.jetzt_spontan_einsetzbar_gegen:
+live_view.castable_instant_speed_now:
   de: "Jetzt spontan einsetzbar: %{v} – gegen einen Angreifer."
   en: "Castable at instant speed now: %{v} – against an attacker."
-live_view.kampf:
+live_view.combat:
   de: "Kampf"
   en: "Combat"
-live_view.laender_bei_karten_behalten:
+live_view.lands_cards_keep:
   de: "%{n} Länder bei %{hand_n} Karten – behalten."
   en: "%{n} lands in %{hand_n} cards – keep."
-live_view.laender_bei_karten_mulligan:
+live_view.lands_cards_mulligan_recommended:
   de: "%{n} Länder bei %{hand_n} Karten – Mulligan empfohlen (gut sind 2–4)."
   en: "%{n} lands in %{hand_n} cards – mulligan recommended (2–4 is good)."
-live_view.laender_frei_kreaturen_gegner:
+live_view.lands_free_creatures_opponent:
   de: "Länder: %{lands_me} (%{lands_untapped} frei) · Kreaturen: du %{creatures_me}, Gegner %{creatures_opp}"
   en: "Lands: %{lands_me} (%{lands_untapped} free) · Creatures: you %{creatures_me}, opponent %{creatures_opp}"
-live_view.noch_unbekannt:
+live_view.still_unknown:
   de: "noch unbekannt"
   en: "still unknown"
-live_view.partie_vorbei:
+live_view.game_over:
   de: "Partie vorbei."
   en: "Game over."
-live_view.partie_vorbei_gewonnen:
+live_view.game_over_won:
   de: "Partie vorbei – gewonnen!"
   en: "Game over – won!"
-live_view.partie_vorbei_verloren:
+live_view.game_over_lost:
   de: "Partie vorbei – verloren."
   en: "Game over – lost."
-live_view.schon_gesehen:
+live_view.already_seen:
   de: "%{n} (schon gesehen)"
   en: "%{n} (already seen)"
-live_view.starthand:
+live_view.opening_hand:
   de: "Starthand"
   en: "Opening hand"
 live_view.text:
   de: " (+%{more})"
   en: " (+%{more})"
-live_view.tipp_arena_fenstermodus_oder:
+live_view.tip_play_arena_windowed:
   de: "Tipp: Arena im Fenstermodus oder randlosen Vollbild spielen, damit dieses Fenster sichtbar bleibt."
   en: "Tip: play Arena in windowed or borderless fullscreen mode so this window stays visible."
-live_view.toedlich_moeglich_angriff_allem:
+live_view.lethal_possible_attacking_everything:
   de: "Tödlich möglich! Angriff mit allem %{combat}%{burn_text} reicht für die %{life_opp} Leben des Gegners – sofern er keinen Trick hat."
   en: "Lethal possible! Attacking with everything %{combat}%{burn_text} is enough for the opponent's %{life_opp} life – unless they have a trick."
-live_view.vermutlich:
+live_view.probably:
   de: "vermutlich %{name}"
   en: "probably %{name}"
-live_view.vorsicht_gegner_hat_mana:
+live_view.careful_opponent_mana_open:
   de: "Vorsicht, Gegner hat %{opp_untapped_lands} Mana offen – möglich: %{v}"
   en: "Careful, the opponent has %{opp_untapped_lands} mana open – possible: %{v}"
-live_view.warte_partie:
+live_view.waiting_game:
   de: "Warte auf eine Partie …"
   en: "Waiting for a game …"
-live_view.zug:
+live_view.turn:
   de: "Zug %{turn} · %{whose}"
   en: "Turn %{turn} · %{whose}"
-live_view.zug_2:
+live_view.turn_2:
   de: "Zug %{turn} · %{whose} · %{phase}"
   en: "Turn %{turn} · %{whose} · %{phase}"
-live_view.zug_3:
+live_view.turn_3:
   de: "dein Zug"
   en: "your turn"
-live_view.zugbeginn:
+live_view.beginning:
   de: "Zugbeginn"
   en: "Beginning"
-live_view.zugende:
+live_view.end:
   de: "Zugende"
   en: "End"
-meta.abruf_fehlgeschlagen:
+meta.fetching_failed:
   de: "Abruf von %{url} fehlgeschlagen"
   en: "Fetching %{url} failed"
-meta.magic_gg_hat_dieses:
+meta.magic_gg_returned_no:
   de: "magic.gg hat für dieses Event keine Decklisten geliefert."
   en: "magic.gg returned no decklists for this event."
-meta.magic_gg_wurden_dieses:
+meta.no_decklists_found_magic:
   de: "Auf magic.gg wurden für dieses Format keine Decklisten gefunden."
   en: "No decklists found on magic.gg for this format."
-meta.mtgtop8_hat_keine_deckliste:
+meta.mtgtop8_returned_no_decklist:
   de: "MTGTop8 hat keine Deckliste geliefert."
   en: "MTGTop8 returned no decklist."
-meta.mtgtop8_wurden_dieses_format:
+meta.no_archetypes_found_mtgtop8:
   de: "Auf MTGTop8 wurden für dieses Format keine Archetypen gefunden."
   en: "No archetypes found on MTGTop8 for this format."
 meta.scryfall:
   de: "Scryfall: %{e}"
   en: "Scryfall: %{e}"
-meta.scryfall_kennt_dieses_format:
+meta.scryfall_knows_no_arena:
   de: "Scryfall kennt für dieses Format keine Arena-Karten."
   en: "Scryfall knows no Arena cards for this format."
-opponents.erkannt:
+opponents.recognized:
   de: "%{name} (erkannt)"
   en: "%{name} (recognized)"
 opponents.text:
   de: "%{colors} – %{name}"
   en: "%{colors} – %{name}"
-paths.arena_kartendatenbank_nicht_gefunden:
+paths.arena_card_database_found:
   de: "Arena-Kartendatenbank nicht gefunden. Bitte den MTGA-Installationsordner in den Einstellungen angeben."
   en: "Arena card database not found. Please set the MTGA installation folder in the settings."
-present.gerade_eben:
+present.just_now:
   de: "gerade eben"
   en: "just now"
-present.gewonnen:
+present.won:
   de: "%{won} von %{total} gewonnen"
   en: "won %{won} of %{total}"
-present.karten_gibt_arena_nicht:
+present.n_cards_available_arena:
   de: "\n%{unavailable} Karten gibt es in Arena nicht"
   en: "\n%{unavailable} cards are not available in Arena"
-present.komplett:
+present.complete:
   de: "komplett"
   en: "complete"
-present.nur_c_u:
+present.only_c_u:
   de: "nur %{need} C/U"
   en: "only %{need} C/U"
-present.rangliste:
+present.ranked:
   de: "Rangliste"
   en: "Ranked"
-present.rangliste_bo3:
+present.ranked_bo3:
   de: "Rangliste Bo3"
   en: "Ranked Bo3"
-present.spielen:
+present.play:
   de: "Spielen"
   en: "Play"
-present.spielen_bo3:
+present.play_bo3:
   de: "Spielen Bo3"
   en: "Play Bo3"
-present.starterdecks:
+present.starter_decks:
   de: "Starterdecks"
   en: "Starter Decks"
-present.vor_min:
+present.min_ago:
   de: "vor %{v} Min."
   en: "%{v} min ago"
-present.vor_std:
+present.h_ago:
   de: "vor %{v} Std."
   en: "%{v} h ago"
-present.vor_tagen:
+present.days_ago:
   de: "vor %{_400} Tagen"
   en: "%{_400} days ago"
-present.vorhanden_karten_fehlt_common:
+present.owned_cards_nmissing_common:
   de: "%{v} % vorhanden (%{missing} von %{total} Karten)\nFehlt: %{need} Common, %{need2} Uncommon, %{need3} Rare, %{need4} Mythic"
   en: "%{v} % owned (%{missing} of %{total} cards)\nMissing: %{need} Common, %{need2} Uncommon, %{need3} Rare, %{need4} Mythic"
-present.willkommens_duelle:
+present.welcome_duels:
   de: "Willkommens-Duelle"
   en: "Welcome duels"
-progress.diamant:
+progress.diamond:
   de: "Diamant"
   en: "Diamond"
-progress.mythisch:
+progress.mythic:
   de: "Mythisch"
   en: "Mythic"
-progress.platin:
+progress.platinum:
   de: "Platin"
   en: "Platinum"
-progress.schritt:
+progress.step:
   de: "%{v} %{level}, Schritt %{step}"
   en: "%{v} %{level}, step %{step}"
-progress.silber:
+progress.silver:
   de: "Silber"
   en: "Silver"
 progress.text:
   de: "%{v} %{level}"
   en: "%{v} %{level}"
-progress_view.alle_partien:
+progress_view.games:
   de: "Alle Partien"
   en: "All games"
 progress_view.constructed:
   de: "Constructed"
   en: "Constructed"
-progress_view.constructed_saison_siege_niederlagen:
+progress_view.constructed_season_wins_losses:
   de: "Constructed: %{v} · Saison %{season}: %{won} Siege, %{lost} Niederlagen in der Rangliste"
   en: "Constructed: %{v} · Season %{season}: %{won} wins, %{lost} losses in ranked"
-progress_view.einen_verlauf_braucht_mindestens:
+progress_view.history_needs_least_2:
   de: "Für einen Verlauf braucht es mindestens 2 beendete Partien."
   en: "A history needs at least 2 finished games."
-progress_view.gleitend_ueber_letzten_partien:
+progress_view.rolling_over_last_games:
   de: "Gleitend über die letzten %{TREND_WINDOW} Partien; Decks mit mindestens 3 Partien einzeln."
   en: "Rolling over the last %{TREND_WINDOW} games; decks with at least 3 games shown separately."
-progress_view.letzte_partien_gewonnen_davor:
+progress_view.last_games_won_before:
   de: "Letzte %{TREND_WINDOW} Partien: %{recent} % gewonnen – davor %{before} %"
   en: "Last %{TREND_WINDOW} games: %{recent} % won – before that %{before} %"
 progress_view.limited:
@@ -1283,219 +1283,219 @@ progress_view.limited:
 progress_view.limited_2:
   de: "Limited"
   en: "Limited"
-progress_view.noch_kein_rang_bekannt:
+progress_view.no_rank_known_yet:
   de: "Noch kein Rang bekannt – Arena meldet ihn nach jeder Partie im Log."
   en: "No rank known yet – Arena reports it in the log after every game."
-progress_view.partie:
+progress_view.game:
   de: "Partie"
   en: "Game"
-progress_view.rang:
+progress_view.rank:
   de: "Rang"
   en: "Rank"
-progress_view.siegquote:
+progress_view.win_rate:
   de: "Siegquote"
   en: "Win rate"
-settings.beschaedigt_gesichert:
+settings.settings_json_corrupt_saved:
   de: "settings.json war beschädigt (%{e}) und wurde als %{backup} gesichert – es gelten die Standardeinstellungen."
   en: "settings.json was corrupt (%{e}) and was saved as %{backup} – default settings apply."
-settings.nicht_lesbar:
+settings.settings_json_cannot_read:
   de: "settings.json ist nicht lesbar (%{e}) – Änderungen werden nicht gespeichert."
   en: "settings.json cannot be read (%{e}) – changes will not be saved."
-sim_advice.deck_laeuft_probehaenden_rund:
+sim_advice.deck_runs_smoothly_sample:
   de: "Das Deck läuft in den Probehänden rund – Länder und Kurve passen."
   en: "The deck runs smoothly in the sample hands – lands and curve fit."
-sim_advice.farben_fehlen_partien_war:
+sim_advice.colors_missing_games_card:
   de: "Farben fehlen: In %{v} % der Partien war in Zug 2–4 eine Karte nur wegen der Farbe nicht spielbar%{color}. Mehr Länder dieser Farbe oder Zweifarbländer."
   en: "Colors missing: in %{v} % of the games a card on turns 2–4 was not castable only because of its color%{color}. More lands of this color or dual lands."
-sim_advice.gegen_schnelle_decks_langsam:
+sim_advice.too_slow_against_fast:
   de: "Gegen schnelle Decks zu langsam: In %{v} % der Partien hast du nach Zug %{turns} höchstens 5 Leben. Mehr günstige Kreaturen zum Blocken oder Entfernung mit Manawert 1–2."
   en: "Too slow against fast decks: in %{v} % of the games you have at most 5 life after turn %{turns}. More cheap creatures to block or removal with mana value 1–2."
-sim_advice.kurve_hoch_zuegen_1:
+sim_advice.curve_too_high_turns:
   de: "Kurve zu hoch: In den Zügen 1–4 wird nur %{v} % des Manas genutzt. Mehr günstige Karten (Manawert 1–2)."
   en: "Curve too high: on turns 1–4 only %{v} % of the mana is used. More cheap cards (mana value 1–2)."
-sim_advice.meist:
+sim_advice.mostly:
   de: " (meist %{names})"
   en: " (mostly %{names})"
-sim_advice.viele_laender_partien_liegen:
+sim_advice.too_many_lands_games:
   de: "Zu viele Länder: In %{v} % der Partien liegen im 6. Zug noch zwei oder mehr Länder auf der Hand. 1–2 Länder durch günstige Karten ersetzen."
   en: "Too many lands: in %{v} % of the games there are still two or more lands in hand on turn 6. Replace 1–2 lands with cheap cards."
-sim_advice.viele_mulligans_laenderzahl_liegt:
+sim_advice.many_mulligans_land_count:
   de: "Viele Mulligans (%{v} %): Die Länderzahl liegt weit weg von etwa 40 % des Decks."
   en: "Many mulligans (%{v} %): the land count is far from about 40 % of the deck."
-sim_advice.wenige_laender_nur_partien:
+sim_advice.too_few_lands_only:
   de: "Zu wenige Länder: Nur in %{v} % der Partien liegen im 3. Zug drei Länder. 1–2 Länder mehr spielen."
   en: "Too few lands: only in %{v} % of the games are there three lands on turn 3. Play 1–2 more lands."
-sim_profile.gegner_meist:
+sim_profile.opponents_mostly:
   de: "deine Gegner (meist %{v})"
   en: "your opponents (mostly %{v})"
-sim_profile.schneller_gegner:
+sim_profile.fast_opponent:
   de: "schneller Gegner"
   en: "fast opponent"
-state.einstellungen_nicht_gespeichert:
+state.could_save_settings:
   de: "Einstellungen konnten nicht gespeichert werden: %{e}"
   en: "Could not save the settings: %{e}"
-state.kartendaten_karten_arena:
+state.card_data_cards_arena:
   de: "Kartendaten: %{cards_n} Karten (Arena %{version})"
   en: "Card data: %{cards_n} cards (Arena %{version})"
-state.lade_metagame_mtgtop8:
+state.loading_metagame_mtgtop8:
   de: "Lade %{v}-Metagame von MTGTop8 …"
   en: "Loading %{v} metagame from MTGTop8 …"
-state.lese_sammlung_aus_mtg:
+state.reading_collection_mtg_arena:
   de: "Lese Sammlung aus MTG Arena …"
   en: "Reading collection from MTG Arena …"
-state.mtg_arena_laeuft_nicht:
+state.mtg_arena_running_please:
   de: "MTG Arena läuft nicht. Bitte das Spiel starten und bis ins Hauptmenü gehen."
   en: "MTG Arena is not running. Please start the game and go to the main menu."
-state.offizielle_events:
+state.official_events:
   de: "Offizielle Events"
   en: "Official events"
-state.ohne_adminrechte:
+state.without_admin_rights:
   de: "%{e} (ohne Adminrechte: %{first})"
   en: "%{e} (without admin rights: %{first})"
-state.standardland:
+state.basic_land:
   de: "Standardland"
   en: "Basic land"
-state.turnierdecks:
+state.tournament_decks:
   de: "Turnierdecks"
   en: "Tournament decks"
 style.aggro:
   de: "Aggro"
   en: "Aggro"
-style.aggro_decks_einfachsten_spielen:
+style.aggro_decks_easiest_play:
   de: "Aggro-Decks sind am einfachsten zu spielen: Kreaturen ausspielen und angreifen. Das passt zu den Stellen, an denen du bisher Mana oder Angriffe liegen lässt."
   en: "Aggro decks are the easiest to play: cast creatures and attack. That fits the spots where you have left mana or attacks unused so far."
 style.control:
   de: "Control"
   en: "Control"
-style.decks_gewinnst_haeufigsten_partien:
+style.win_most_often_decks:
   de: "Mit %{style}-Decks gewinnst du am häufigsten (%{wins} von %{games} Partien)."
   en: "You win most often with %{style} decks (%{wins} of %{games} games)."
-style.eher_kurze_partien:
+style.rather_short_games:
   de: " – eher kurze Partien"
   en: " – rather short games"
-style.eher_lange_partien:
+style.rather_long_games:
   de: " – eher lange Partien"
   en: " – rather long games"
-style.entfernung_konter_kartenziehen_spiel:
+style.removal_counterspells_card_draw:
   de: "Entfernung, Konter und Kartenziehen – das Spiel lang machen und spät gewinnen"
   en: "removal, counterspells and card draw – make the game long and win late"
-style.greifst_deiner_zuege_ab:
+style.attack_turns_turn_3:
   de: "Du greifst in %{v} % deiner Züge (ab Zug 3) an."
   en: "You attack in %{v} % of your turns (from turn 3)."
-style.laesst_gefahrlose_angriffe_oefter:
+style.often_skip_safe_attacks:
   de: "Du lässt gefahrlose Angriffe öfter aus – du spielst eher vorsichtig."
   en: "You often skip safe attacks – you play rather cautiously."
-style.laesst_oft_mana_ungenutzt:
+style.often_leave_mana_unused:
   de: "Du lässt oft Mana ungenutzt oder hältst Karten lange zurück – einfache, direkte Decks fallen dir vermutlich leichter."
   en: "You often leave mana unused or hold cards back for a long time – simple, direct decks will probably suit you better."
 style.midrange:
   de: "Midrange"
   en: "Midrange"
-style.noch_keine_partien_bekanntem:
+style.no_games_known_deck:
   de: "Noch keine Partien mit bekanntem Deck. Für den Einstieg sind Aggro-Decks am einfachsten."
   en: "No games with a known deck yet. Aggro decks are the easiest to start with."
-style.partien_dauern_schnitt_zuege:
+style.games_last_turns_average:
   de: "Deine Partien dauern im Schnitt %{avg_turns} Züge%{length}."
   en: "Your games last %{avg_turns} turns on average%{length}."
-style.solide_kreaturen_etwas_entfernung:
+style.solid_creatures_some_removal:
   de: "solide Kreaturen und etwas Entfernung, flexibel in beide Richtungen"
   en: "solid creatures and some removal, flexible both ways"
-style.spielst_liebsten_noch_wenige:
+style.like_playing_best_too:
   de: "Du spielst am liebsten %{style} – noch zu wenige Partien, um andere Typen zu vergleichen."
   en: "You like playing %{style} best – too few games yet to compare other types."
-style.viele_guenstige_kreaturen_frueh:
+style.many_cheap_creatures_attack:
   de: "viele günstige Kreaturen, früh angreifen und den Gegner schnell besiegen"
   en: "many cheap creatures, attack early and beat the opponent quickly"
-widgets.bis_dahin_ersetzt_budget:
+widgets.until_build_budget_version:
   de: "Bis dahin ersetzt „Budget-Version bauen“ die fehlenden Karten durch ähnliche aus deiner Sammlung."
   en: "Until then, “Build budget version” replaces the missing cards with similar ones from your collection."
-widgets.dafuer_fehlen_insgesamt_noch:
+widgets.still_missing_total:
   de: "• %{qty}× %{name} (%{rarity_names}) – dafür fehlen insgesamt noch: %{v} → %{complete} %"
   en: "• %{qty}× %{name} (%{rarity_names}) – still missing in total: %{v} → %{complete} %"
-widgets.danach_deck_komplett:
+widgets.after_deck_complete:
   de: "Danach ist das Deck zu %{complete} % komplett."
   en: "After that the deck is %{complete} % complete."
-widgets.danach_dieser_reihenfolge:
+widgets.after_order:
   de: "Danach, in dieser Reihenfolge:"
   en: "After that, in this order:"
-widgets.einen_vergleich_deinen_echten:
+widgets.comparison_real_opponents_needs:
   de: "Für einen Vergleich mit deinen echten Gegnern braucht es mindestens %{min_profile_games} vollständig mitgeschriebene Partien."
   en: "A comparison with your real opponents needs at least %{min_profile_games} fully logged games."
-widgets.gegen_aus_deiner_partien:
+widgets.against_games:
   de: "Gegen %{opponent} – aus %{profile_games} deiner Partien:"
   en: "Against %{opponent} – from %{profile_games} of your games:"
-widgets.gegen_einen_schnellen_gegner:
+widgets.against_fast_opponent_up:
   de: "Gegen einen schnellen Gegner bis Zug %{turns}: vorne in %{v} (davon gewonnen %{v2}) · verloren in %{v3} · im Schnitt %{life} Leben bei dir, %{opp_life} beim Gegner · %{kills} gegnerische Kreaturen ausgeschaltet"
   en: "Against a fast opponent up to turn %{turns}: ahead in %{v} (won %{v2}) · lost in %{v3} · on average %{life} life for you, %{opp_life} for the opponent · %{kills} opposing creatures destroyed"
-widgets.gegner_spielt_zuegen_1:
+widgets.turns_1_6_opponent:
   de: "Der Gegner spielt in den Zügen 1–6 je eine Kreatur (2/1, 2/2, 3/2, 3/3, 4/3, 4/4), danach 2/2en, und greift mit allem an. Du blockst wie im Begleitfenster vorgeschlagen, setzt Entfernung auf die stärkste Kreatur und greifst an, wenn es tödlich ist oder gefahrlos und du den Gegenschlag überlebst."
   en: "On turns 1–6 the opponent plays one creature each (2/1, 2/2, 3/2, 3/3, 4/3, 4/4), then 2/2s, and attacks with everything. You block as the companion suggests, use removal on the strongest creature and attack when it is lethal or safe and you survive the counterattack."
-widgets.gibt_arena_nicht:
+widgets.available_arena:
   de: "Gibt es in Arena nicht: %{v}"
   en: "Not available in Arena: %{v}"
-widgets.jetzt_deinen_wildcards_herstellen:
+widgets.craft_now_wildcards:
   de: "Jetzt mit deinen Wildcards herstellen:"
   en: "Craft now with your wildcards:"
-widgets.land_rechtzeitig_mind_so:
+widgets.land_time_least_many:
   de: "Land rechtzeitig (mind. so viele Länder wie der Zug): Zug 1 %{v} · Zug 2 %{v2} · Zug 3 %{v3} · Zug 4 %{v4}"
   en: "Land on time (at least as many lands as the turn): turn 1 %{v} · turn 2 %{v2} · turn 3 %{v3} · turn 4 %{v4}"
-widgets.mana_genutzt_verfuegbar:
+widgets.mana_used_available:
   de: "Mana genutzt/verfügbar: %{v}"
   en: "Mana used/available: %{v}"
-widgets.mulligan_farbe_fehlte_laenderflut:
+widgets.mulligan_color_missing_flood:
   de: "Mulligan %{v} · Farbe fehlte %{v2} · Länderflut %{v3}"
   en: "Mulligan %{v} · color missing %{v2} · flood %{v3}"
-widgets.probehaende:
+widgets.sample_hands:
   de: "Probehände"
   en: "Sample hands"
-widgets.schon_vorhanden_decks:
+widgets.already_owned_deck:
   de: "Schon vorhanden: %{complete} % des Decks."
   en: "Already owned: %{complete} % of the deck."
-widgets.sie_entfernen_ihrer_zuege:
+widgets.they_remove_one_creatures:
   de: "Sie entfernen in %{v} ihrer Züge eine deiner Kreaturen und haben in %{v2} der Kämpfe einen Trick (+2/+2)."
   en: "They remove one of your creatures in %{v} of their turns and have a trick (+2/+2) in %{v2} of the combats."
-widgets.simulation_endet_nach_zug:
+widgets.simulation_ends_after_turn:
   de: "Die Simulation endet nach Zug %{turns} – längere Partien entscheiden sich manchmal noch später."
   en: "The simulation ends after turn %{turns} – longer games are sometimes decided later."
-widgets.simulierte_partien_bis_zug:
+widgets.simulated_games_up_turn:
   de: "%{games} simulierte Partien bis Zug %{turns} · %{size} Karten, davon %{lands} Länder"
   en: "%{games} simulated games up to turn %{turns} · %{size} cards, %{lands} of them lands"
-widgets.so_wie_spielst_braucht:
+widgets.way_play_needs_least:
   de: "Für „so wie du spielst“ braucht es mindestens %{min_habit_turns} ausgewertete eigene Züge."
   en: "“The way you play” needs at least %{min_habit_turns} analyzed turns of your own."
-widgets.so_wie_spielst_vorne:
+widgets.way_play_ahead_lost:
   de: "So wie du spielst: vorne in %{v} · verloren in %{v2} – aus %{turns} deiner Züge: besserer Zug möglich in %{v3}, gefahrlosen Angriff ausgelassen in %{v4}"
   en: "The way you play: ahead in %{v} · lost in %{v2} – from %{turns} of your turns: better play possible in %{v3}, safe attack skipped in %{v4}"
-widgets.spielst_dieses_deck_schon:
+widgets.already_play_deck_almost:
   de: "Du spielst dieses Deck schon fast so gut wie der Zugvorschlag."
   en: "You already play this deck almost as well as the turn suggestion."
 widgets.wildcard_plan:
   de: "Wildcard-Plan"
   en: "Wildcard plan"
-widgets.zugvorschlag_begleitfensters_liegst_mehr:
+widgets.companions_turn_suggestion_ahead:
   de: "Mit dem Zugvorschlag des Begleitfensters liegst du in %{gap} % mehr Partien vorne – so viel holst du an diesem Deck allein durchs Spiel heraus."
   en: "With the companion's turn suggestion you are ahead in %{gap} % more games – that is how much you gain with this deck just by playing."
-widgets.zugvorschlag_nach_zug_vorne:
+widgets.turn_suggestion_after_turn:
   de: "Mit Zugvorschlag: nach Zug %{turns} vorne in %{v} · verloren in %{v2} · %{life} Leben bei dir, %{opp_life} beim Gegner"
   en: "With the turn suggestion: after turn %{turns} ahead in %{v} · lost in %{v2} · %{life} life for you, %{opp_life} for the opponent"
-worker.alle_archetypen_bewertet:
+worker.archetypes_rated:
   de: "Alle Archetypen bewertet."
   en: "All archetypes rated."
-worker.archetypen_geladen:
+worker.archetypes_loaded:
   de: "%{list_n} Archetypen geladen."
   en: "%{list_n} archetypes loaded."
-worker.decks_magic_gg_geladen:
+worker.decks_loaded_magic_gg:
   de: "%{decks_n} Decks von magic.gg geladen."
   en: "%{decks_n} decks loaded from magic.gg."
-worker.events_magic_gg_geladen:
+worker.events_loaded_magic_gg:
   de: "%{list_n} Events von magic.gg geladen."
   en: "%{list_n} events loaded from magic.gg."
-worker.format_legalitaet_nicht_verfuegbar:
+worker.format_legality_available_replacement:
   de: "Format-Legalität nicht verfügbar (%{e}) – Ersatzvorschläge sind ungefiltert."
   en: "Format legality not available (%{e}) – replacement suggestions are unfiltered."
-worker.sammlung_gelesen_karten:
+worker.collection_read_cards:
   de: "Sammlung gelesen: %{v} Karten."
   en: "Collection read: %{v} cards."
-worker.sammlung_konnte_nicht_gelesen:
+worker.could_read_collection:
   de: "Sammlung konnte nicht gelesen werden: %{e}"
   en: "Could not read the collection: %{e}"
