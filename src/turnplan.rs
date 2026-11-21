@@ -1,22 +1,22 @@
-//! Zugvorschlag für das Begleitfenster: welches Land legen und welche Karten
-//! aus der Hand ausspielen, damit das Mana gut genutzt wird.
+//! Turn suggestion for the companion: which land to play and which cards
+//! from the hand to cast so the mana is used well.
 //!
-//! Feste Regeln statt Spiel-KI: Manakosten und Farben werden exakt geprüft,
-//! die Wichtigkeit einer Karte nur grob über ihre Rolle (Entfernung,
-//! Kartenziehen, Kreatur …) geschätzt. Mana aus anderen Quellen als Ländern
-//! bleibt unberücksichtigt.
+//! Fixed rules instead of a game AI: mana costs and colors are checked
+//! exactly, the importance of a card is only estimated roughly from its role
+//! (removal, card draw, creature …). Mana from sources other than lands is
+//! not taken into account.
 
 use crate::carddb::{
     Card, CardDb, GrpId, ROLE_COUNTER, ROLE_DRAW, ROLE_REMOVAL, ROLE_WIPE, keyword,
 };
 
-/// Schlüsselwort-Fähigkeit „Eile“ in der Arena-Datenbank.
-/// Höchstens so viele Handkarten werden kombiniert (2^n Möglichkeiten).
+/// Keyword ability "haste" in the Arena database.
+/// At most this many hand cards are combined (2^n possibilities).
 const MAX_CANDIDATES: usize = 12;
 
-/// Legendary-Regel: Eine legendäre Karte, deren Name schon auf meiner Seite
-/// im Spiel ist, würde sofort wieder auf den Friedhof gehen – sie kommt für den
-/// Zugvorschlag nicht in Frage, ebenso ein zweites Exemplar auf der Hand.
+/// Legend rule: a legendary card whose name is already on my side of the
+/// battlefield would go straight to the graveyard – it is no option for the
+/// turn suggestion, nor is a second copy in hand.
 pub fn without_legend_duplicates(db: &CardDb, hand: &[GrpId], board: &[GrpId]) -> Vec<GrpId> {
     let name_of = |g: &GrpId| db.cards.get(g).filter(|c| c.legendary).map(|c| &c.name);
     let mut taken: std::collections::HashSet<&String> = board.iter().filter_map(name_of).collect();
@@ -28,28 +28,28 @@ pub fn without_legend_duplicates(db: &CardDb, hand: &[GrpId], board: &[GrpId]) -
 
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Plan {
-    /// Land, das gelegt werden soll.
+    /// Land to play.
     pub land: Option<GrpId>,
-    /// Das empfohlene Land kommt getappt ins Spiel.
+    /// The suggested land enters tapped.
     pub land_tapped: bool,
-    /// Auszuspielende Karten in sinnvoller Reihenfolge.
+    /// Cards to cast in a sensible order.
     pub spells: Vec<GrpId>,
     pub mana_used: u32,
     pub mana_total: u32,
-    /// Spontane Karten, die man besser für den Zug des Gegners aufhebt und
-    /// die mit dem übrigen Mana noch bezahlbar sind.
+    /// Instant-speed cards better kept for the opponent's turn that are still
+    /// affordable with the remaining mana.
     pub hold: Vec<GrpId>,
-    /// Stärkste gegnerische Kreatur – Ziel für Entfernung.
+    /// Strongest opposing creature – target for removal.
     pub target: Option<GrpId>,
 }
 
-/// Farbmaske, die ein Land liefert (unbekannte Länder gelten als beliebig).
+/// Color mask a land produces (unknown lands count as any color).
 fn land_colors(db: &CardDb, grp: GrpId) -> u8 {
     db.cards.get(&grp).map(|c| c.colors).unwrap_or(0x1F)
 }
 
-/// Manaquellen (Farbmasken) aus ungetappten Ländern und weiteren Permanents
-/// mit Manafähigkeit (z. B. Llanowar Elves); Permanents ohne sie zählen nicht.
+/// Mana sources (color masks) from untapped lands and other permanents with a
+/// mana ability (e.g. Llanowar Elves); permanents without one don't count.
 pub fn sources(db: &CardDb, lands: &[GrpId], permanents: &[GrpId]) -> Vec<u8> {
     lands
         .iter()
@@ -62,7 +62,7 @@ pub fn sources(db: &CardDb, lands: &[GrpId], permanents: &[GrpId]) -> Vec<u8> {
         .collect()
 }
 
-/// Lässt sich die Summe der Kosten mit diesen Manaquellen (Farbmasken) bezahlen?
+/// Can the sum of the costs be paid with these mana sources (color masks)?
 pub fn can_pay(cards: &[&Card], sources: &[u8]) -> bool {
     let mut generic = 0u32;
     let mut pips: Vec<u8> = Vec::new();
@@ -76,7 +76,7 @@ pub fn can_pay(cards: &[&Card], sources: &[u8]) -> bool {
     if (generic as usize + pips.len()) > sources.len() {
         return false;
     }
-    // Farbige Symbole per bipartitem Matching auf Länder verteilen.
+    // Distribute colored symbols to lands by bipartite matching.
     let mut owner: Vec<Option<usize>> = vec![None; sources.len()];
     fn assign(
         pip: usize,
@@ -105,7 +105,7 @@ pub fn can_pay(cards: &[&Card], sources: &[u8]) -> bool {
     true
 }
 
-/// Grobe Wichtigkeit einer Karte für diesen Zug.
+/// Rough importance of a card for this turn.
 fn value(c: &Card, threat: i32) -> i32 {
     let mut v = c.cmc as i32 * 10;
     if c.has_role(ROLE_REMOVAL) && !c.is_creature() {
@@ -118,7 +118,7 @@ fn value(c: &Card, threat: i32) -> i32 {
         v += 1;
     }
     if c.is_instant() && !c.has_role(ROLE_REMOVAL) {
-        // Spontane Tricks lieber offen halten.
+        // Rather keep instant tricks open.
         v -= 5;
     }
     v
@@ -136,7 +136,7 @@ fn order_key(c: &Card) -> u8 {
     }
 }
 
-/// Beste Auswahl aus `cands` für diese Manaquellen: (Wert, gewählte Karten).
+/// Best selection from `cands` for these mana sources: (value, chosen cards).
 fn best_subset<'a>(cands: &[&'a Card], sources: &[u8], threat: i32) -> (i32, Vec<&'a Card>) {
     let mut best: (i32, Vec<&Card>) = (0, Vec::new());
     for mask in 1u32..(1 << cands.len()) {
@@ -158,7 +158,7 @@ fn best_subset<'a>(cands: &[&'a Card], sources: &[u8], threat: i32) -> (i32, Vec
     best
 }
 
-/// Berechnet den Vorschlag für den eigenen Zug.
+/// Computes the suggestion for the own turn.
 pub fn plan(
     db: &CardDb,
     hand: &[GrpId],
@@ -182,7 +182,7 @@ pub fn plan(
         if c.has_role(ROLE_COUNTER) && !removal {
             held.push(c);
         } else if c.has_role(ROLE_WIPE) && opp_creatures.len() as u32 <= my_creatures {
-            // Flächenzauber nur, wenn der Gegner mehr Kreaturen hat.
+            // Board wipes only when the opponent has more creatures.
         } else if removal && opp_creatures.is_empty() {
             if c.is_instant() {
                 held.push(c);
@@ -191,7 +191,7 @@ pub fn plan(
             cands.push(c);
         }
     }
-    // Teure Karten zuerst, damit bei zu vielen Handkarten die wichtigen bleiben.
+    // Expensive cards first, so the important ones stay when there are too many hand cards.
     cands.sort_by_key(|c| std::cmp::Reverse(c.cmc));
     cands.truncate(MAX_CANDIDATES);
 
@@ -205,7 +205,7 @@ pub fn plan(
             land_options = lands.into_iter().map(Some).collect();
         }
     }
-    // Farben, die die Hand braucht, aber noch keine Quelle liefert.
+    // Colors the hand needs that no source provides yet.
     let base_mask = base.iter().fold(0u8, |m, c| m | c);
     let wanted = cards
         .iter()
@@ -227,7 +227,7 @@ pub fn plan(
         let used: u32 = chosen.iter().map(|c| c.cmc).sum();
         let left = sources.len() as u32 - used;
         let new_colors = land.map_or(0, |l| (l.colors & wanted).count_ones());
-        // Gleicher Nutzen: lieber das getappte Land jetzt legen, dann neue Farben.
+        // Same benefit: rather play the tapped land now, then new colors.
         let key = (score, tapped, new_colors);
         let p = Plan {
             land: land.map(|l| l.grp_id),
@@ -256,7 +256,7 @@ pub fn plan(
     best.map(|(_, p)| p).unwrap_or_default()
 }
 
-/// Kreaturen ohne Eile im Plan, die man auch nach dem Angriff spielen kann.
+/// Creatures without haste in the plan that can also be cast after the attack.
 pub fn creatures_after_combat(db: &CardDb, plan: &Plan) -> bool {
     let cards: Vec<&Card> = plan.spells.iter().filter_map(|g| db.cards.get(g)).collect();
     !cards.is_empty()
@@ -265,7 +265,7 @@ pub fn creatures_after_combat(db: &CardDb, plan: &Plan) -> bool {
             .all(|c| c.is_creature() && !c.has_ability(keyword::HASTE))
 }
 
-/// Spontane Entfernung, die jetzt (im Zug des Gegners) bezahlbar ist.
+/// Instant removal that is affordable now (in the opponent's turn).
 pub fn instant_removal(
     db: &CardDb,
     hand: &[GrpId],

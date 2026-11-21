@@ -1,47 +1,47 @@
-//! Persönliche Probehände: Gegner und Spielgewohnheiten aus den eigenen
-//! Partien statt fester Annahmen.
+//! Personal sample hands: opponents and play habits from the own games
+//! instead of fixed assumptions.
 //!
-//! - [`Opponent`]: wie viel Kraft die Gegner je Zug aufs Feld bringen
-//!   (Durchschnitt über die eigenen Partien), wie oft sie Entfernung und
-//!   Kampftricks spielen und welche Decks am häufigsten sind.
-//! - [`Habits`]: wie oft man einen besseren Zug auslässt und wie oft man
-//!   einen gefahrlosen Angriff nicht macht.
+//! - [`Opponent`]: how much power the opponents bring onto the battlefield
+//!   per turn (average over the own games), how often they play removal and
+//!   combat tricks, and which decks are most common.
+//! - [`Habits`]: how often you skip a better play and how often you don't
+//!   make a safe attack.
 
 use super::*;
 use crate::carddb::{ROLE_COUNTER, ROLE_DRAW, ROLE_REMOVAL, ROLE_WIPE};
 use crate::games::{self, GameRecord};
 
-/// Mindestens so viele vollständige Partien mit Gegnerdaten für ein Profil.
+/// At least this many complete games with opponent data for a profile.
 pub const MIN_PROFILE_GAMES: usize = 5;
-/// Mindestens so viele auswertbare eigene Züge für Gewohnheiten.
+/// At least this many evaluable own turns for habits.
 pub const MIN_HABIT_TURNS: usize = 20;
-/// Mindestens so viele Partien, die einen Gegnerzug erreichen, damit er zählt.
+/// At least this many games reaching an opponent turn for it to count.
 pub const MIN_TURN_SAMPLES: usize = 5;
-/// Höchstens so viel neue Kraft je Gegnerzug und Partie zählt (Ausreißer wie
-/// ganze Spielstein-Armeen sollen den Schnitt nicht verzerren).
+/// At most this much new power per opponent turn and game counts (outliers
+/// like whole token armies shouldn't distort the average).
 pub const MAX_GAIN: f32 = 6.0;
-/// Höchstens so oft je Gegnerzug Entfernung bzw. ein Trick.
+/// At most this often removal or a trick per opponent turn.
 pub const MAX_RATE: f32 = 0.5;
 
-/// Gegner der Simulation: erwartete neue Kraft und Widerstandskraft je Zug.
+/// Opponent of the simulation: expected new power and toughness per turn.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Opponent {
     pub power: [f32; TURNS],
     pub toughness: [f32; TURNS],
-    /// Kurzbeschreibung, z. B. „schneller Gegner“ oder „deine Gegner (meist Mono-Rot)“.
+    /// Short description, e.g. "fast opponent" or "your opponents (mostly mono-red)".
     pub label: String,
-    /// Partien, aus denen das Profil stammt (0 = feste Annahme).
+    /// Games the profile comes from (0 = fixed assumption).
     pub games: usize,
-    /// Wie viele Züge gespielt werden.
+    /// How many turns are played.
     pub turns: usize,
-    /// Chance je Gegnerzug, eine eigene Kreatur zu entfernen.
+    /// Chance per opponent turn to remove an own creature.
     pub removal: f32,
-    /// Chance je Kampf auf einen Trick (+2/+2 für eine gegnerische Kreatur).
+    /// Chance per combat of a trick (+2/+2 for an opposing creature).
     pub tricks: f32,
 }
 
 impl Opponent {
-    /// Fester, schneller Gegner (Kreaturen nach [`OPP_CURVE`]).
+    /// Fixed, fast opponent (creatures following [`OPP_CURVE`]).
     pub fn fast() -> Opponent {
         Opponent {
             power: OPP_CURVE.map(|(p, _)| p as f32),
@@ -54,8 +54,8 @@ impl Opponent {
         }
     }
 
-    /// Neue Kreatur im Gegnerzug `turn` (1-basiert) oder keine.
-    /// Bruchteile werden zufällig gerundet (0,4 = in 40 % der Fälle eins mehr).
+    /// New creature in opponent turn `turn` (1-based) or none.
+    /// Fractions are rounded randomly (0.4 = one more in 40 % of cases).
     pub(super) fn creature(&self, turn: usize, rng: &mut Rng) -> Option<(i32, i32)> {
         let k = (turn - 1).min(TURNS - 1);
         let power = rng.round(self.power[k]);
@@ -63,18 +63,18 @@ impl Opponent {
     }
 }
 
-/// Spielgewohnheiten aus den eigenen Partien.
+/// Play habits from the own games.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Habits {
-    /// Anteil eigener Züge, in denen ein deutlich besserer Zug möglich war.
+    /// Share of own turns in which a clearly better play was possible.
     pub weaker_turn: f32,
-    /// Anteil der Züge mit gefahrlosem Angriff, in denen nicht angegriffen wurde.
+    /// Share of turns with a safe attack in which there was no attack.
     pub skip_attack: f32,
-    /// Ausgewertete eigene Züge.
+    /// Own turns evaluated.
     pub turns: usize,
 }
 
-/// Gegnerprofil aus den eigenen Partien (`None` bei zu wenig Daten).
+/// Opponent profile from the own games (`None` with too little data).
 pub fn opponent_from(history: &[GameRecord], db: &CardDb) -> Option<Opponent> {
     let games: Vec<&GameRecord> = history
         .iter()
@@ -83,9 +83,9 @@ pub fn opponent_from(history: &[GameRecord], db: &CardDb) -> Option<Opponent> {
     if games.len() < MIN_PROFILE_GAMES {
         return None;
     }
-    // Zuwachs an Kraft und Widerstand je Gegnerzug – innerhalb derselben
-    // Partie gerechnet, damit lange Partien (größeres Feld) die späten Züge
-    // nicht verzerren.
+    // Gain in power and toughness per opponent turn – computed within the
+    // same game, so long games (bigger battlefield) don't distort the late
+    // turns.
     let mut power = [0f32; TURNS];
     let mut toughness = [0f32; TURNS];
     let mut count = [0usize; TURNS];
@@ -118,7 +118,7 @@ pub fn opponent_from(history: &[GameRecord], db: &CardDb) -> Option<Opponent> {
         removal: 0.0,
         tricks: 0.0,
     };
-    // Gesehene Entfernung und Tricks je Gegnerzug.
+    // Removal and tricks seen per opponent turn.
     let (mut removal, mut tricks, mut opp_turns) = (0u32, 0u32, 0usize);
     for g in &games {
         opp_turns += g.turns.iter().filter(|t| !t.mine).count();
@@ -142,12 +142,12 @@ pub fn opponent_from(history: &[GameRecord], db: &CardDb) -> Option<Opponent> {
             opp.power[k] = power[k] / count[k] as f32;
             opp.toughness[k] = (toughness[k] / count[k] as f32).max(opp.power[k]);
         } else if k > 0 {
-            // Zu wenige Partien so lang: Tempo des Vorzugs beibehalten.
+            // Too few games this long: keep the pace of the previous turn.
             opp.power[k] = opp.power[k - 1];
             opp.toughness[k] = opp.toughness[k - 1];
         }
     }
-    // Häufigste Gegner nach Farben.
+    // Most frequent opponents by colors.
     let mut by_name: Vec<(String, usize)> = Vec::new();
     for g in &games {
         let name = crate::carddb::color::label(&games::opp_colors(g, db));
@@ -162,7 +162,7 @@ pub fn opponent_from(history: &[GameRecord], db: &CardDb) -> Option<Opponent> {
     Some(opp)
 }
 
-/// Gewohnheiten aus den eigenen Partien (`None` bei zu wenig Daten).
+/// Habits from the own games (`None` with too little data).
 pub fn habits_from(history: &[GameRecord], db: &CardDb) -> Option<Habits> {
     let mine: Vec<&games::TurnStat> = history
         .iter()
@@ -195,23 +195,23 @@ pub fn habits_from(history: &[GameRecord], db: &CardDb) -> Option<Habits> {
     })
 }
 
-/// Probehände in drei Varianten: gegen den festen schnellen Gegner, gegen
-/// die eigenen Gegner mit Zugvorschlag und „so wie du spielst“.
+/// Sample hands in three variants: against the fixed fast opponent, against
+/// the own opponents with the turn suggestion, and "the way you play".
 #[derive(Clone, Debug, PartialEq)]
 pub struct Trial {
     pub fast: SimReport,
-    /// Gegen die eigenen Gegner, mit Zugvorschlag (falls genug Partien).
+    /// Against the own opponents, with the turn suggestion (if enough games).
     pub mine: Option<SimReport>,
-    /// Gegen die eigenen Gegner, mit den eigenen Gewohnheiten.
+    /// Against the own opponents, with the own habits.
     pub mine_habits: Option<SimReport>,
     pub habits: Option<Habits>,
-    /// Partien, aus denen das Gegnerprofil stammt.
+    /// Games the opponent profile comes from.
     pub profile_games: usize,
-    /// Das Gegnerprofil selbst (falls genug Partien).
+    /// The opponent profile itself (if enough games).
     pub opponent: Option<Opponent>,
 }
 
-/// Führt alle Varianten aus; `history` sind die eigenen Partien.
+/// Runs all variants; `history` are the own games.
 pub fn trial(
     deck: &[GrpId],
     db: &CardDb,

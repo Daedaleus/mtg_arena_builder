@@ -1,8 +1,8 @@
-//! Empfehlungen aus den Kennzahlen der Probehände.
+//! Recommendations from the key figures of the sample hands.
 
 use super::*;
 
-/// Empfehlungen aus den Kennzahlen.
+/// Recommendations from the key figures.
 pub(super) fn advice(r: &SimReport) -> Vec<String> {
     let pct = |x: f32| (x * 100.0).round() as u32;
     let mut out = Vec::new();
@@ -23,7 +23,7 @@ pub(super) fn advice(r: &SimReport) -> Vec<String> {
             color = color
         ));
     }
-    // Zu langsam nur, wenn man das Rennen nicht selbst gewinnt.
+    // Too slow only if you don't win the race yourself.
     if r.pressure.low >= 0.4 && r.pressure.ahead < r.pressure.low {
         out.push(tr!(
             "sim_advice.too_slow_against_fast",
