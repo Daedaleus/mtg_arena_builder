@@ -87,6 +87,7 @@ fn rolling_window_and_decks() {
         DeckGroup {
             label: "A".into(),
             deck: vec![],
+            commander: None,
             games: vec![0, 2, 4],
             wins: 2,
             fixed: false,
@@ -94,6 +95,7 @@ fn rolling_window_and_decks() {
         DeckGroup {
             label: "B".into(),
             deck: vec![],
+            commander: None,
             games: vec![1],
             wins: 0,
             fixed: false,

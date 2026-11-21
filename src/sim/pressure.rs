@@ -182,12 +182,18 @@ pub(super) struct Board {
 }
 
 impl Board {
+    #[cfg(test)]
     pub fn new() -> Board {
+        Board::with_life(START_LIFE)
+    }
+
+    /// Both players start with `life`.
+    pub fn with_life(life: i32) -> Board {
         Board {
             mine: Vec::new(),
             opp: Vec::new(),
-            life: START_LIFE,
-            opp_life: START_LIFE,
+            life,
+            opp_life: life,
             kills: 0,
             spells_cast: 0,
             trick_used: false,

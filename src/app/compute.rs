@@ -135,14 +135,14 @@ impl App {
     }
 
     /// Starts sample hands in the background (nothing if they are already running).
-    pub(super) fn start_trial(&mut self, target: SimTarget, deck: Vec<GrpId>) {
+    pub(super) fn start_trial(&mut self, target: SimTarget, deck: Vec<GrpId>, rules: sim::Rules) {
         let Some(db) = self.db.clone() else { return };
         if !self.sims.running.insert(target.clone()) {
             return;
         }
         let history = self.games.list.clone();
         self.tasks.run(move || {
-            let trial = sim::trial(&deck, &db, &history, sim::DEFAULT_GAMES, 1);
+            let trial = sim::trial(&deck, &db, &history, sim::DEFAULT_GAMES, 1, rules);
             Msg::Trial(target, Box::new(trial))
         });
     }

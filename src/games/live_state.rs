@@ -31,6 +31,8 @@ pub struct LiveState {
     pub life_opp: i32,
     /// Own hand cards (grpIds).
     pub hand: Vec<GrpId>,
+    /// Brawl: own commander in the command zone.
+    pub command: Vec<GrpId>,
     pub lands_me: u32,
     pub lands_untapped: u32,
     /// grpIds of the own untapped lands (for the color check).
@@ -77,6 +79,7 @@ impl Tracker {
             life_me: self.life.get(&me).copied().unwrap_or(20),
             life_opp: self.life.get(&opp).copied().unwrap_or(20),
             hand: self.hand(),
+            command: self.command_zone(),
             lands_me: self.count(me, |o| o.land),
             lands_untapped: self.count(me, |o| o.land && !o.tapped),
             untapped_lands: self

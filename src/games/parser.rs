@@ -9,6 +9,7 @@ pub struct LogParser {
     out: Vec<GameRecord>,
     events: HashMap<String, String>,
     deck: Vec<GrpId>,
+    commander: Vec<GrpId>,
     cur: Option<Tracker>,
     /// Last finished game (for the "game over" display).
     pub last_finished: Option<GameRecord>,
@@ -90,12 +91,16 @@ impl LogParser {
         let seat = m["systemSeatIds"][0].as_u64().unwrap_or(1) as u32;
         match m["type"].as_str().unwrap_or("") {
             message::CONNECT_RESP => {
-                self.deck = m["connectResp"]["deckMessage"]["deckCards"]
-                    .as_array()
-                    .into_iter()
-                    .flatten()
-                    .map(|v| GrpId(u(v)))
-                    .collect();
+                let cards = |key: &str| -> Vec<GrpId> {
+                    m["connectResp"]["deckMessage"][key]
+                        .as_array()
+                        .into_iter()
+                        .flatten()
+                        .map(|v| GrpId(u(v)))
+                        .collect()
+                };
+                self.deck = cards("deckCards");
+                self.commander = cards("commanderCards");
             }
             message::MULLIGAN_REQ => {
                 if let Some(t) = self.cur.as_mut() {
@@ -122,6 +127,7 @@ impl LogParser {
             // A previous game without a result is dropped.
             let mut t = Tracker::new(seat, ts);
             t.rec.deck = std::mem::take(&mut self.deck);
+            t.rec.commander = std::mem::take(&mut self.commander);
             self.cur = Some(t);
         }
         let Some(t) = self.cur.as_mut() else { return };
@@ -212,10 +218,10 @@ impl LogParser {
         for rec in self.out {
             match best.iter_mut().find(|b| b.id == rec.id) {
                 Some(b) => {
-                    let deck = if b.deck.is_empty() {
-                        rec.deck.clone()
+                    let (deck, commander) = if b.deck.is_empty() {
+                        (rec.deck.clone(), rec.commander.clone())
                     } else {
-                        Vec::new()
+                        (Vec::new(), Vec::new())
                     };
                     let rank = b.rank_after.clone().or_else(|| rec.rank_after.clone());
                     if quality(&rec) > quality(b) {
@@ -223,6 +229,7 @@ impl LogParser {
                     }
                     if b.deck.is_empty() {
                         b.deck = deck;
+                        b.commander = commander;
                     }
                     b.rank_after = rank;
                 }

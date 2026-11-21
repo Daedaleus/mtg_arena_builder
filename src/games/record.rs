@@ -69,6 +69,8 @@ pub struct GameRecord {
     pub turns: Vec<TurnStat>,
     /// Own deck (grpIds, repeated = copies).
     pub deck: Vec<GrpId>,
+    /// Brawl: the own commander (grpIds; empty otherwise).
+    pub commander: Vec<GrpId>,
     /// Cards seen from the opponent (grpId -> copies).
     pub opp_cards: HashMap<GrpId, u32>,
     pub discards_me: u32,

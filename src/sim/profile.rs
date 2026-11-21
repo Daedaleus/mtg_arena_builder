@@ -78,17 +78,18 @@ pub struct Habits {
     pub turns: usize,
 }
 
-/// Games that fit the simulation of a constructed deck: complete and not
-/// Brawl or limited (other pace, other decks).
-fn usable(g: &GameRecord) -> bool {
-    g.complete && GameMode::of(&g.event).is_constructed()
+/// Games that fit the simulation: complete and of the same kind (Brawl for
+/// Brawl decks, otherwise constructed – not Brawl or limited, which have
+/// another pace and other decks).
+fn usable(g: &GameRecord, rules: Rules) -> bool {
+    g.complete && rules.plays_like(GameMode::of(&g.event))
 }
 
 /// Opponent profile from the own games (`None` with too little data).
-pub fn opponent_from(history: &[GameRecord], db: &CardDb) -> Option<Opponent> {
+pub fn opponent_from(history: &[GameRecord], db: &CardDb, rules: Rules) -> Option<Opponent> {
     let games: Vec<&GameRecord> = history
         .iter()
-        .filter(|g| usable(g) && g.turns.iter().any(|t| !t.opp_creatures.is_empty()))
+        .filter(|g| usable(g, rules) && g.turns.iter().any(|t| !t.opp_creatures.is_empty()))
         .collect();
     if games.len() < MIN_PROFILE_GAMES {
         return None;
@@ -187,10 +188,10 @@ pub fn opponent_from(history: &[GameRecord], db: &CardDb) -> Option<Opponent> {
 }
 
 /// Habits from the own games (`None` with too little data).
-pub fn habits_from(history: &[GameRecord], db: &CardDb) -> Option<Habits> {
+pub fn habits_from(history: &[GameRecord], db: &CardDb, rules: Rules) -> Option<Habits> {
     let mine: Vec<&games::TurnStat> = history
         .iter()
-        .filter(|g| usable(g))
+        .filter(|g| usable(g, rules))
         .flat_map(|g| g.turns.iter().filter(|t| t.mine && !t.lands.is_empty()))
         .collect();
     if mine.len() < MIN_HABIT_TURNS {
@@ -235,22 +236,24 @@ pub struct Trial {
     pub opponent: Option<Opponent>,
 }
 
-/// Runs all variants; `history` are the own games.
+/// Runs all variants; `history` are the own games, `deck` the library
+/// (without a Brawl commander, that is in `rules`).
 pub fn trial(
     deck: &[GrpId],
     db: &CardDb,
     history: &[GameRecord],
     games: usize,
     seed: u64,
+    rules: Rules,
 ) -> Trial {
-    let fast = simulate(deck, db, games, seed);
-    let opponent = opponent_from(history, db);
-    let habits = habits_from(history, db);
+    let fast = simulate_with(deck, db, games, seed, &Opponent::fast(), None, rules);
+    let opponent = opponent_from(history, db, rules);
+    let habits = habits_from(history, db, rules);
     let mine = opponent
         .as_ref()
-        .map(|o| simulate_with(deck, db, games, seed, o, None));
+        .map(|o| simulate_with(deck, db, games, seed, o, None, rules));
     let mine_habits = match (&opponent, &habits) {
-        (Some(o), Some(h)) => Some(simulate_with(deck, db, games, seed, o, Some(h))),
+        (Some(o), Some(h)) => Some(simulate_with(deck, db, games, seed, o, Some(h), rules)),
         _ => None,
     };
     Trial {

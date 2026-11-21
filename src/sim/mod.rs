@@ -6,12 +6,15 @@
 //! ([`crate::turnplan`]): play a land, then use the mana as well as possible.
 //! Mulligan: opening hands with 0–1 or 6–7 lands are swapped once for 6
 //! cards (London mulligan: draw 7, one card to the bottom of the library).
+//! Brawl ([`Rules`]): 25 life, the first mulligan is free and the commander
+//! waits in the command zone (commander tax +2 per earlier cast).
 //!
 //! Layout: `game` (one simulated game and the totals), `pressure`
 //! (battlefield, combat and race), `profile` (opponents and habits from the
 //! own games), `advice` (recommendations from the key figures).
 
 use crate::carddb::{Card, CardDb, GrpId, ROLE_PUMP};
+use crate::games::GameMode;
 use crate::turnplan;
 
 mod advice;
@@ -35,6 +38,46 @@ pub const FLOOD_TURN: usize = 6;
 pub const FAST_TURNS: usize = 6;
 /// Default number of simulated games.
 pub const DEFAULT_GAMES: usize = 1000;
+/// Starting life in Brawl on Arena (one against one).
+pub const BRAWL_START_LIFE: i32 = 25;
+/// Commander tax: extra mana per earlier cast from the command zone.
+pub const COMMANDER_TAX: u32 = 2;
+
+/// Rules of the simulated games: constructed (default) or Brawl.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct Rules {
+    /// Brawl: the commander (not part of the library).
+    pub commander: Option<GrpId>,
+}
+
+impl Rules {
+    pub fn brawl(commander: GrpId) -> Rules {
+        Rules {
+            commander: Some(commander),
+        }
+    }
+
+    pub fn is_brawl(self) -> bool {
+        self.commander.is_some()
+    }
+
+    pub fn start_life(self) -> i32 {
+        if self.is_brawl() {
+            BRAWL_START_LIFE
+        } else {
+            START_LIFE
+        }
+    }
+
+    /// Games of this kind (for opponent profile and habits).
+    pub fn plays_like(self, mode: GameMode) -> bool {
+        if self.is_brawl() {
+            mode == GameMode::Brawl
+        } else {
+            mode.is_constructed()
+        }
+    }
+}
 
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct SimReport {
@@ -111,11 +154,19 @@ fn lands_in(db: &CardDb, cards: &[GrpId]) -> usize {
 
 /// Plays `games` games and evaluates them. `deck` = grpIds with repetition.
 pub fn simulate(deck: &[GrpId], db: &CardDb, games: usize, seed: u64) -> SimReport {
-    simulate_with(deck, db, games, seed, &Opponent::fast(), None)
+    simulate_with(
+        deck,
+        db,
+        games,
+        seed,
+        &Opponent::fast(),
+        None,
+        Rules::default(),
+    )
 }
 
-/// Like [`simulate`], but against `opponent` and – if given – with the own
-/// play habits (skipping better plays, skipping attacks).
+/// Like [`simulate`], but against `opponent`, – if given – with the own play
+/// habits (skipping better plays, skipping attacks) and with `rules`.
 pub fn simulate_with(
     deck: &[GrpId],
     db: &CardDb,
@@ -123,6 +174,7 @@ pub fn simulate_with(
     seed: u64,
     opponent: &Opponent,
     habits: Option<&Habits>,
+    rules: Rules,
 ) -> SimReport {
     let mut r = SimReport {
         games,
@@ -133,13 +185,25 @@ pub fn simulate_with(
         lands: deck.iter().filter(|g| is_land(db, **g)).count(),
         ..Default::default()
     };
+    // The commander waits in the command zone, not in the library.
+    let library: Vec<GrpId> = match rules.commander {
+        Some(c) => {
+            let mut lib = deck.to_vec();
+            if let Some(i) = lib.iter().position(|g| *g == c) {
+                lib.remove(i);
+            }
+            lib
+        }
+        None => deck.to_vec(),
+    };
+    let deck = &library[..];
     if deck.len() < 8 || games == 0 {
         return r;
     }
     let mut rng = Rng(seed | 1);
     let mut tally = Tally::default();
     for game in 0..games {
-        let mut g = Game::deal(deck, db, game % 2 == 0, &mut rng);
+        let mut g = Game::deal(deck, db, game % 2 == 0, rules, &mut rng);
         for turn in 1..=r.turns {
             if !g.on_play {
                 g.opp_turn(turn, opponent, &mut rng);

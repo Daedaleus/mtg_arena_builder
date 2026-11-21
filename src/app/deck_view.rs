@@ -223,7 +223,18 @@ impl App {
             })
             .collect();
         let deck = sim::deck_from_entries(entries.iter().map(|(n, q)| (n.as_str(), *q)), db);
-        self.start_trial(SimTarget::Deck(deck_id, self.sims.list_gen(deck_id)), deck);
+        // Brawl: the commander comes from the command zone.
+        let commander = eval.lines.iter().find(|l| l.commander).and_then(|l| {
+            sim::deck_from_entries([(l.name.as_str(), 1)], db)
+                .first()
+                .copied()
+        });
+        let rules = sim::Rules { commander };
+        self.start_trial(
+            SimTarget::Deck(deck_id, self.sims.list_gen(deck_id)),
+            deck,
+            rules,
+        );
     }
 
     /// Card list with ownership, missing cards and replacement selection.

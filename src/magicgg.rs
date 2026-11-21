@@ -107,7 +107,11 @@ pub fn parse_event(html: &str) -> Vec<GgDeck> {
                 event: attr("event-name"),
                 date: attr("event-date"),
                 format: attr("format"),
-                deck: Deck { main, side },
+                deck: Deck {
+                    main,
+                    side,
+                    ..Default::default()
+                },
             })
         })
         .collect()

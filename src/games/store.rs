@@ -4,7 +4,7 @@ use super::*;
 
 /// Version of the analysis. When it is increased, stored games are
 /// recomputed from logs that still exist at the next read.
-pub(super) const PARSER_VERSION: u32 = 6;
+pub(super) const PARSER_VERSION: u32 = 7;
 
 #[derive(Default, Serialize, Deserialize)]
 #[serde(default)]

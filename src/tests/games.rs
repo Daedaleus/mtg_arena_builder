@@ -897,6 +897,53 @@ fn skipped_attacks_respect_blockers_and_tap_abilities() {
 }
 
 #[test]
+fn brawl_commander_and_command_zone() {
+    let mut p = LogParser::default();
+    line(&mut p, &room(MATCH, 1, "Play_Brawl"));
+    line(
+        &mut p,
+        &gre(1, vec![connect_brawl(1, &[MOUNTAIN, OGRE], LEGEND)]),
+    );
+    let mut zones = zones(&[100], &[], &[]);
+    zones.as_array_mut().unwrap().extend([
+        json!({ "zoneId": Z_COMMAND_1, "type": "ZoneType_Command", "ownerSeatId": 1, "objectInstanceIds": [90] }),
+        json!({ "zoneId": Z_COMMAND_2, "type": "ZoneType_Command", "ownerSeatId": 2, "objectInstanceIds": [91] }),
+    ]);
+    state_msg(
+        &mut p,
+        1000,
+        json!({
+            "type": "GameStateType_Full",
+            "gameStateId": 1,
+            "gameInfo": game_info(MATCH, 1),
+            "turnInfo": turn_info(1, 1, "Phase_Main1", ""),
+            "zones": zones,
+            "players": players(25, 25),
+            "gameObjects": [
+                mountain(100).json(),
+                obj(90, LEGEND, Z_COMMAND_1, 1).creature(2, 2).json(),
+                obj(91, DRAGON, Z_COMMAND_2, 2).creature(5, 5).json(),
+            ],
+        }),
+    );
+    let live = p.live().unwrap();
+    assert_eq!(live.command, vec![LEGEND]);
+    assert_eq!(live.hand, vec![MOUNTAIN]);
+    assert!(
+        live.opp_cards.contains(&DRAGON),
+        "opposing commander is public"
+    );
+    state_msg(
+        &mut p,
+        1100,
+        json!({ "gameStateId": 2, "gameInfo": game_over(MATCH, 1, 1, "ResultReason_Game") }),
+    );
+    let games = p.finish();
+    assert_eq!(games[0].commander, vec![LEGEND]);
+    assert_eq!(games[0].deck, vec![MOUNTAIN, OGRE]);
+}
+
+#[test]
 fn game_modes_group_arena_events() {
     use GameMode::*;
     for (event, mode) in [
