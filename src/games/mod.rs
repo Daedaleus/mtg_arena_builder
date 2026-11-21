@@ -10,6 +10,7 @@
 //!   safe attack), `tracker` (game state), `live_state`
 //!   (snapshot for the companion), `parser` (log files)
 //! - Storage: `record` (data types), `store` (`games.json`)
+//! - Choice of games: `filter` (game mode, deck), `format` (format per game)
 //! - Analysis: `moments` (single turns), `mistake` (kinds of mistakes),
 //!   `report` (all games)
 
@@ -27,6 +28,7 @@ use arena::{Phase, annotation, card_state, message, step, zone};
 
 pub mod arena;
 mod filter;
+mod format;
 mod live_state;
 mod mistake;
 mod moments;
@@ -39,6 +41,7 @@ mod store;
 mod tracker;
 
 pub use filter::{GameMode, GamesFilter, deck_key};
+pub use format::{BRAWL_DECK_SIZE, GameFormat};
 pub use live_state::*;
 pub use mistake::*;
 pub use moments::*;

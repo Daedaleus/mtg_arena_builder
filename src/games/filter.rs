@@ -45,7 +45,10 @@ impl GameMode {
             || lower.ends_with("_ladder")
         {
             GameMode::Ranked
-        } else if event_name == event::PLAY || event_name == event::PLAY_BO3 {
+        } else if event_name == event::PLAY
+            || event_name == event::PLAY_BO3
+            || lower.ends_with("_play")
+        {
             GameMode::Play
         } else {
             GameMode::Event
