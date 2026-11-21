@@ -1,4 +1,4 @@
-//! Kartennutzung, Vergleich mit dem Turnier-Archetyp und Tauschvorschläge.
+//! Card usage, comparison with the tournament archetype and swap suggestions.
 
 use super::*;
 
@@ -9,11 +9,11 @@ pub(super) fn nonland_keys(names: impl Iterator<Item = String>, db: &CardDb) -> 
         .collect()
 }
 
-/// Wertet ein Deck aus.
+/// Analyses a deck.
 ///
-/// * `owned` – Sammlung je Kartenschlüssel.
-/// * `legal` – im Format legale Karten (falls bekannt), für Ersatzvorschläge.
-/// * `meta` – geladene Turnierlisten, nach Archetyp.
+/// * `owned` – collection per card key.
+/// * `legal` – cards legal in the format (if known), for replacement suggestions.
+/// * `meta` – loaded tournament lists, by archetype.
 pub fn check(
     group: &DeckGroup,
     all_games: &[GameRecord],
@@ -46,7 +46,7 @@ pub fn check(
     }
 }
 
-/// Karten des Decks nach Name (Drucke zusammengefasst), mit Anzahl.
+/// Cards of the deck by name (printings combined), with count.
 fn deck_stats(deck: &[GrpId], db: &CardDb) -> HashMap<String, CardStat> {
     let mut stats: HashMap<String, CardStat> = HashMap::new();
     for c in deck.iter().filter_map(|grp| db.cards.get(grp)) {
@@ -64,7 +64,7 @@ fn deck_stats(deck: &[GrpId], db: &CardDb) -> HashMap<String, CardStat> {
     stats
 }
 
-/// Farben der Nichtland-Karten als Bitmaske.
+/// Colors of the non-land cards as a bit mask.
 fn spell_colors(deck: &[GrpId], db: &CardDb) -> u8 {
     deck.iter()
         .filter_map(|g| db.cards.get(g))
@@ -72,10 +72,10 @@ fn spell_colors(deck: &[GrpId], db: &CardDb) -> u8 {
         .fold(0u8, |m, c| m | c.colors)
 }
 
-/// Gezogen, gespielt, Schaden und „lange auf der Hand“ je Karte. Liefert die
-/// Zahl der Partien mit Kartendaten: Gewirkte Karten werden erst seit
-/// Version 3 der Auswertung mitgeschrieben; ältere Partien (Log schon
-/// überschrieben) zählen für die Kartennutzung nicht.
+/// Drawn, played, damage and "long in hand" per card. Returns the number of
+/// games with card data: cast cards are only recorded since version 3 of
+/// the analysis; older games (log already overwritten) don't count for card
+/// usage.
 fn count_usage(stats: &mut HashMap<String, CardStat>, games: &[&GameRecord], db: &CardDb) -> usize {
     let key_of = |grp: &GrpId| db.cards.get(grp).map(|c| name_key(&c.name));
     let tracked: Vec<&&GameRecord> = games
@@ -108,9 +108,9 @@ fn count_usage(stats: &mut HashMap<String, CardStat>, games: &[&GameRecord], db:
     tracked.len()
 }
 
-/// Vergleich mit dem ähnlichsten Turnier-Archetyp (mindestens 20 %
-/// Übereinstimmung der Nichtland-Karten). Trägt den Anteil der Turnierlisten
-/// je Karte in `stats` ein.
+/// Comparison with the most similar tournament archetype (at least 20 %
+/// overlap of the non-land cards). Enters the share of tournament lists per
+/// card into `stats`.
 fn meta_match(
     stats: &mut HashMap<String, CardStat>,
     db: &CardDb,
@@ -162,7 +162,7 @@ fn meta_match(
     })
 }
 
-/// Tausch-Kandidaten mit Gründen und Ersatz aus der Sammlung, wichtigste zuerst.
+/// Swap candidates with reasons and replacements from the collection, most important first.
 fn swaps(
     stats: &HashMap<String, CardStat>,
     colors: u8,
@@ -202,7 +202,7 @@ fn swaps(
     swaps.into_iter().map(|(_, s)| s).collect()
 }
 
-/// Warum eine Karte raus könnte: (Gewicht, Gründe); Gewicht 0 = kein Grund.
+/// Why a card could go: (weight, reasons); weight 0 = no reason.
 fn swap_reasons(s: &CardStat) -> (u32, Vec<String>) {
     let mut reasons: Vec<String> = Vec::new();
     let mut weight = 0;

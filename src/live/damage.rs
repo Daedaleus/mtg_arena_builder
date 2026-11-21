@@ -1,9 +1,9 @@
-//! Schadensrechnung für die Siegchancen: Brandzauber aus der Hand (der
-//! Angriffsschaden kommt aus [`crate::combat::unblocked_damage`]).
+//! Damage calculation for the chances to win: burn spells from the hand (the
+//! attack damage comes from [`crate::combat::unblocked_damage`]).
 
 use super::*;
 
-/// Bester Brandschaden aus der Hand, den das verfügbare Mana bezahlen kann.
+/// Best burn damage from the hand that the available mana can pay for.
 pub(super) fn best_burn(hand: &[&Card], mana: u32) -> (u32, Vec<String>) {
     let burn: Vec<&&Card> = hand
         .iter()

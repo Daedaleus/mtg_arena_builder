@@ -1,7 +1,7 @@
-//! Turnierdecks von MTGTop8 und magic.gg, Format-Legalität von Scryfall.
+//! Tournament decks from MTGTop8 and magic.gg, format legality from Scryfall.
 //!
-//! MTGTop8 verlangt in der robots.txt 5 Sekunden Abstand zwischen Anfragen –
-//! daran halten wir uns und legen alles im lokalen Cache ab.
+//! MTGTop8 asks for 5 seconds between requests in its robots.txt – we keep
+//! to that and store everything in the local cache.
 
 use std::collections::HashSet;
 use std::fs;
@@ -16,7 +16,7 @@ use crate::carddb::name_key;
 pub use crate::http::Http;
 use crate::magicgg::{self, GgDeck, GgEvent};
 
-/// Spielformat in Arena (Turnierdecks, Legalität, Gegner-Erkennung).
+/// Game format in Arena (tournament decks, legality, opponent recognition).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 pub enum Format {
     #[default]
@@ -36,7 +36,7 @@ impl Format {
         Format::Alchemy,
     ];
 
-    /// Kürzel bei MTGTop8 (auch in `settings.json`).
+    /// Code at MTGTop8 (also in `settings.json`).
     pub fn code(self) -> &'static str {
         match self {
             Format::Standard => "ST",
@@ -47,7 +47,7 @@ impl Format {
         }
     }
 
-    /// Anzeigename (in Arena in allen Sprachen gleich).
+    /// Display name (the same in all Arena languages).
     pub fn name(self) -> &'static str {
         match self {
             Format::Standard => "Standard",
@@ -58,7 +58,7 @@ impl Format {
         }
     }
 
-    /// Name bei Scryfall und magic.gg.
+    /// Name at Scryfall and magic.gg.
     pub fn scryfall(self) -> &'static str {
         match self {
             Format::Standard => "standard",
@@ -69,7 +69,7 @@ impl Format {
         }
     }
 
-    /// Format zu einem MTGTop8-Kürzel (Groß-/Kleinschreibung egal).
+    /// Format for an MTGTop8 code (case doesn't matter).
     pub fn from_code(code: &str) -> Option<Format> {
         Format::ALL
             .into_iter()
@@ -85,9 +85,9 @@ const HOUR: u64 = 3600;
 pub struct Archetype {
     pub id: u32,
     pub name: String,
-    /// Anteil am Metagame in Prozent.
+    /// Share of the metagame in percent.
     pub share: u32,
-    /// Zeitraum-Kennung der Übersichtsseite (wird für den Archetyp-Link benötigt).
+    /// Period id of the overview page (needed for the archetype link).
     pub meta: u32,
 }
 
@@ -101,7 +101,7 @@ pub struct DeckRef {
 }
 
 pub struct Fetcher {
-    /// Netzabruf; hält die Mindestabstände je Seite selbst ein (siehe [`crate::http`]).
+    /// Network access; keeps the minimum gaps per site itself (see [`crate::http`]).
     http: Arc<dyn Http>,
     cache: PathBuf,
 }
@@ -116,13 +116,13 @@ fn decode_entities(s: &str) -> String {
 }
 
 impl Fetcher {
-    /// Mit eigenem echten Netzabruf (für die Kommandozeile).
+    /// With its own real network access (for the command line).
     pub fn new(cache: PathBuf) -> Fetcher {
         Fetcher::with_http(cache, crate::http::shared())
     }
 
-    /// Mit vorhandenem Netzabruf – in der App teilen sich alle Threads einen,
-    /// damit die Mindestabstände gemeinsam gelten.
+    /// With existing network access – in the app all threads share one, so
+    /// the minimum gaps apply jointly.
     pub fn with_http(cache: PathBuf, http: Arc<dyn Http>) -> Fetcher {
         let _ = fs::create_dir_all(&cache);
         Fetcher { http, cache }
@@ -141,8 +141,8 @@ impl Fetcher {
         fs::read_to_string(path).ok()
     }
 
-    /// Lädt eine Seite herunter (höchstens 5 MB) und legt sie im Cache ab.
-    /// `latin1`: MTGTop8 liefert ISO-8859-1, magic.gg UTF-8.
+    /// Downloads a page (at most 5 MB) and stores it in the cache.
+    /// `latin1`: MTGTop8 delivers ISO-8859-1, magic.gg UTF-8.
     fn download(&self, url: &str, file: &str, latin1: bool) -> Result<String> {
         let bytes = self
             .http
@@ -154,12 +154,12 @@ impl Fetcher {
         } else {
             String::from_utf8_lossy(&bytes).into_owned()
         };
-        // Ein Cache-Schreibfehler ist unkritisch: dann wird beim nächsten Mal neu geladen.
+        // A cache write error isn't critical: it is simply loaded again next time.
         let _ = fs::write(self.cache.join(file), &text);
         Ok(text)
     }
 
-    /// Holt eine MTGTop8-Seite, mit Cache und Wartezeit.
+    /// Fetches an MTGTop8 page, with cache and waiting time.
     fn top8(&mut self, path: &str, file: &str, max_age_secs: Option<u64>) -> Result<String> {
         if let Some(hit) = self.cached(file, max_age_secs) {
             return Ok(hit);
@@ -167,7 +167,7 @@ impl Fetcher {
         self.download(&format!("{TOP8}/{path}"), file, true)
     }
 
-    /// Holt eine magic.gg-Seite, mit Cache und Wartezeit.
+    /// Fetches a magic.gg page, with cache and waiting time.
     fn gg(&mut self, path: &str, file: &str, max_age_secs: Option<u64>) -> Result<String> {
         if let Some(hit) = self.cached(file, max_age_secs) {
             return Ok(hit);
@@ -175,7 +175,7 @@ impl Fetcher {
         self.download(&format!("{GG}/{path}"), file, false)
     }
 
-    /// Events mit Decklisten auf magic.gg, deren Kennung `format` enthält.
+    /// Events with decklists on magic.gg whose id contains `format`.
     pub fn gg_events(&mut self, format: &str, force: bool) -> Result<Vec<GgEvent>> {
         let max_age = if force { Some(0) } else { Some(12 * HOUR) };
         let html = self.gg("decklists", "gg_index.html", max_age)?;
@@ -186,8 +186,8 @@ impl Fetcher {
         Ok(list)
     }
 
-    /// Bereits heruntergeladene magic.gg-Events eines Formats mit ihren Decks –
-    /// ohne Netzwerkzugriff und unabhängig vom Alter der Übersicht.
+    /// Already downloaded magic.gg events of a format with their decks –
+    /// without network access and regardless of the age of the overview.
     pub fn cached_gg(&self, format: &str) -> Vec<(GgEvent, Vec<GgDeck>)> {
         let Some(index) = self.cached("gg_index.html", None) else {
             return Vec::new();
@@ -202,8 +202,8 @@ impl Fetcher {
             .collect()
     }
 
-    /// Decks eines magic.gg-Events. Veröffentlichte Listen ändern sich nicht
-    /// mehr – dauerhaft cachen.
+    /// Decks of a magic.gg event. Published lists don't change any more –
+    /// cache them permanently.
     pub fn gg_decks(&mut self, slug: &str) -> Result<Vec<GgDeck>> {
         let file = magicgg::cache_file(slug);
         let html = self.gg(&format!("decklists/{slug}"), &file, None)?;
@@ -215,11 +215,11 @@ impl Fetcher {
         Ok(decks)
     }
 
-    /// Archetypen eines Formats mit Meta-Anteil (Standardzeitraum der Seite).
+    /// Archetypes of a format with meta share (default period of the page).
     pub fn archetypes(&mut self, format: &str, force: bool) -> Result<Vec<Archetype>> {
         let max_age = if force { Some(0) } else { Some(12 * HOUR) };
         if force {
-            // Auch die Deck-Übersichten der Archetypen neu holen.
+            // Fetch the deck overviews of the archetypes again as well.
             let prefix = format!("arch_{format}_");
             for entry in fs::read_dir(&self.cache).into_iter().flatten().flatten() {
                 if entry.file_name().to_string_lossy().starts_with(&prefix) {
@@ -239,7 +239,7 @@ impl Fetcher {
         Ok(list)
     }
 
-    /// Aktuelle Turnierdecks eines Archetyps (neueste zuerst).
+    /// Current tournament decks of an archetype (newest first).
     pub fn decks(&mut self, format: &str, arch: &Archetype) -> Result<Vec<DeckRef>> {
         let html = self.top8(
             &format!("archetype?a={}&meta={}&f={format}", arch.id, arch.meta),
@@ -249,21 +249,21 @@ impl Fetcher {
         Ok(parse_decks(&html))
     }
 
-    /// Wie [`Fetcher::decks`], aber nur aus dem Cache – ohne Netzwerkzugriff.
-    /// Auch ältere Seiten zählen: Beim Start ist eine etwas ältere Deckliste
-    /// besser als keine; neu geladen wird über „Aktualisieren“/„Alle bewerten“.
+    /// Like [`Fetcher::decks`], but only from the cache – without network access.
+    /// Older pages count too: at startup a slightly older decklist is better
+    /// than none; reloading happens via "Refresh"/"Rate all".
     pub fn cached_decks(&self, format: &str, arch: &Archetype) -> Option<Vec<DeckRef>> {
         let html = self.cached(&format!("arch_{format}_{}.html", arch.id), None)?;
         Some(parse_decks(&html))
     }
 
-    /// Bereits heruntergeladene Deckliste, falls vorhanden.
+    /// Already downloaded decklist, if available.
     pub fn cached_decklist(&self, deck_id: u32) -> Option<String> {
         self.cached(&format!("deck_{deck_id}.txt"), None)
             .filter(|t| !t.contains("<html") && !t.trim().is_empty())
     }
 
-    /// Deckliste als Text (MTGO-Format). Listen ändern sich nie -> dauerhaft cachen.
+    /// Decklist as text (MTGO format). Lists never change -> cache permanently.
     pub fn decklist(&mut self, deck_id: u32) -> Result<String> {
         let text = self.top8(
             &format!("mtgo?d={deck_id}"),
@@ -277,7 +277,7 @@ impl Fetcher {
         Ok(text)
     }
 
-    /// Namen aller in Arena verfügbaren, im Format legalen Karten (Scryfall).
+    /// Names of all cards available in Arena and legal in the format (Scryfall).
     pub fn legal_names(&self, scryfall_format: &str) -> Result<HashSet<String>> {
         let file = format!("legal_{scryfall_format}.json");
         if let Some(hit) = self.cached(&file, Some(7 * 24 * HOUR))
@@ -292,7 +292,7 @@ impl Fetcher {
         loop {
             let bytes = match self.http.get(&url, "application/json") {
                 Ok(bytes) => bytes,
-                // Scryfall antwortet auf eine Suche ohne Treffer mit 404.
+                // Scryfall answers a search without hits with 404.
                 Err(crate::http::FetchError::NotFound) => break,
                 Err(e) => anyhow::bail!(tr!("meta.scryfall", e = e.user_text())),
             };
@@ -307,18 +307,18 @@ impl Fetcher {
         if names.is_empty() {
             anyhow::bail!(tr!("meta.scryfall_knows_no_arena"));
         }
-        // Cache-Schreibfehler unkritisch (siehe `download`).
+        // Cache write errors aren't critical (see `download`).
         let _ = fs::write(self.cache.join(&file), serde_json::to_string(&names)?);
         Ok(names.into_iter().collect())
     }
 }
 
-/// Archetypen aus der MTGTop8-Formatseite (jede Kennung nur einmal).
+/// Archetypes from the MTGTop8 format page (each id only once).
 pub fn parse_archetypes(html: &str) -> Vec<Archetype> {
     let re = Regex::new(
         r"archetype\?a=(\d+)&meta=(\d+)&f=\w+>([^<]+)</a></div>\s*<div>\s*<div[^>]*>\s*(\d+)\s*%",
     )
-    .expect("gültiger Ausdruck");
+    .expect("valid regex");
     let mut seen = HashSet::new();
     re.captures_iter(html)
         .filter_map(|c| {
@@ -333,12 +333,12 @@ pub fn parse_archetypes(html: &str) -> Vec<Archetype> {
         .collect()
 }
 
-/// Turnierdecks aus einer MTGTop8-Archetypseite.
+/// Tournament decks from an MTGTop8 archetype page.
 pub fn parse_decks(html: &str) -> Vec<DeckRef> {
     let re = Regex::new(
         r"(?s)event\?e=\d+&d=(\d+)&f=\w+>[^<]*</a></td>\s*<td><a class=player[^>]*>([^<]*)</a></td>\s*<td><a[^>]*>([^<]*)</a></td>\s*<td[^>]*>.*?</td>\s*<td>([^<]*)</td>\s*<td>([^<]*)</td>",
     )
-    .expect("gültiger Ausdruck");
+    .expect("valid regex");
     re.captures_iter(html)
         .filter_map(|c| {
             Some(DeckRef {
@@ -352,8 +352,8 @@ pub fn parse_decks(html: &str) -> Vec<DeckRef> {
         .collect()
 }
 
-/// Kartennamen (normalisiert, bei Doppelkarten auch die Vorderseite) und
-/// Adresse der nächsten Seite einer Scryfall-Suchantwort.
+/// Card names (normalised, for double-faced cards also the front face) and
+/// address of the next page of a Scryfall search answer.
 pub fn parse_scryfall_page(page: &serde_json::Value) -> (Vec<String>, Option<String>) {
     let mut names = Vec::new();
     for card in page["data"].as_array().into_iter().flatten() {

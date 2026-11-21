@@ -1,8 +1,8 @@
-//! Zugvorschlag und Blockvorschlag als Hinweistexte.
+//! Turn suggestion and block suggestion as hint texts.
 
 use super::*;
 
-/// Blockvorschlag, während der Gegner angreift.
+/// Block suggestion while the opponent attacks.
 pub(super) fn block_hints(v: &mut CompanionView, ls: &LiveState, db: &CardDb) {
     use crate::combat::BlockKind;
     let plan = crate::combat::plan_blocks(&ls.opp_attacking, &ls.my_blockers, ls.life_me);
@@ -75,7 +75,7 @@ pub(super) fn card_name(db: &CardDb, grp: GrpId) -> String {
         .unwrap_or_default()
 }
 
-/// Zugvorschlag: Land, Zauber und was man zurückhalten sollte.
+/// Turn suggestion: land, spells and what to hold back.
 pub(super) fn turn_hints(v: &mut CompanionView, ls: &LiveState, db: &CardDb) {
     let hand = crate::turnplan::without_legend_duplicates(db, &ls.hand, &ls.board);
     let plan = crate::turnplan::plan(

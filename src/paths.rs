@@ -1,4 +1,4 @@
-//! Orte von MTG-Arena-Dateien (Log, Kartendatenbank) und der eigenen App-Daten.
+//! Locations of MTG Arena files (log, card database) and of this app's data.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use anyhow::Result;
 use directories::{BaseDirs, ProjectDirs};
 
-/// Verzeichnis für Einstellungen, Sammlung und Web-Cache dieser App.
+/// Directory for settings, collection and web cache of this app.
 pub fn data_dir() -> PathBuf {
     let dir = ProjectDirs::from("", "", "mtg_arena_builder")
         .map(|d| d.data_dir().to_path_buf())
@@ -15,8 +15,8 @@ pub fn data_dir() -> PathBuf {
     dir
 }
 
-/// Schreibt eine Datei so, dass sie nie halb geschrieben zurückbleibt
-/// (erst in eine temporäre Datei, dann umbenennen).
+/// Writes a file so that it is never left half-written (first into a
+/// temporary file, then rename).
 pub fn write_atomic(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
     let mut tmp = path.as_os_str().to_owned();
     tmp.push(".tmp");
@@ -25,9 +25,9 @@ pub fn write_atomic(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
     fs::rename(&tmp, path)
 }
 
-/// Warum eine JSON-Datei nicht geladen werden konnte. Wichtig für Dateien
-/// mit Nutzerdaten: Eine fehlende Datei ist normal, eine beschädigte muss
-/// gesichert werden, eine nicht lesbare darf nicht überschrieben werden.
+/// Why a JSON file could not be loaded. Important for files with user data:
+/// a missing file is normal, a damaged one must be backed up, an unreadable
+/// one must not be overwritten.
 #[derive(Debug, thiserror::Error)]
 pub enum LoadError {
     #[error("file does not exist")]
@@ -38,7 +38,7 @@ pub enum LoadError {
     Unreadable(std::io::Error),
 }
 
-/// Lädt eine JSON-Datei; ein UTF-8-BOM am Anfang (z. B. von Windows-Editoren) wird ignoriert.
+/// Loads a JSON file; a UTF-8 BOM at the start (e.g. from Windows editors) is ignored.
 pub fn load_json<T: serde::de::DeserializeOwned>(path: &Path) -> Result<T, LoadError> {
     let bytes = fs::read(path).map_err(|e| match e.kind() {
         std::io::ErrorKind::NotFound => LoadError::Missing,
@@ -48,13 +48,13 @@ pub fn load_json<T: serde::de::DeserializeOwned>(path: &Path) -> Result<T, LoadE
     Ok(serde_json::from_slice(body)?)
 }
 
-/// Wie [`load_json`], für Dateien, bei denen der Grund egal ist (Caches).
+/// Like [`load_json`], for files where the reason doesn't matter (caches).
 pub fn read_json<T: serde::de::DeserializeOwned>(path: &Path) -> Option<T> {
     load_json(path).ok()
 }
 
-/// Benennt eine beschädigte Datei um (`name.corrupt-<Zeitstempel>`), damit sie
-/// nicht überschrieben wird. Liefert den neuen Pfad.
+/// Renames a damaged file (`name.corrupt-<timestamp>`) so it isn't
+/// overwritten. Returns the new path.
 pub fn backup_corrupt(path: &Path) -> std::io::Result<PathBuf> {
     let stamp = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -68,7 +68,7 @@ pub fn backup_corrupt(path: &Path) -> std::io::Result<PathBuf> {
     Ok(backup)
 }
 
-/// Mögliche Orte der `Player.log` je nach Plattform.
+/// Possible locations of `Player.log` per platform.
 pub fn player_log_candidates() -> Vec<PathBuf> {
     let mut out = Vec::new();
     let Some(base) = BaseDirs::new() else {
@@ -89,7 +89,7 @@ pub fn player_log_candidates() -> Vec<PathBuf> {
     out
 }
 
-/// Vorhandene Arena-Logs (aktuelle und vorige Sitzung).
+/// Existing Arena logs (current and previous session).
 pub fn player_logs() -> Vec<PathBuf> {
     player_log_candidates()
         .into_iter()
@@ -98,7 +98,7 @@ pub fn player_logs() -> Vec<PathBuf> {
         .collect()
 }
 
-/// Liest das Installationsverzeichnis aus dem Kopf der Player.log
+/// Reads the install directory from the head of Player.log
 /// (`Mono path[0] = 'D:/MTG/MTGA/MTGA_Data/Managed'`).
 fn data_dir_from_log() -> Option<PathBuf> {
     for log in player_log_candidates() {
@@ -111,7 +111,7 @@ fn data_dir_from_log() -> Option<PathBuf> {
     None
 }
 
-/// `MTGA_Data`-Verzeichnis aus der Zeile `Mono path[0] = '…/MTGA_Data/Managed'`.
+/// `MTGA_Data` directory from the line `Mono path[0] = '…/MTGA_Data/Managed'`.
 fn install_from_log_head(head: &str) -> Option<PathBuf> {
     head.lines().find_map(|line| {
         let rest = line.strip_prefix("Mono path[0] = '")?;
@@ -120,7 +120,7 @@ fn install_from_log_head(head: &str) -> Option<PathBuf> {
     })
 }
 
-/// Kandidaten für `MTGA_Data` (bzw. das Verzeichnis, das `Downloads/Raw` enthält).
+/// Candidates for `MTGA_Data` (or the directory that contains `Downloads/Raw`).
 fn mtga_data_candidates(user_override: Option<&str>) -> Vec<PathBuf> {
     let mut out = Vec::new();
     if let Some(o) = user_override.filter(|s| !s.trim().is_empty()) {
@@ -176,7 +176,7 @@ fn card_db_in(data: &Path) -> Option<PathBuf> {
     best.map(|(_, p)| p)
 }
 
-/// Sucht die lokale Arena-Kartendatenbank (`Raw_CardDatabase_*.mtga`, SQLite).
+/// Searches for the local Arena card database (`Raw_CardDatabase_*.mtga`, SQLite).
 pub fn find_card_db(user_override: Option<&str>) -> Result<PathBuf> {
     mtga_data_candidates(user_override)
         .iter()

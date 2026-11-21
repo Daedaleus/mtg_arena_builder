@@ -1,7 +1,7 @@
 #![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]
 
-//! MTG Arena Builder: startet die Oberfläche oder, mit Argument, die
-//! Diagnose-Kommandozeile (siehe README).
+//! MTG Arena Builder: starts the interface or, with an argument, the
+//! diagnostic command line (see README).
 
 mod cli;
 
@@ -9,7 +9,7 @@ use mtg_arena_builder::app;
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
-    // Fotomodus für das README: `--screenshots [ORDNER]`.
+    // Screenshot mode for the README: `--screenshots [DIR]`.
     let shots = (args.get(1).map(String::as_str) == Some("--screenshots"))
         .then(|| std::path::PathBuf::from(args.get(2).map_or("docs/screenshots", String::as_str)));
     if shots.is_none()
@@ -25,7 +25,7 @@ fn main() {
             .with_title("MTG Arena Builder")
             .with_icon(
                 eframe::icon_data::from_png_bytes(include_bytes!("../assets/icon.png"))
-                    .expect("eingebettetes Logo ist ein gültiges PNG"),
+                    .expect("embedded logo is a valid PNG"),
             ),
         ..Default::default()
     };
@@ -40,7 +40,7 @@ fn main() {
         }),
     );
     if let Err(e) = result {
-        eprintln!("Fenster konnte nicht geöffnet werden: {e}");
+        eprintln!("Could not open the window: {e}");
         std::process::exit(1);
     }
 }

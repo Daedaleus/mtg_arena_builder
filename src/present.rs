@@ -1,10 +1,10 @@
-//! Texte und Sortierschlüssel für die Oberfläche – ohne GUI-Abhängigkeit,
-//! damit sie sich testen lassen.
+//! Texts and sort keys for the interface – without a GUI dependency, so they
+//! can be tested.
 
 use crate::deck::Summary;
 
-/// Sortierschlüssel „wie teuer ist das Deck für mich“: erst nicht verfügbare
-/// Karten, dann ob die Wildcards reichen, dann Rares/Mythics (Mythic zählt doppelt).
+/// Sort key "how expensive is the deck for me": first unavailable cards,
+/// then whether the wildcards suffice, then rares/mythics (mythic counts double).
 pub fn cost_key(s: &Summary, wildcards: [u32; 4]) -> (u32, bool, u32, u32, u32) {
     (
         s.unavailable,
@@ -15,7 +15,7 @@ pub fn cost_key(s: &Summary, wildcards: [u32; 4]) -> (u32, bool, u32, u32, u32) 
     )
 }
 
-/// Ausführliche Kosten eines Decks für den Tooltip.
+/// Detailed costs of a deck for the tooltip.
 pub fn cost_tooltip(s: &Summary) -> String {
     let mut text = tr!("present.owned_cards_nmissing_common", v = s.percent().floor() : {:.0}, missing = s.total - s.missing, total = s.total, need = s.need[0], need2 = s.need[1], need3 = s.need[2], need4 = s.need[3]);
     if s.unavailable > 0 {
@@ -27,18 +27,18 @@ pub fn cost_tooltip(s: &Summary) -> String {
     text
 }
 
-/// Wie gut passt ein Deck zur Sammlung?
+/// How well does a deck fit the collection?
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Fit {
-    /// Sammlung noch nicht gelesen.
+    /// Collection not read yet.
     Unknown,
     Complete,
-    /// Mit den vorhandenen Wildcards herstellbar.
+    /// Craftable with the available wildcards.
     Craftable,
     TooExpensive,
 }
 
-/// Bewertung plus Kurztext: was das Deck an Wildcards kostet.
+/// Rating plus short text: what the deck costs in wildcards.
 pub fn fit(s: &Summary, have_collection: bool, wildcards: [u32; 4]) -> (Fit, String) {
     if !have_collection {
         return (Fit::Unknown, "–".into());
@@ -62,7 +62,7 @@ pub fn fit(s: &Summary, have_collection: bool, wildcards: [u32; 4]) -> (Fit, Str
     (level, text)
 }
 
-/// Lesbarer Name eines Arena-Events.
+/// Readable name of an Arena event.
 pub fn event_label(name: &str) -> String {
     use crate::games::arena::event;
     match name {
@@ -80,7 +80,7 @@ pub fn event_label(name: &str) -> String {
     }
 }
 
-/// „vor 5 Min.“ usw. relativ zu `now_ms` (beides Unix-Millisekunden).
+/// "5 min ago" etc. relative to `now_ms` (both Unix milliseconds).
 pub fn ago_at(now_ms: u64, ms: u64) -> String {
     let secs = now_ms.saturating_sub(ms) / 1000;
     match secs {
@@ -91,7 +91,7 @@ pub fn ago_at(now_ms: u64, ms: u64) -> String {
     }
 }
 
-/// Wie [`ago_at`], relativ zur aktuellen Zeit.
+/// Like [`ago_at`], relative to the current time.
 pub fn ago(ms: u64) -> String {
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -100,11 +100,11 @@ pub fn ago(ms: u64) -> String {
     ago_at(now, ms)
 }
 
-/// Partien je Seite in „Meine Partien“.
+/// Games per page in "My games".
 pub const PAGE_SIZE: usize = 10;
 
-/// Seitenaufteilung: (erster Index, Ende exklusiv, Seitenzahl, gültige Seite).
-/// Eine zu große Seite wird auf die letzte begrenzt.
+/// Page split: (first index, end exclusive, page count, valid page).
+/// A page that is too large is limited to the last one.
 pub fn page_range(total: usize, page: usize, per_page: usize) -> (usize, usize, usize, usize) {
     let per_page = per_page.max(1);
     let pages = total.div_ceil(per_page).max(1);

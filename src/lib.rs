@@ -1,9 +1,9 @@
-//! MTG Arena Builder als Bibliothek: Kartendaten, Sammlung, Turnierdecks,
-//! Partie-Auswertung und Begleitfenster. Die ausführbare Datei (`main.rs`)
-//! enthält nur Kommandozeile und Programmstart.
+//! MTG Arena Builder as a library: card data, collection, tournament decks,
+//! game analysis and companion. The executable (`main.rs`) only contains the
+//! command line and program start.
 
-// Anzeigetexte aus `locales/app.yml` (siehe `i18n`); fehlt ein englischer
-// Text, gilt der deutsche.
+// Display texts from `locales/app.yml` (see `i18n`); if an English text is
+// missing, the German one applies.
 rust_i18n::i18n!("locales", fallback = "de");
 
 #[macro_use]

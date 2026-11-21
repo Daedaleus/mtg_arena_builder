@@ -1,8 +1,8 @@
-//! Sammlung und Wildcards des Arena-Accounts.
+//! Collection and wildcards of the Arena account.
 //!
-//! Arena schreibt die Sammlung seit 2021 nicht mehr ins Log. Sie wird deshalb
-//! (wie bei anderen Trackern) aus dem Speicher des laufenden Spiels gelesen
-//! und anschließend lokal zwischengespeichert.
+//! Since 2021 Arena no longer writes the collection to the log. It is
+//! therefore read (as by other trackers) from the memory of the running game
+//! and then cached locally.
 
 use std::collections::HashMap;
 use std::fs;
@@ -24,22 +24,22 @@ pub struct Wildcards {
 }
 
 impl Wildcards {
-    /// Index 0..4 = Common, Uncommon, Rare, Mythic.
+    /// Index 0..4 = common, uncommon, rare, mythic.
     pub fn as_array(&self) -> [u32; 4] {
         [self.common, self.uncommon, self.rare, self.mythic]
     }
 }
 
-/// Aktuelle Version von `collection.json`. Wird sie erhöht, passt
-/// [`Collection::migrate`] ältere Dateien an.
+/// Current version of `collection.json`. When it is increased,
+/// [`Collection::migrate`] adapts older files.
 pub const COLLECTION_VERSION: u32 = 1;
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct Collection {
-    /// Version der Datei (0 = vor Einführung der Versionsnummer).
+    /// Version of the file (0 = before the version number was introduced).
     #[serde(default)]
     pub version: u32,
-    /// grpId -> Anzahl
+    /// grpId -> count
     pub cards: HashMap<GrpId, u32>,
     pub wildcards: Wildcards,
     pub gold: u32,
@@ -52,14 +52,14 @@ impl Collection {
         crate::paths::read_json::<Collection>(path).map(Collection::migrate)
     }
 
-    /// Bringt eine Sammlung aus einer älteren Datei auf den aktuellen Stand.
-    /// Version 0 (ohne Nummer) hat dieselben Felder – nur die Nummer fehlt.
+    /// Brings a collection from an older file up to date.
+    /// Version 0 (without number) has the same fields – only the number is missing.
     pub fn migrate(mut self) -> Collection {
         self.version = COLLECTION_VERSION;
         self
     }
 
-    /// Schreibt die Sammlung immer mit der aktuellen Versionsnummer.
+    /// Always writes the collection with the current version number.
     pub fn save(&self, path: &Path) -> Result<()> {
         let current = Collection {
             version: COLLECTION_VERSION,
@@ -69,7 +69,7 @@ impl Collection {
         crate::paths::write_atomic(path, &json).with_context(|| path.display().to_string())
     }
 
-    /// Besitz je Kartenname (alle Drucke zusammengezählt).
+    /// Ownership per card name (all printings added up).
     pub fn owned_by_name(&self, db: &CardDb) -> HashMap<String, u32> {
         let mut out = HashMap::new();
         for key in db.names() {
@@ -94,9 +94,9 @@ impl Collection {
     }
 }
 
-/// Warum die Sammlung nicht gelesen werden konnte. Der `Display`-Text ist
-/// technisch (englisch, für Logs und den Admin-Hilfsprozess); für die
-/// Oberfläche gibt es [`CollectionError::user_text`] in der eingestellten Sprache.
+/// Why the collection could not be read. The `Display` text is technical
+/// (English, for logs and the admin helper process); for the interface
+/// there is [`CollectionError::user_text`] in the selected language.
 #[derive(Debug, thiserror::Error)]
 pub enum CollectionError {
     #[error("MTG Arena is not running")]
@@ -111,12 +111,12 @@ pub enum CollectionError {
     ReaderPanicked,
     #[error("platform not supported")]
     Unsupported,
-    /// Sonstige Meldung des Speicherlesers.
+    /// Other message of the memory reader.
     #[error("memory reader: {0}")]
     Reader(String),
     #[error("reading with administrator rights was cancelled")]
     ElevationCancelled,
-    /// Der Hilfsprozess mit Administratorrechten meldete einen Fehler.
+    /// The helper process with administrator rights reported an error.
     #[error("elevated helper: {0}")]
     Helper(String),
     #[error("could not start the elevated helper: {0}")]
@@ -128,8 +128,8 @@ pub enum CollectionError {
 }
 
 impl CollectionError {
-    /// Ordnet eine Meldung des Speicherlesers (mtga-reader, englisch) einer
-    /// Fehlerart zu. Nur hier werden dessen Texte ausgewertet.
+    /// Assigns a message of the memory reader (mtga-reader, English) to a kind
+    /// of error. Only here are its texts evaluated.
     pub fn from_reader(text: &str) -> CollectionError {
         let t = text.to_lowercase();
         if t.contains("run elevated")
@@ -146,9 +146,9 @@ impl CollectionError {
         }
     }
 
-    /// Lohnt ein zweiter Versuch mit Administratorrechten? Nur, wenn der
-    /// Zugriff verweigert wurde oder der Grund unklar ist – nicht bei
-    /// „nicht im Hauptmenü“ oder „keine Karten“.
+    /// Is a second try with administrator rights worth it? Only if access was
+    /// denied or the reason is unclear – not for "not in the main menu" or
+    /// "no cards".
     pub fn needs_elevation(&self) -> bool {
         matches!(
             self,
@@ -156,7 +156,7 @@ impl CollectionError {
         )
     }
 
-    /// Meldung für die Oberfläche, in der eingestellten Sprache.
+    /// Message for the interface, in the selected language.
     pub fn user_text(&self) -> String {
         match self {
             CollectionError::NotRunning => tr!("state.mtg_arena_running_please"),
@@ -181,8 +181,8 @@ impl CollectionError {
     }
 }
 
-/// Ergebnis von [`sync`]: die gelesene Sammlung und ggf. ein Fehler beim
-/// Speichern (die Sammlung ist trotzdem gelesen).
+/// Result of [`sync`]: the collection read and possibly an error while
+/// saving (the collection is read anyway).
 #[derive(Debug)]
 pub struct Synced {
     pub collection: Collection,
@@ -225,9 +225,9 @@ fn err_of(v: &Value) -> Option<String> {
     })
 }
 
-/// Liest Sammlung und Inventar aus dem laufenden Arena-Prozess.
+/// Reads collection and inventory from the running Arena process.
 pub fn read_from_game() -> Result<Collection, CollectionError> {
-    // Der Speicherleser kann bei unerwarteten Strukturen paniken – abfangen.
+    // The memory reader can panic on unexpected structures – catch it.
     let (cards, inv) = std::thread::spawn(raw_read)
         .join()
         .map_err(|_| CollectionError::ReaderPanicked)?;
@@ -242,7 +242,7 @@ fn now_unix() -> u64 {
         .unwrap_or(0)
 }
 
-/// Baut die Sammlung aus den Antworten des Speicherlesers (Karten und Inventar).
+/// Builds the collection from the memory reader's answers (cards and inventory).
 pub fn from_reader(cards: &Value, inv: &Value, now: u64) -> Result<Collection, CollectionError> {
     if let Some(e) = err_of(cards) {
         return Err(CollectionError::from_reader(&e));
@@ -283,8 +283,8 @@ pub fn from_reader(cards: &Value, inv: &Value, now: u64) -> Result<Collection, C
     Ok(out)
 }
 
-/// Hilfsmodus `--sync-collection <datei>`: liest die Sammlung und schreibt sie
-/// als JSON. Wird von der Oberfläche mit Administratorrechten gestartet.
+/// Helper mode `--sync-collection <file>`: reads the collection and writes it
+/// as JSON. Started by the interface with administrator rights.
 pub fn run_sync_helper(out: &Path) -> i32 {
     let err_path = out.with_extension("error.txt");
     let _ = fs::remove_file(&err_path);
@@ -295,15 +295,15 @@ pub fn run_sync_helper(out: &Path) -> i32 {
     match result {
         Ok(()) => 0,
         Err(e) => {
-            // Technischer Text; der Aufrufer zeigt ihn als „Helfer meldet …“ an.
+            // Technical text; the caller shows it as "helper reports …".
             let _ = fs::write(&err_path, e.to_string());
             1
         }
     }
 }
 
-/// Startet diese App erneut mit Administratorrechten (UAC-Abfrage), um die
-/// Sammlung zu lesen. Nur unter Windows.
+/// Starts this app again with administrator rights (UAC prompt) to read the
+/// collection. Windows only.
 #[cfg(windows)]
 pub fn read_elevated(out: &Path) -> Result<Collection, CollectionError> {
     use std::os::windows::process::CommandExt;
@@ -337,10 +337,10 @@ pub fn read_elevated(_out: &Path) -> Result<Collection, CollectionError> {
     Err(CollectionError::AccessDenied)
 }
 
-/// Liest die Sammlung aus dem laufenden Arena und speichert sie unter `path`.
-/// Läuft Arena mit höheren Rechten, wird unter Windows einmalig per UAC
-/// nachgefragt. Unter Linux gibt es keine Prozesserkennung – dort wird
-/// direkt gelesen (Fehlermeldung, falls Arena nicht läuft).
+/// Reads the collection from the running Arena and saves it under `path`.
+/// If Arena runs with higher rights, Windows asks once via UAC. On Linux
+/// there is no process detection – it reads directly there (error message if
+/// Arena isn't running).
 pub fn sync(path: &Path) -> Result<Synced, CollectionError> {
     let running = cfg!(target_os = "linux") || mtga_reader::api::find_process(PROCESS);
     if !running {
@@ -348,7 +348,7 @@ pub fn sync(path: &Path) -> Result<Synced, CollectionError> {
     }
     let collection = match read_from_game() {
         Ok(c) => c,
-        // Arena läuft mit höheren Rechten: einmalig per UAC nachfragen.
+        // Arena runs with higher rights: ask once via UAC.
         Err(first) if cfg!(windows) && first.needs_elevation() && !is_admin() => {
             read_elevated(path)?
         }

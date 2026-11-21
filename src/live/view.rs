@@ -1,4 +1,4 @@
-//! Berechnet die Anzeige des Begleitfensters aus dem Spielstand.
+//! Computes the companion's display from the game state.
 
 use super::*;
 
@@ -31,7 +31,7 @@ pub(super) fn names(db: &CardDb, grps: &[GrpId], limit: usize) -> String {
     text
 }
 
-/// Erkennt das gegnerische Deck aus den bisher gesehenen Karten.
+/// Recognises the opposing deck from the cards seen so far.
 pub(super) fn guess_opponent<'a>(
     cards: &[GrpId],
     db: &CardDb,
@@ -53,7 +53,7 @@ pub(super) fn guess_opponent<'a>(
     }
 }
 
-/// Zeigt eine beendete Partie noch so lange an.
+/// Shows a finished game for this long.
 const SHOW_LAST_GAME: Duration = Duration::from_secs(180);
 
 pub fn build_view(
@@ -109,7 +109,7 @@ pub fn build_view(
     v
 }
 
-/// Keine laufende Partie: Ergebnis der letzten oder Warten.
+/// No running game: result of the last one or waiting.
 fn idle_view(last: Option<&GameRecord>) -> CompanionView {
     let mut v = CompanionView::default();
     match last {
@@ -133,7 +133,7 @@ fn idle_view(last: Option<&GameRecord>) -> CompanionView {
     v
 }
 
-/// Starthand behalten oder Mulligan?
+/// Keep the opening hand or mulligan?
 fn mulligan_hint(v: &mut CompanionView, hand: &[&Card]) {
     if hand.len() < 6 {
         return;
@@ -156,7 +156,7 @@ fn mulligan_hint(v: &mut CompanionView, hand: &[&Card]) {
     }
 }
 
-/// „Zug 5 · dein Zug · Kampf“
+/// "Turn 5 · your turn · combat"
 fn turn_status(ls: &LiveState) -> String {
     let whose = if ls.my_turn {
         tr!("live_view.turn_3")
@@ -176,8 +176,8 @@ fn turn_status(ls: &LiveState) -> String {
     }
 }
 
-/// Siegchancen: Kann ich den Gegner jetzt besiegen? Liefert `true`, wenn ein
-/// tödlicher Angriff möglich ist.
+/// Chances to win: can I defeat the opponent now? Returns `true` if a lethal
+/// attack is possible.
 fn lethal_hint(v: &mut CompanionView, ls: &LiveState, db: &CardDb, hand: &[&Card]) -> bool {
     if !ls.my_turn || ls.phase == Phase::Ending || ls.life_opp <= 0 {
         return false;
@@ -220,7 +220,7 @@ fn lethal_hint(v: &mut CompanionView, ls: &LiveState, db: &CardDb, hand: &[&Card
     false
 }
 
-/// Eigener Zug: gefahrlose Angreifer und in den Hauptphasen der Zugvorschlag.
+/// Own turn: safe attackers and, in the main phases, the turn suggestion.
 fn my_turn_hints(v: &mut CompanionView, ls: &LiveState, db: &CardDb) {
     let attackers = worth_attacking(ls, db);
     if !attackers.is_empty() {
@@ -237,7 +237,7 @@ fn my_turn_hints(v: &mut CompanionView, ls: &LiveState, db: &CardDb) {
     }
 }
 
-/// Der Gegner greift an: spontane Entfernung und Blockvorschlag.
+/// The opponent attacks: instant removal and block suggestion.
 fn defense_hints(v: &mut CompanionView, ls: &LiveState, db: &CardDb) {
     let removal =
         crate::turnplan::instant_removal(db, &ls.hand, &ls.untapped_lands, &ls.mana_permanents);
@@ -253,7 +253,7 @@ fn defense_hints(v: &mut CompanionView, ls: &LiveState, db: &CardDb) {
     block_hints(v, ls, db);
 }
 
-/// Offenes Mana des Gegners vor einem Kampf: typische Tricks seines Decks.
+/// The opponent's open mana before combat: typical tricks of their deck.
 fn trick_warning(v: &mut CompanionView, ls: &LiveState, db: &CardDb, arch: Option<&ArchShare>) {
     let combat_ahead = if ls.my_turn {
         matches!(ls.phase, Phase::Main1 | Phase::Combat)
@@ -285,7 +285,7 @@ fn trick_warning(v: &mut CompanionView, ls: &LiveState, db: &CardDb, arch: Optio
     ));
 }
 
-/// Gesehene Nichtland-Karten des Gegners, alphabetisch.
+/// The opponent's non-land cards seen, alphabetically.
 fn opp_card_names(ls: &LiveState, db: &CardDb) -> Vec<String> {
     let mut seen: Vec<String> = ls
         .opp_cards

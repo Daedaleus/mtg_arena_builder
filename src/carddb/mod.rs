@@ -1,9 +1,9 @@
-//! Kartendaten aus der lokalen MTG-Arena-Datenbank (SQLite).
+//! Card data from the local MTG Arena database (SQLite).
 //!
-//! Aufbau: hier Kartentyp, Datenbank und Nachschlagen; `text` wertet
-//! Fähigkeitstexte aus, `load` liest die SQLite-Datei von Arena. Fachbegriffe
-//! für alle Module: [`color`] (Farben, Standardländer) und [`keyword`]
-//! (Schlüsselwort-Fähigkeiten).
+//! Layout: card type, database and lookup here; `text` evaluates ability
+//! texts, `load` reads Arena's SQLite file. Domain terms for all modules:
+//! [`color`] (colors, basic lands) and [`keyword`]
+//! (keyword abilities).
 
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
@@ -22,8 +22,8 @@ use text::*;
 
 pub const TYPE_LAND: u8 = 5;
 
-/// Kennung eines Kartendrucks in Arena („grpId“). Jeder Druck hat eine
-/// eigene; denselben Namen tragen oft mehrere.
+/// Id of a card printing in Arena ("grpId"). Every printing has its own;
+/// several often share the same name.
 #[derive(
     Clone,
     Copy,
@@ -41,12 +41,12 @@ pub const TYPE_LAND: u8 = 5;
 pub struct GrpId(pub u32);
 
 impl GrpId {
-    /// Kennung aus einem Arena-Wert (JSON-Zahl im Log, Datenbankspalte).
+    /// Id from an Arena value (JSON number in the log, database column).
     pub fn new(id: u32) -> GrpId {
         GrpId(id)
     }
 
-    /// 0 = kein Kartendruck (z. B. verdeckte Karten im Log).
+    /// 0 = no card printing (e.g. face-down cards in the log).
     pub fn is_known(self) -> bool {
         self.0 > 0
     }
@@ -64,14 +64,14 @@ impl From<u32> for GrpId {
     }
 }
 
-/// Normalisierter Kartenname (siehe [`name_key`]) – fasst alle Drucke einer
-/// Karte zusammen; Schlüssel für Sammlung, Turnierlisten und Ersatzkarten.
-/// Bewusst nur ein Alias: Die Schlüssel kommen aus vielen Textquellen
-/// (MTGTop8, magic.gg, Sammlung) und werden nie mit Zahlen verwechselt;
-/// erzeugt werden sie immer über [`name_key`].
+/// Normalised card name (see [`name_key`]) – groups all printings of a card;
+/// key for collection, tournament lists and replacement cards.
+/// Deliberately only an alias: the keys come from many text sources
+/// (MTGTop8, magic.gg, collection) and are never confused with numbers;
+/// they are always created through [`name_key`].
 pub type CardKey = String;
 
-/// Seltenheit einer Karte (Reihenfolge = Wert: Mythic ist die höchste).
+/// Rarity of a card (order = value: mythic is the highest).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Rarity {
     #[default]
@@ -84,7 +84,7 @@ pub enum Rarity {
 }
 
 impl Rarity {
-    /// Die vier Wildcard-Stufen; der Index ist das Wildcard-Fach.
+    /// The four wildcard tiers; the index is the wildcard slot.
     pub const WILDCARDS: [Rarity; 4] = [
         Rarity::Common,
         Rarity::Uncommon,
@@ -92,8 +92,8 @@ impl Rarity {
         Rarity::Mythic,
     ];
 
-    /// Wert aus der Arena-Datenbank: 0 = Token, 1 = Standardland,
-    /// 2 = Common, 3 = Uncommon, 4 = Rare, 5 = Mythic.
+    /// Value from the Arena database: 0 = token, 1 = basic land,
+    /// 2 = common, 3 = uncommon, 4 = rare, 5 = mythic.
     pub fn from_arena(value: u8) -> Rarity {
         match value {
             1 => Rarity::BasicLand,
@@ -105,12 +105,12 @@ impl Rarity {
         }
     }
 
-    /// Kostet die Karte eine Wildcard (keine Tokens und Standardländer)?
+    /// Does the card cost a wildcard (no tokens and basic lands)?
     pub fn needs_wildcard(self) -> bool {
         self >= Rarity::Common
     }
 
-    /// Wildcard-Fach: 0 = Common … 3 = Mythic (Tokens und Standardländer wie Common).
+    /// Wildcard slot: 0 = common … 3 = mythic (tokens and basic lands like common).
     pub fn wildcard_slot(self) -> usize {
         match self {
             Rarity::Uncommon => 1,
@@ -142,9 +142,9 @@ pub struct Card {
     pub types: Vec<u8>,
     pub subtypes: Vec<u32>,
     pub basic: bool,
-    /// Legendär: Pro Spieler darf nur eine Karte dieses Namens im Spiel sein.
+    /// Legendary: each player may only have one card of this name in play.
     pub legendary: bool,
-    /// Farbidentität als Bitmaske (Bit 0 = Weiß … Bit 4 = Grün).
+    /// Color identity as a bit mask (bit 0 = white … bit 4 = green).
     pub colors: u8,
     pub mana_cost: String,
     pub cmc: u32,
@@ -152,28 +152,28 @@ pub struct Card {
     pub power: String,
     pub toughness: String,
     pub is_primary: bool,
-    /// Druck aus einem regulären Set (keine Sonder-/Bonusveröffentlichung).
+    /// Printing from a regular set (no special or bonus release).
     pub regular: bool,
     pub back_face: bool,
-    /// Grobe Rolle laut Kartentext (siehe `ROLE_*`).
+    /// Rough role according to the card text (see `ROLE_*`).
     pub roles: u8,
-    /// Direkter Schaden an Spielern (nur Spontanzauber/Hexereien), z. B. 2 bei Burst Lightning.
+    /// Direct damage to players (instants/sorceries only), e.g. 2 for Burst Lightning.
     pub burn: u32,
-    /// Land kommt immer getappt ins Spiel („enters tapped“ ohne „unless“).
+    /// Land always enters tapped ("enters tapped" without "unless").
     pub enters_tapped: bool,
-    /// Nichtland mit Manafähigkeit („{T}: Add …“): erzeugte Farben, 0 = farblos.
+    /// Non-land with a mana ability ("{T}: Add …"): colors produced, 0 = colorless.
     pub mana: Option<u8>,
-    /// Hat eine aktivierte Fähigkeit, die Tappen kostet („{T}: …“, „{T}, …: …“).
+    /// Has an activated ability that costs tapping ("{T}: …", "{T}, …: …").
     pub tap_ability: bool,
 }
 
-/// Entfernt oder neutralisiert gegnerische Karten (Zerstören, Schaden, Verbannen …).
+/// Removes or neutralises opposing cards (destroy, damage, exile …).
 pub const ROLE_REMOVAL: u8 = 1;
-/// Neutralisiert Zaubersprüche.
+/// Counters spells.
 pub const ROLE_COUNTER: u8 = 2;
-/// Zieht Karten.
+/// Draws cards.
 pub const ROLE_DRAW: u8 = 4;
-/// Räumt das ganze Spielfeld ab – trifft auch die eigenen Kreaturen.
+/// Clears the whole battlefield – also hits the own creatures.
 pub const ROLE_WIPE: u8 = 8;
 
 pub const TYPE_INSTANT: u8 = 4;
@@ -185,8 +185,8 @@ impl Card {
         self.roles & role != 0
     }
 
-    /// Name in der eingestellten Sprache: der deutsche Name aus Arena, sonst
-    /// der englische. Zum Nachschlagen und für den Arena-Import gilt immer
+    /// Name in the selected language: the German name from Arena, otherwise
+    /// the English one. Lookups and the Arena import always use
     /// [`Card::name`].
     pub fn display_name(&self) -> &str {
         match crate::i18n::current() {
@@ -195,7 +195,7 @@ impl Card {
         }
     }
 
-    /// Hat die Karte die Fähigkeit (siehe [`keyword`])?
+    /// Does the card have the ability (see [`keyword`])?
     pub fn has_ability(&self, id: u32) -> bool {
         self.abilities.contains(&id)
     }
@@ -208,8 +208,8 @@ impl Card {
         self.types.contains(&TYPE_INSTANT)
     }
 
-    /// Manakosten aufgeteilt in farbloses Mana und farbige Symbole je Farbe
-    /// (W, U, B, R, G). Hybrid- und Phyrexia-Symbole zählen als farblos.
+    /// Mana costs split into generic mana and colored symbols per color
+    /// (W, U, B, R, G). Hybrid and Phyrexian symbols count as generic.
     pub fn pips(&self) -> (u32, [u32; 5]) {
         let mut generic = 0;
         let mut colored = [0u32; 5];
@@ -235,12 +235,12 @@ impl Card {
 pub struct CardDb {
     pub cards: HashMap<GrpId, Card>,
     by_name: HashMap<CardKey, Vec<GrpId>>,
-    /// Vorderseite von „A // B“-Karten -> vollständiger Schlüssel.
+    /// Front face of "A // B" cards -> full key.
     front_names: HashMap<String, String>,
     pub version: String,
 }
 
-/// Normalisiert Kartennamen für den Vergleich zwischen Quellen.
+/// Normalises card names for comparison between sources.
 pub fn name_key(name: &str) -> CardKey {
     let mut s = name
         .trim()
@@ -257,7 +257,7 @@ pub fn name_key(name: &str) -> CardKey {
 }
 
 impl CardDb {
-    /// Baut die Datenbank aus fertigen Karten (z. B. für Tests).
+    /// Builds the database from finished cards (e.g. for tests).
     pub fn from_cards(list: Vec<Card>, version: impl Into<String>) -> CardDb {
         let mut cards = HashMap::new();
         let mut by_name: HashMap<String, Vec<GrpId>> = HashMap::new();
@@ -283,7 +283,7 @@ impl CardDb {
         }
     }
 
-    /// Löst einen Kartennamen (auch nur die Vorderseite) in den DB-Schlüssel auf.
+    /// Resolves a card name (also only the front face) into the database key.
     pub fn resolve(&self, name: &str) -> Option<String> {
         let key = name_key(name);
         if self.by_name.contains_key(&key) {
@@ -297,12 +297,12 @@ impl CardDb {
         self.front_names.get(&key).cloned()
     }
 
-    /// Alle Drucke (grpIds) zu einem aufgelösten Namensschlüssel.
+    /// All printings (grpIds) of a resolved name key.
     pub fn printings(&self, key: &str) -> &[GrpId] {
         self.by_name.get(key).map(Vec::as_slice).unwrap_or(&[])
     }
 
-    /// Repräsentativer Druck: bevorzugt aus einem regulären Set, möglichst neu.
+    /// Representative printing: preferably from a regular set, as new as possible.
     pub fn representative(&self, key: &str) -> Option<&Card> {
         let cards: Vec<&Card> = self
             .printings(key)
@@ -319,14 +319,14 @@ impl CardDb {
             .copied()
     }
 
-    /// Anzeigename zu einem (englischen) Kartennamen; unbekannte Namen bleiben.
+    /// Display name for an (English) card name; unknown names stay.
     pub fn display_name(&self, name: &str) -> String {
         self.resolve(name)
             .and_then(|k| self.representative(&k))
             .map_or_else(|| name.to_string(), |c| c.display_name().to_string())
     }
 
-    /// Günstigste Seltenheit über alle Drucke – so viel kostet die Wildcard.
+    /// Cheapest rarity over all printings – that's what the wildcard costs.
     pub fn craft_rarity(&self, key: &str) -> Rarity {
         self.printings(key)
             .iter()

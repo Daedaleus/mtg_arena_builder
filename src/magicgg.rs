@@ -1,9 +1,9 @@
-//! Offizielle Decklisten von magic.gg (Championships, Pro Tours, Arena-Events,
-//! wöchentliche Ranglisten-Decks). Nur das Auswerten der Seiten – der Abruf
-//! mit Cache steckt in [`crate::meta::Fetcher`].
+//! Official decklists from magic.gg (championships, Pro Tours, Arena events,
+//! weekly ranked decks). Only parsing the pages – fetching with cache lives in
+//! [`crate::meta::Fetcher`].
 //!
-//! Aufbau einer Event-Seite: je Deck ein `<deck-list deck-title=… event-date=…
-//! event-name=… format=…>` mit `<main-deck>` und `<side-board>` als Textliste.
+//! Structure of an event page: per deck a `<deck-list deck-title=… event-date=…
+//! event-name=… format=…>` with `<main-deck>` and `<side-board>` as a text list.
 
 use std::sync::LazyLock;
 
@@ -11,21 +11,21 @@ use regex::Regex;
 
 use crate::deck::{self, Deck};
 
-/// Ein Event auf der Übersichtsseite.
+/// An event on the overview page.
 #[derive(Clone, Debug, PartialEq)]
 pub struct GgEvent {
-    /// Pfadteil nach `/decklists/`.
+    /// Path part after `/decklists/`.
     pub slug: String,
     pub title: String,
     pub date: String,
 }
 
-/// Ein Deck einer Event-Seite.
+/// A deck of an event page.
 #[derive(Clone, Debug)]
 pub struct GgDeck {
-    /// Spielername oder z. B. „Platinum-Mythic Rank Player“.
+    /// Player name or e.g. "Platinum-Mythic Rank Player".
     pub title: String,
-    /// Platzierung o. Ä., oft leer.
+    /// Placement or similar, often empty.
     pub subtitle: String,
     pub event: String,
     pub date: String,
@@ -34,15 +34,13 @@ pub struct GgDeck {
 }
 
 static INDEX: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r#"(?s)<a href="/decklists/([a-z0-9-]+)"[^>]*>(.*?)</a>"#)
-        .expect("gültiger Ausdruck")
+    Regex::new(r#"(?s)<a href="/decklists/([a-z0-9-]+)"[^>]*>(.*?)</a>"#).expect("valid regex")
 });
-static TAG: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"<[^>]*>").expect("gültiger Ausdruck"));
-static DECK: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"(?s)<deck-list([^>]*)>(.*?)</deck-list>").expect("gültiger Ausdruck")
-});
+static TAG: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"<[^>]*>").expect("valid regex"));
+static DECK: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"(?s)<deck-list([^>]*)>(.*?)</deck-list>").expect("valid regex"));
 static ATTR: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r#"([a-z-]+)="([^"]*)""#).expect("gültiger Ausdruck"));
+    LazyLock::new(|| Regex::new(r#"([a-z-]+)="([^"]*)""#).expect("valid regex"));
 
 fn decode(s: &str) -> String {
     s.replace("&amp;", "&")
@@ -54,7 +52,7 @@ fn decode(s: &str) -> String {
         .to_string()
 }
 
-/// Text zwischen zwei Tags (`<main-deck>` … `</main-deck>`).
+/// Text between two tags (`<main-deck>` … `</main-deck>`).
 fn section<'a>(body: &'a str, tag: &str) -> &'a str {
     let open = format!("<{tag}>");
     let close = format!("</{tag}>");
@@ -66,8 +64,8 @@ fn section<'a>(body: &'a str, tag: &str) -> &'a str {
         .unwrap_or("")
 }
 
-/// Events der Übersichtsseite, deren Kennung `format` enthält (z. B.
-/// „standard“); leer = alle. Jede Kennung nur einmal, Reihenfolge der Seite.
+/// Events of the overview page whose id contains `format` (e.g. "standard");
+/// empty = all. Each id only once, in the order of the page.
 pub fn parse_index(html: &str, format: &str) -> Vec<GgEvent> {
     let mut out: Vec<GgEvent> = Vec::new();
     for c in INDEX.captures_iter(html) {
@@ -90,7 +88,7 @@ pub fn parse_index(html: &str, format: &str) -> Vec<GgEvent> {
     out
 }
 
-/// Alle Decks einer Event-Seite.
+/// All decks of an event page.
 pub fn parse_event(html: &str) -> Vec<GgDeck> {
     DECK.captures_iter(html)
         .filter_map(|c| {
@@ -115,9 +113,9 @@ pub fn parse_event(html: &str) -> Vec<GgDeck> {
         .collect()
 }
 
-/// Feste Kennung für Deck `index` eines Events: im oberen Zahlenbereich, damit
-/// sie nicht mit MTGTop8-Kennungen, eigenen Listen oder Vorschlägen kollidiert.
-/// Liegt immer ab 2³¹ – oberhalb der MTGTop8-Decknummern.
+/// Fixed id for deck `index` of an event: in the upper number range, so it
+/// doesn't collide with MTGTop8 ids, own lists or suggestions.
+/// Always from 2³¹ on – above the MTGTop8 deck numbers.
 pub fn deck_id(slug: &str, index: usize) -> u32 {
     // FNV-1a
     let mut h: u32 = 0x811c_9dc5;
@@ -128,7 +126,7 @@ pub fn deck_id(slug: &str, index: usize) -> u32 {
     0x8000_0000 | (h & 0x7fff_ffff)
 }
 
-/// Dateiname im Cache für eine Event-Seite.
+/// File name in the cache for an event page.
 pub fn cache_file(slug: &str) -> String {
     let safe: String = slug
         .chars()

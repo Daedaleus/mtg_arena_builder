@@ -1,5 +1,5 @@
-//! Einstellungen und Sitzungszustand, die einen Neustart überleben
-//! (`settings.json` im Datenordner).
+//! Settings and session state that survive a restart (`settings.json` in the
+//! data folder).
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -10,40 +10,40 @@ use crate::i18n::Language;
 use crate::meta::Format;
 use crate::paths;
 
-/// Aktuelle Version von `settings.json`. Wird sie erhöht, passt
-/// [`Settings::migrate`] ältere Dateien an.
+/// Current version of `settings.json`. When it is increased,
+/// [`Settings::migrate`] adapts older files.
 pub const SETTINGS_VERSION: u32 = 1;
 
-/// Alles, was einen Neustart überleben soll.
+/// Everything that should survive a restart.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Settings {
-    /// Version der Datei (0 = vor Einführung der Versionsnummer; fehlt das
-    /// Feld, gilt 0 – nicht der Standardwert der neuen Einstellungen).
+    /// Version of the file (0 = before the version number was introduced; if
+    /// the field is missing, 0 applies – not the default of the new settings).
     #[serde(default)]
     pub version: u32,
     pub mtga_dir: String,
-    /// Begleitfenster geöffnet?
+    /// Companion window open?
     pub companion: bool,
-    /// Textgröße (Zoomfaktor der Oberfläche).
+    /// Text size (zoom factor of the interface).
     pub zoom: f32,
-    /// „Erste Schritte“ ausgeblendet?
+    /// "Getting started" hidden?
     pub onboarding_hidden: bool,
-    /// In der Datei als MTGTop8-Kürzel („ST“); ältere Dateien mit Zahl
-    /// (Index der früheren Formatliste) werden weiter gelesen.
+    /// In the file as an MTGTop8 code ("ST"); older files with a number (index
+    /// of the former format list) are still read.
     #[serde(with = "format_code")]
     pub format: Format,
     pub include_side: bool,
     pub with_sets: bool,
     pub sort_by_fit: bool,
-    /// Aktiver Reiter (siehe `app::Tab`).
+    /// Active tab (see `app::Tab`).
     pub tab: u8,
     pub paste_text: String,
     pub sel_arch: Option<u32>,
     pub sel_deck: Option<u32>,
-    /// Gewählte Ersatzkarten: (Deck, Kartenschlüssel, Ersatz).
+    /// Chosen replacement cards: (deck, card key, replacement).
     pub replacements: Vec<(u32, String, String)>,
-    /// Sprache der Oberfläche (Standard: wie das Betriebssystem).
+    /// Interface language (default: like the operating system).
     pub language: Language,
 }
 
@@ -69,23 +69,23 @@ impl Default for Settings {
     }
 }
 
-/// Kleinster und größter erlaubter Zoomfaktor.
+/// Smallest and largest allowed zoom factor.
 pub const ZOOM_RANGE: (f32, f32) = (0.8, 1.6);
 
 impl Settings {
-    /// Bringt Einstellungen aus einer älteren Datei auf den aktuellen Stand.
-    /// Version 0 (ohne Nummer) hat dieselben Felder – nur die Nummer fehlt.
+    /// Brings settings from an older file up to date.
+    /// Version 0 (without number) has the same fields – only the number is missing.
     pub fn migrate(mut self) -> Settings {
         self.version = SETTINGS_VERSION;
         self
     }
 
-    /// Zoomfaktor im erlaubten Bereich.
+    /// Zoom factor within the allowed range.
     pub fn zoom(&self) -> f32 {
         self.zoom.clamp(ZOOM_RANGE.0, ZOOM_RANGE.1)
     }
 
-    /// Ersatzkarten als Nachschlagetabelle (Deck, Kartenschlüssel) -> Ersatz.
+    /// Replacement cards as a lookup table (deck, card key) -> replacement.
     pub fn replacement_map(&self) -> HashMap<(u32, String), String> {
         self.replacements
             .iter()
@@ -94,7 +94,7 @@ impl Settings {
             .collect()
     }
 
-    /// Übernimmt die Ersatzkarten (sortiert, damit die Datei stabil bleibt).
+    /// Takes over the replacement cards (sorted, so the file stays stable).
     pub fn set_replacements(&mut self, map: &HashMap<(u32, String), String>) {
         let mut list: Vec<(u32, String, String)> = map
             .iter()
@@ -105,20 +105,20 @@ impl Settings {
     }
 }
 
-/// Die Datei `settings.json`; schreibt nur, wenn sich etwas geändert hat.
+/// The file `settings.json`; only writes when something changed.
 pub struct SettingsFile {
     path: PathBuf,
     saved: Vec<u8>,
-    /// Darf geschrieben werden? Nein, wenn die vorhandene Datei nicht lesbar
-    /// war – sonst würden die Einstellungen durch Standardwerte ersetzt.
+    /// May it be written? No if the existing file was unreadable – otherwise
+    /// the settings would be replaced by defaults.
     writable: bool,
-    /// Problem beim Laden (für die Statuszeile).
+    /// Problem while loading (for the status line).
     pub problem: Option<String>,
 }
 
 impl SettingsFile {
-    /// Liest die Einstellungen aus `dir`; fehlt die Datei oder ist sie
-    /// beschädigt, gelten die Standardwerte.
+    /// Reads the settings from `dir`; if the file is missing or damaged, the
+    /// defaults apply.
     pub fn load(dir: &Path) -> (SettingsFile, Settings) {
         let path = dir.join("settings.json");
         let (raw, problem, writable) = match paths::load_json::<Settings>(&path) {
@@ -145,8 +145,8 @@ impl SettingsFile {
                 false,
             ),
         };
-        // Gespeicherten Stand vor der Migration merken – dann wird eine
-        // angepasste Datei beim nächsten Speichern neu geschrieben.
+        // Remember the stored state before the migration – then an adapted
+        // file is written again on the next save.
         let saved = raw
             .as_ref()
             .and_then(|s| serde_json::to_vec_pretty(s).ok())
@@ -168,8 +168,8 @@ impl SettingsFile {
         )
     }
 
-    /// Schreibt die Einstellungen, falls sie sich seit dem letzten Speichern
-    /// geändert haben. `Ok(true)` = geschrieben, `Ok(false)` = unverändert.
+    /// Writes the settings if they changed since the last save.
+    /// `Ok(true)` = written, `Ok(false)` = unchanged.
     pub fn save(&mut self, settings: &Settings) -> std::io::Result<bool> {
         let json = serde_json::to_vec_pretty(settings)?;
         if json == self.saved || !self.writable {
@@ -181,7 +181,7 @@ impl SettingsFile {
     }
 }
 
-/// `format` als MTGTop8-Kürzel speichern, Zahl oder Kürzel lesen.
+/// Store `format` as an MTGTop8 code, read a number or a code.
 mod format_code {
     use serde::{Deserialize, Deserializer, Serializer};
 

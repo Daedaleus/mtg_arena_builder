@@ -1,5 +1,5 @@
-//! Arena-Kennungen von Schlüsselwort-Fähigkeiten (Spalte `Abilities` der
-//! Kartendatenbank, im Log `keywords` eines Objekts).
+//! Arena ids of keyword abilities (column `Abilities` of the card database,
+//! `keywords` of an object in the log).
 
 pub const DEATHTOUCH: u32 = 1;
 pub const DEFENDER: u32 = 2;

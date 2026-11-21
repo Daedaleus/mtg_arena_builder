@@ -1,8 +1,7 @@
-//! Gegner-Analyse: Gegen welche Decks gewinne bzw. verliere ich?
+//! Opponent analysis: against which decks do I win or lose?
 //!
-//! Das gegnerische Deck wird aus den gesehenen Karten erkannt: Passen sie zu
-//! einem geladenen Turnier-Archetyp, wird dessen Name verwendet, sonst die
-//! Farben des Gegners.
+//! The opposing deck is recognised from the cards seen: if they fit a loaded
+//! tournament archetype, its name is used, otherwise the opponent's colors.
 
 use std::collections::{HashMap, HashSet};
 
@@ -13,11 +12,11 @@ use crate::games::{self, GameRecord};
 #[derive(Clone, Debug, Default)]
 pub struct OppGroup {
     pub name: String,
-    /// Indizes der Partien.
+    /// Indices of the games.
     pub games: Vec<usize>,
     pub wins: usize,
     pub avg_turns: f32,
-    /// Gefährlichste Karten dieses Gegnertyps: (Name, Schaden an mir).
+    /// Most dangerous cards of this opponent type: (name, damage to me).
     pub threats: Vec<(String, u32)>,
 }
 
@@ -27,16 +26,16 @@ impl OppGroup {
     }
 }
 
-/// Anteil der Turnierlisten eines Archetyps, die eine Karte spielen.
+/// Share of the tournament lists of an archetype that play a card.
 #[derive(Clone, Debug, Default)]
 pub struct ArchShare {
     pub name: String,
-    /// Kartenschlüssel -> Anteil der Listen (0..=1).
+    /// Card key -> share of the lists (0..=1).
     pub share: HashMap<String, f32>,
 }
 
-/// Anteile je Karte für alle Archetypen mit geladenen Turnierlisten
-/// (Haupt- und Nebendeck; jede Karte zählt pro Liste einmal).
+/// Shares per card for all archetypes with loaded tournament lists (main
+/// deck and sideboard; each card counts once per list).
 pub fn arch_shares(archetypes: &[MetaArchetype], db: &CardDb) -> Vec<ArchShare> {
     archetypes
         .iter()
@@ -63,7 +62,7 @@ pub fn arch_shares(archetypes: &[MetaArchetype], db: &CardDb) -> Vec<ArchShare> 
         .collect()
 }
 
-/// Schlüssel der gesehenen Nichtland-Karten.
+/// Keys of the non-land cards seen.
 pub fn seen_keys<'a>(cards: impl IntoIterator<Item = &'a GrpId>, db: &CardDb) -> HashSet<String> {
     cards
         .into_iter()
@@ -73,9 +72,8 @@ pub fn seen_keys<'a>(cards: impl IntoIterator<Item = &'a GrpId>, db: &CardDb) ->
         .collect()
 }
 
-/// Archetyp, zu dem die gesehenen Karten am besten passen. Mindestens drei
-/// typische Karten bzw. die Hälfte der gesehenen Karten (wenigstens zwei)
-/// müssen passen.
+/// Archetype the cards seen fit best. At least three typical cards or half
+/// of the cards seen (at least two) must fit.
 pub fn match_archetype<'a>(
     seen: &HashSet<String>,
     shares: &'a [ArchShare],
@@ -93,12 +91,12 @@ pub fn match_archetype<'a>(
     (hits >= 3 || (seen.len() >= 2 && hits * 2 >= seen.len() && hits >= 2)).then_some(arch)
 }
 
-/// Ab diesem durchschnittlichen Anteil gilt eine Deckliste als Archetyp.
+/// From this average share on, a decklist counts as the archetype.
 const MIN_DECK_MATCH: f32 = 0.35;
 
-/// Bezeichnung für eine vollständige Deckliste ohne Archetyp-Namen (z. B. von
-/// magic.gg): passender Turnier-Archetyp, wenn die Nichtland-Karten im Schnitt
-/// in mindestens 35 % seiner Listen vorkommen, sonst Farben und seltenste Karte.
+/// Name for a complete decklist without an archetype name (e.g. from
+/// magic.gg): matching tournament archetype if the non-land cards appear in
+/// at least 35 % of its lists on average, otherwise colors and rarest card.
 pub fn deck_label(deck: &crate::deck::Deck, db: &CardDb, shares: &[ArchShare]) -> String {
     let cards: Vec<&crate::carddb::Card> = deck
         .main
@@ -129,7 +127,7 @@ pub fn deck_label(deck: &crate::deck::Deck, db: &CardDb, shares: &[ArchShare]) -
     }
 }
 
-/// Erkennt das gegnerische Deck einer Partie.
+/// Recognises the opposing deck of a game.
 pub fn classify(g: &GameRecord, db: &CardDb, shares: &[ArchShare]) -> String {
     let seen = seen_keys(g.opp_cards.keys(), db);
     match match_archetype(&seen, shares) {
@@ -138,7 +136,7 @@ pub fn classify(g: &GameRecord, db: &CardDb, shares: &[ArchShare]) -> String {
     }
 }
 
-/// Fasst die Partien nach Gegnertyp zusammen, meiste Niederlagen zuerst.
+/// Groups the games by opponent type, most losses first.
 pub fn analyze(games: &[GameRecord], db: &CardDb, shares: &[ArchShare]) -> Vec<OppGroup> {
     let mut groups: Vec<OppGroup> = Vec::new();
     let mut damage: Vec<HashMap<String, u32>> = Vec::new();

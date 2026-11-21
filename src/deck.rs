@@ -1,4 +1,4 @@
-//! Decklisten einlesen und gegen die Sammlung prüfen.
+//! Reading decklists and checking them against the collection.
 
 use std::collections::{HashMap, HashSet};
 
@@ -16,12 +16,12 @@ pub struct Deck {
     pub side: Vec<DeckEntry>,
 }
 
-/// Zerlegt eine Zeile wie `4 Watery Grave` oder `4 Watery Grave (EOE) 261`.
+/// Splits a line like `4 Watery Grave` or `4 Watery Grave (EOE) 261`.
 fn parse_entry(line: &str) -> Option<DeckEntry> {
     let (qty, rest) = line.split_once(char::is_whitespace)?;
     let qty: u32 = qty.trim_end_matches(['x', 'X']).parse().ok()?;
     let mut name = rest.trim();
-    // Arena-Suffix „(SET) Nummer“ entfernen
+    // Remove the Arena suffix "(SET) number"
     if let Some(open) = name.rfind(" (") {
         let tail = &name[open + 2..];
         if let Some(close) = tail.find(')') {
@@ -37,7 +37,7 @@ fn parse_entry(line: &str) -> Option<DeckEntry> {
     })
 }
 
-/// Liest Listen im Arena- und MTGO-Textformat.
+/// Reads lists in Arena and MTGO text format.
 pub fn parse(text: &str) -> Deck {
     let mut deck = Deck::default();
     let mut in_side = false;
@@ -63,7 +63,7 @@ pub fn parse(text: &str) -> Deck {
         let Some(entry) = parse_entry(line) else {
             continue;
         };
-        // MTGO-Export ohne Überschrift: Leerzeile trennt das Sideboard ab.
+        // MTGO export without a heading: an empty line separates the sideboard.
         if saw_blank_after_main {
             in_side = true;
             saw_blank_after_main = false;
@@ -81,11 +81,11 @@ pub fn parse(text: &str) -> Deck {
 pub struct LineEval {
     pub qty: u32,
     pub name: String,
-    /// Schlüssel in der Kartendatenbank; `None` = Karte gibt es in Arena nicht.
+    /// Key in the card database; `None` = the card doesn't exist in Arena.
     pub key: Option<String>,
     pub side: bool,
     pub rarity: Rarity,
-    /// Besitz insgesamt (alle Drucke).
+    /// Owned in total (all printings).
     pub owned: u32,
     pub missing: u32,
     pub basic: bool,
@@ -100,9 +100,9 @@ pub struct DeckEval {
 pub struct Summary {
     pub total: u32,
     pub missing: u32,
-    /// Fehlende Karten je Seltenheit (Common, Uncommon, Rare, Mythic).
+    /// Missing cards per rarity (common, uncommon, rare, mythic).
     pub need: [u32; 4],
-    /// Karten, die es in Arena gar nicht gibt.
+    /// Cards that don't exist in Arena at all.
     pub unavailable: u32,
 }
 
@@ -115,7 +115,7 @@ impl Summary {
         }
     }
 
-    /// Reichen die vorhandenen Wildcards, um alles Fehlende zu craften?
+    /// Do the available wildcards suffice to craft everything missing?
     pub fn craftable(&self, wildcards: [u32; 4]) -> bool {
         self.unavailable == 0 && (0..4).all(|i| self.need[i] <= wildcards[i])
     }
@@ -152,7 +152,7 @@ pub fn evaluate(deck: &Deck, db: &CardDb, owned: &HashMap<String, u32>) -> DeckE
             line.rarity = db.craft_rarity(&key);
             line.owned = owned.get(&key).copied().unwrap_or(0);
             if line.basic {
-                // Standardländer stellt Arena unbegrenzt zur Verfügung.
+                // Arena provides basic lands without limit.
                 line.missing = 0;
             } else {
                 let left = remaining.entry(key).or_insert(line.owned);
@@ -167,8 +167,8 @@ pub fn evaluate(deck: &Deck, db: &CardDb, owned: &HashMap<String, u32>) -> DeckE
 }
 
 impl DeckEval {
-    /// Zusammenfassung. `replaced` liefert je Zeile, wie viele fehlende Exemplare
-    /// durch eine Ersatzkarte abgedeckt sind.
+    /// Summary. `replaced` returns per line how many missing copies are
+    /// covered by a replacement card.
     pub fn summary(&self, include_side: bool, replaced: impl Fn(&LineEval) -> u32) -> Summary {
         let mut s = Summary::default();
         for line in self.lines.iter().filter(|l| include_side || !l.side) {
@@ -188,8 +188,8 @@ impl DeckEval {
     }
 }
 
-/// Erzeugt Text für „Importieren“ in Arena. `replacement` liefert optional den
-/// Ersatz (Name, Anzahl) für fehlende Exemplare einer Zeile.
+/// Creates text for "Import" in Arena. `replacement` optionally returns the
+/// replacement (name, count) for missing copies of a line.
 pub fn export_arena(
     eval: &DeckEval,
     db: &CardDb,
@@ -200,7 +200,7 @@ pub fn export_arena(
 ) -> String {
     let fmt = |key: Option<&str>, name: &str, qty: u32| -> String {
         let card = key.and_then(|k| {
-            // Bevorzugt einen Druck, den man besitzt.
+            // Prefer a printing you own.
             let owned_print = db
                 .printings(k)
                 .iter()
@@ -246,8 +246,8 @@ pub fn export_arena(
     out
 }
 
-/// In wie vielen Listen kommt jede Karte vor (Kartenschlüssel -> Anzahl Listen)?
-/// Für den Deckbau: Karten aus Turnierlisten gelten als stärker.
+/// In how many lists does each card appear (card key -> number of lists)?
+/// For deck building: cards from tournament lists count as stronger.
 pub fn usage_counts<'a>(evals: impl IntoIterator<Item = &'a DeckEval>) -> HashMap<String, u32> {
     let mut counts: HashMap<String, u32> = HashMap::new();
     for eval in evals {

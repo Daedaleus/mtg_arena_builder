@@ -1,19 +1,19 @@
-//! Mehrsprachigkeit: Alle Anzeigetexte stehen in `locales/app.yml`, je
-//! Schlüssel auf Deutsch und Englisch. Im Code holt [`tr!`](crate::tr) einen
-//! Text in der aktuellen Sprache, Platzhalter heißen `%{name}`:
+//! Internationalisation: all display texts are in `locales/app.yml`, each
+//! key in German and English. In code, [`tr!`](crate::tr) fetches a text in
+//! the current language; placeholders are called `%{name}`:
 //!
 //! ```ignore
 //! tr!("deck_check.wins_games", wins = 3, games = 5)
 //! ```
 //!
-//! Die Sprache kommt aus den Einstellungen ([`Language`]); „wie das
-//! Betriebssystem“ ist der Standard. Kartennamen bleiben englisch, wie in Arena.
+//! The language comes from the settings ([`Language`]); "like the operating
+//! system" is the default. Card names stay English, as in Arena.
 
 use std::sync::atomic::{AtomicU8, Ordering};
 
 use serde::{Deserialize, Serialize};
 
-/// Sprache, in der Texte angezeigt werden.
+/// Language in which texts are shown.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 pub enum Locale {
     #[default]
@@ -24,7 +24,7 @@ pub enum Locale {
 impl Locale {
     pub const ALL: [Locale; 2] = [Locale::German, Locale::English];
 
-    /// Kürzel in `locales/app.yml`.
+    /// Code in `locales/app.yml`.
     pub fn code(self) -> &'static str {
         match self {
             Locale::German => "de",
@@ -32,7 +32,7 @@ impl Locale {
         }
     }
 
-    /// Name der Sprache in ihr selbst (für die Auswahl).
+    /// Name of the language in itself (for the choice).
     pub fn native_name(self) -> &'static str {
         match self {
             Locale::German => "Deutsch",
@@ -40,8 +40,8 @@ impl Locale {
         }
     }
 
-    /// Sprache zu einem Gebietsschema wie „de-DE“ oder „en_US.UTF-8“;
-    /// alles außer Deutsch wird Englisch.
+    /// Language for a locale like "de-DE" or "en_US.UTF-8"; everything except
+    /// German becomes English.
     pub fn from_tag(tag: &str) -> Locale {
         let lang = tag.split(['-', '_', '.']).next().unwrap_or("");
         if lang.eq_ignore_ascii_case("de") {
@@ -51,13 +51,13 @@ impl Locale {
         }
     }
 
-    /// Sprache des Betriebssystems (Englisch, wenn unbekannt).
+    /// Language of the operating system (English if unknown).
     pub fn system() -> Locale {
         sys_locale::get_locale().map_or(Locale::English, |tag| Locale::from_tag(&tag))
     }
 }
 
-/// Spracheinstellung: wie das Betriebssystem oder fest gewählt.
+/// Language setting: like the operating system or chosen explicitly.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Language {
     #[default]
@@ -87,11 +87,11 @@ impl<'de> Deserialize<'de> for Locale {
     }
 }
 
-/// Aktuelle Sprache (Index in [`Locale::ALL`]). Deutsch, bis die App die
-/// Einstellung anwendet – Tests laufen damit auf Deutsch.
+/// Current language (index in [`Locale::ALL`]). German until the app applies
+/// the setting – tests therefore run in German.
 static CURRENT: AtomicU8 = AtomicU8::new(0);
 
-/// Stellt die Sprache für alle folgenden Texte um.
+/// Switches the language for all following texts.
 pub fn set(locale: Locale) {
     let i = Locale::ALL.iter().position(|l| *l == locale).unwrap_or(0);
     CURRENT.store(i as u8, Ordering::Relaxed);
@@ -101,7 +101,7 @@ pub fn current() -> Locale {
     Locale::ALL[usize::from(CURRENT.load(Ordering::Relaxed)) % Locale::ALL.len()]
 }
 
-/// Text in der aktuellen Sprache, siehe Moduldoku.
+/// Text in the current language, see the module docs.
 #[macro_export]
 macro_rules! tr {
     ($key:literal $(, $($args:tt)*)?) => {
