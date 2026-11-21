@@ -1,49 +1,49 @@
-//! Eine simulierte Partie: austeilen (mit Mulligan), eigener Zug nach dem
-//! Zugvorschlag, Zug des Gegners, Messwerte je Zug – und die Summen über
-//! alle Partien.
+//! One simulated game: deal (with mulligan), own turn following the turn
+//! suggestion, the opponent's turn, measurements per turn – and the totals
+//! over all games.
 
 use super::*;
 
-/// Starthände mit so vielen Ländern behält die Simulation, sonst Mulligan.
+/// The simulation keeps opening hands with this many lands, otherwise mulligan.
 const KEEP_LANDS: std::ops::RangeInclusive<usize> = 2..=5;
 
-/// Messwerte einer einzelnen simulierten Partie.
+/// Measurements of a single simulated game.
 #[derive(Default)]
 struct GameStats {
     mulligan: bool,
-    /// Mindestens T Länder im Spiel in Zug T (T = 1..4).
+    /// At least T lands in play on turn T (T = 1..4).
     on_curve: [bool; 4],
     mana_used: [u32; TURNS],
     mana_avail: [u32; TURNS],
     life: [i32; TURNS],
     opp_life: [i32; TURNS],
-    /// In Zug 2–4 war eine Karte nur wegen der Farben nicht bezahlbar.
+    /// On turns 2–4 a card was unaffordable only because of its colors.
     color_screw: bool,
-    /// Dabei fehlende Farben (W, U, B, R, G).
+    /// The colors missing then (W, U, B, R, G).
     missing: [bool; 5],
     flood: bool,
 }
 
-/// Eine simulierte Partie aus Sicht des eigenen Decks.
+/// A simulated game from the point of view of the own deck.
 pub(super) struct Game<'a> {
     db: &'a CardDb,
     pub(super) on_play: bool,
     library: Vec<GrpId>,
     hand: Vec<GrpId>,
-    /// Eigene Länder im Spiel.
+    /// Own lands in play.
     lands: Vec<GrpId>,
-    /// Nichtländer mit Manafähigkeit im Spiel (z. B. Llanowar Elves).
+    /// Non-lands with a mana ability in play (e.g. Llanowar Elves).
     mana_sources: Vec<GrpId>,
     board: Board,
-    /// Ungenutztes Mana des Zugvorschlags in diesem Zug.
+    /// Mana of the turn suggestion left unused this turn.
     mana_left: u32,
     stats: GameStats,
 }
 
 impl<'a> Game<'a> {
-    /// Mischt, zieht sieben Karten und nimmt bei zu wenigen oder zu vielen
-    /// Ländern einmal einen Mulligan (London: 7 ziehen, eine Karte unter
-    /// die Bibliothek – bei vielen Ländern ein Land, sonst die teuerste).
+    /// Shuffles, draws seven cards and takes one mulligan with too few or too
+    /// many lands (London: draw 7, put one card on the bottom of the library –
+    /// a land with many lands, otherwise the most expensive card).
     pub(super) fn deal(deck: &[GrpId], db: &'a CardDb, on_play: bool, rng: &mut Rng) -> Game<'a> {
         let mut library = deck.to_vec();
         rng.shuffle(&mut library);
@@ -82,7 +82,7 @@ impl<'a> Game<'a> {
         }
     }
 
-    /// Zug des Gegners: neue Kreatur, vielleicht Entfernung, Angriff mit Trick.
+    /// The opponent's turn: new creature, maybe removal, attack with a trick.
     pub(super) fn opp_turn(&mut self, turn: usize, opponent: &Opponent, rng: &mut Rng) {
         let new = opponent.creature(turn, rng);
         let removal = opponent.removal > 0.0 && rng.chance(opponent.removal);
@@ -91,7 +91,7 @@ impl<'a> Game<'a> {
         self.lose_mana_sources(&died);
     }
 
-    /// Eigener Zug: ziehen, Land und Zauber nach dem Zugvorschlag, angreifen.
+    /// Own turn: draw, land and spells following the turn suggestion, attack.
     pub(super) fn my_turn(
         &mut self,
         turn: usize,
@@ -104,7 +104,7 @@ impl<'a> Game<'a> {
         if (turn > 1 || !self.on_play) && !self.library.is_empty() {
             self.hand.push(self.library.remove(0));
         }
-        // Legendary-Regel: nur ein Exemplar je Name im Spiel.
+        // Legend rule: only one copy per name in play.
         let board: Vec<GrpId> = self.board.mine.iter().map(|u| u.card).collect();
         let hand = turnplan::without_legend_duplicates(db, &self.hand, &board);
         let plan = turnplan::plan(
@@ -141,7 +141,7 @@ impl<'a> Game<'a> {
         self.mana_left = plan.mana_total - plan.mana_used;
     }
 
-    /// Spielt eine Karte aus der Hand.
+    /// Plays a card from the hand.
     fn cast(&mut self, grp: GrpId) {
         let Some(i) = self.hand.iter().position(|h| *h == grp) else {
             return;
@@ -155,7 +155,7 @@ impl<'a> Game<'a> {
         }
     }
 
-    /// Gestorbene Manakreaturen liefern kein Mana mehr.
+    /// Mana creatures that died produce no more mana.
     fn lose_mana_sources(&mut self, died: &[GrpId]) {
         for grp in died {
             if let Some(i) = self.mana_sources.iter().position(|g| g == grp) {
@@ -164,7 +164,7 @@ impl<'a> Game<'a> {
         }
     }
 
-    /// Messwerte am Ende der Zugrunde.
+    /// Measurements at the end of the round.
     pub(super) fn end_turn(&mut self, turn: usize) {
         if turn == FLOOD_TURN {
             self.stats.flood = self.lands.len() >= 5 && lands_in(self.db, &self.hand) >= 2;
@@ -176,8 +176,8 @@ impl<'a> Game<'a> {
         }
     }
 
-    /// Farbe fehlt: Eine Karte wäre vom Manawert her bezahlbar gewesen, aber
-    /// nicht mit den vorhandenen Farben.
+    /// Color missing: a card would have been affordable by mana value, but not
+    /// with the available colors.
     fn check_colors(&mut self) {
         let sources = turnplan::sources(self.db, &self.lands, &self.mana_sources);
         let have = sources.iter().fold(0u8, |m, c| m | c);
@@ -200,8 +200,8 @@ impl<'a> Game<'a> {
     }
 }
 
-/// Gewohnheit „besserer Zug möglich“: manchmal den teuersten Zauber des
-/// Zugvorschlags nicht spielen.
+/// Habit "better play possible": sometimes don't cast the most expensive
+/// spell of the turn suggestion.
 fn skip_priciest(
     db: &CardDb,
     h: &Habits,
@@ -223,7 +223,7 @@ fn skip_priciest(
     }
 }
 
-/// Summen über alle simulierten Partien.
+/// Totals over all simulated games.
 #[derive(Default)]
 pub(super) struct Tally {
     games: usize,
@@ -269,7 +269,7 @@ impl Tally {
         self.kills += u64::from(b.kills);
     }
 
-    /// Anteile und Durchschnitte in den Bericht eintragen.
+    /// Enter shares and averages into the report.
     pub(super) fn fill(&self, r: &mut SimReport) {
         let n = self.games as f32;
         let share = |k: usize| k as f32 / n;

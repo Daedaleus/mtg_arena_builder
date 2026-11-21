@@ -1,15 +1,15 @@
-//! Gegner-Druck: ein schneller Gegner spielt jeden Zug eine Kreatur und
-//! greift mit allem an, was bereit ist. Geblockt wird mit dem Blockvorschlag
-//! des Begleitfensters, Entfernung trifft die stärkste gegnerische Kreatur.
+//! Opponent pressure: a fast opponent plays a creature every turn and
+//! attacks with everything that is ready. Blocks follow the companion's block
+//! suggestion, removal hits the strongest opposing creature.
 //!
-//! Beide Seiten greifen an (Rennen): Eigene Kreaturen greifen an, wenn es
-//! tödlich ist oder gefahrlos und man den nächsten Gegenschlag überlebt.
-//! Wer angegriffen hat, ist getappt und kann im nächsten Zug des Gegners
-//! nicht blocken. Die Partie endet, sobald eine Seite 0 Leben hat.
+//! Both sides attack (race): own creatures attack when it is lethal, or safe
+//! and you survive the next counterattack. Whoever attacked is tapped and
+//! can't block in the opponent's next turn. The game ends as soon as one
+//! side is at 0 life.
 //!
-//! Der Gegner kann außerdem eine eigene Kreatur entfernen (zu Beginn seines
-//! Zuges, die stärkste) und im Kampf einen Trick spielen: Nach den Blocks
-//! bekommt eine seiner Kreaturen +2/+2.
+//! The opponent can also remove an own creature (at the start of its turn,
+//! the strongest) and play a trick in combat: after the blocks one of its
+//! creatures gets +2/+2.
 
 use super::*;
 use crate::carddb::keyword as kw;
@@ -17,8 +17,8 @@ use crate::carddb::{ROLE_REMOVAL, ROLE_WIPE};
 use crate::combat;
 use crate::games::LiveCreature;
 
-/// Kreatur des schnellen Gegners je Zug: (Kraft, Widerstand).
-/// Harter Start in den Zügen 1–6, danach nur noch kleinere Nachzügler.
+/// Creature of the fast opponent per turn: (power, toughness).
+/// Hard start on turns 1–6, after that only smaller stragglers.
 pub const OPP_CURVE: [(i32, i32); TURNS] = [
     (2, 1),
     (2, 2),
@@ -32,40 +32,40 @@ pub const OPP_CURVE: [(i32, i32); TURNS] = [
     (2, 2),
 ];
 pub use crate::games::START_LIFE;
-/// Bonus eines gegnerischen Kampftricks (+X/+X bis Zugende).
+/// Bonus of an opposing combat trick (+X/+X until end of turn).
 pub const TRICK_BONUS: i32 = 2;
 
-/// Wo der Gegner im Kampf einen Trick spielt.
+/// Where the opponent plays a trick in combat.
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum Trick {
     None,
-    /// Auf einen geblockten Angreifer (sonst Zusatzschaden).
+    /// On a blocked attacker (otherwise extra damage).
     Attacker,
-    /// Auf einen Blocker.
+    /// On a blocker.
     Blocker,
 }
 
-/// Wie gut hält das Deck einem schnellen Gegner stand?
+/// How well does the deck hold up against a fast opponent?
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Pressure {
-    /// Durchschnittliche eigene Lebenspunkte nach jedem Zug.
+    /// Average own life after each turn.
     pub life: [f32; TURNS],
-    /// Durchschnittliche Lebenspunkte des Gegners nach jedem Zug.
+    /// Average life of the opponent after each turn.
     pub opp_life: [f32; TURNS],
-    /// Anteil der Partien mit höchstens 5 Leben am Ende (besiegt eingeschlossen).
+    /// Share of games with at most 5 life at the end (defeated included).
     pub low: f32,
-    /// Anteil der Partien, die bis zum letzten Zug verloren sind.
+    /// Share of games lost by the last turn.
     pub dead: f32,
-    /// Anteil der Partien, in denen der Gegner bis zum letzten Zug besiegt ist.
+    /// Share of games in which the opponent is defeated by the last turn.
     pub won: f32,
-    /// Anteil der Partien, in denen man am Ende vorne liegt (selbst am
-    /// Leben und der Gegner besiegt oder mit weniger Leben).
+    /// Share of games in which you are ahead at the end (still alive and the
+    /// opponent defeated or with less life).
     pub ahead: f32,
-    /// Durchschnittlich besiegte gegnerische Kreaturen.
+    /// Average number of defeated opposing creatures.
     pub kills: f32,
 }
 
-/// Kreatur aus einer Karte (Werte und Schlüsselwörter), mit eindeutiger Kennung.
+/// Creature from a card (stats and keywords), with a unique id.
 pub(super) fn creature_of(card: &Card, id: u32) -> LiveCreature {
     let has = |k: u32| card.has_ability(k);
     LiveCreature {
@@ -82,28 +82,28 @@ pub(super) fn creature_of(card: &Card, id: u32) -> LiveCreature {
     }
 }
 
-/// Eine Kreatur im Spiel.
+/// A creature in play.
 #[derive(Clone, Debug)]
 pub(super) struct Unit {
-    /// grpId der Karte (für Manakreaturen; beim Gegner 0).
+    /// grpId of the card (for mana creatures; 0 for the opponent).
     pub card: GrpId,
     pub c: LiveCreature,
-    /// Darf angreifen (keine Einsatzverzögerung mehr).
+    /// May attack (no more summoning sickness).
     pub ready: bool,
     pub tapped: bool,
 }
 
-/// Kann `blocker` den Angreifer blocken, töten und dabei selbst überleben?
-/// (Ein Tausch ist im Rennen in Ordnung.)
+/// Can `blocker` block the attacker, kill it and survive itself?
+/// (A trade is fine in a race.)
 fn threatens(blocker: &LiveCreature, attacker: &LiveCreature) -> bool {
     let (attacker_dies, blocker_dies) = combat::fight(attacker, &[blocker]);
     (!attacker.flying || blocker.reach) && attacker_dies && !blocker_dies[0]
 }
 
-/// Kampf: `attackers` greifen an, `defenders` blocken nach dem Blockvorschlag.
-/// Ein Trick des Gegners kommt erst nach den Blocks (der Blockvorschlag kennt
-/// ihn nicht). Liefert (Schaden am Verteidiger, Kennungen toter Angreifer,
-/// toter Blocker).
+/// Combat: `attackers` attack, `defenders` block following the block suggestion.
+/// An opposing trick only comes after the blocks (the block suggestion doesn't
+/// know it). Returns (damage to the defender, ids of dead attackers, of dead
+/// blockers).
 fn battle(
     attackers: &[LiveCreature],
     defenders: &[LiveCreature],
@@ -157,7 +157,7 @@ fn battle(
     (damage, dead_att, dead_def)
 }
 
-/// Spielfeld einer simulierten Partie gegen den schnellen Gegner.
+/// Battlefield of a simulated game against the fast opponent.
 pub(super) struct Board {
     pub mine: Vec<Unit>,
     pub opp: Vec<Unit>,
@@ -184,18 +184,18 @@ impl Board {
         self.next_id
     }
 
-    /// Ist die Partie entschieden?
+    /// Is the game decided?
     pub fn over(&self) -> bool {
         self.life <= 0 || self.opp_life <= 0
     }
 
-    /// Gegnerische Kreaturen für den Zugvorschlag: (Kennung, Kraft).
+    /// Opposing creatures for the turn suggestion: (id, power).
     pub fn opp_creatures(&self) -> Vec<(GrpId, i32)> {
-        // Die Kreaturen des Gegners haben keine Karte, nur Werte.
+        // The opponent's creatures have no card, only stats.
         self.opp.iter().map(|u| (u.card, u.c.power)).collect()
     }
 
-    /// Beginn des eigenen Zuges: eigene Kreaturen enttappen und werden bereit.
+    /// Start of the own turn: own creatures untap and become ready.
     pub fn start_my_turn(&mut self) {
         for u in &mut self.mine {
             u.tapped = false;
@@ -203,7 +203,7 @@ impl Board {
         }
     }
 
-    /// Eine eigene Karte wurde ausgespielt.
+    /// An own card was played.
     pub fn cast(&mut self, card: &Card) {
         if card.is_creature() {
             let id = self.id();
@@ -218,12 +218,12 @@ impl Board {
             self.opp.clear();
             self.mine.clear();
         } else if card.has_role(ROLE_REMOVAL) || card.burn > 0 {
-            // Tödlicher Brand geht ins Gesicht.
+            // Lethal burn goes to the face.
             if card.burn > 0 && card.burn as i32 >= self.opp_life {
                 self.opp_life -= card.burn as i32;
                 return;
             }
-            // Brandzauber treffen nur, was sie töten können.
+            // Burn spells only hit what they can kill.
             let target = self
                 .opp
                 .iter()
@@ -236,23 +236,23 @@ impl Board {
                     self.opp.remove(i);
                     self.kills += 1;
                 }
-                // Kein passendes Ziel: Brand ins Gesicht des Gegners.
+                // No suitable target: burn to the opponent's face.
                 _ if card.burn > 0 => self.opp_life -= card.burn as i32,
                 _ => {}
             }
         }
     }
 
-    /// Eigener Angriff nach dem Ausspielen. Liefert die grpIds eigener
-    /// Kreaturen, die dabei gestorben sind.
+    /// Own attack after playing cards. Returns the grpIds of own creatures that
+    /// died in it.
     #[cfg(test)]
     pub fn my_attack(&mut self) -> Vec<GrpId> {
         self.my_attack_with(false, false)
     }
 
-    /// Wie [`Board::my_attack`]; `hesitant` = nur tödliche Angriffe (Gewohnheit,
-    /// gefahrlose Angriffe auszulassen), `trick` = der Gegner hat einen
-    /// Kampftrick für einen Blocker.
+    /// Like [`Board::my_attack`]; `hesitant` = only lethal attacks (habit of
+    /// skipping safe attacks), `trick` = the opponent has a combat trick for a
+    /// blocker.
     pub fn my_attack_with(&mut self, hesitant: bool, trick: bool) -> Vec<GrpId> {
         if self.over() {
             return Vec::new();
@@ -270,7 +270,7 @@ impl Board {
             .map(|u| u.c.clone())
             .collect();
         let lethal = combat::unblocked_damage(&able, &blockers) >= self.opp_life;
-        // Gegenschlag im nächsten Zug: alle gegnerischen Kreaturen greifen an.
+        // Counterattack next turn: all opposing creatures attack.
         let threat: i32 = self.opp.iter().map(|u| u.c.power).sum();
         let attackers: Vec<LiveCreature> = if lethal {
             able
@@ -297,7 +297,7 @@ impl Board {
         self.remove_mine(&dead_att)
     }
 
-    /// Entfernt tote eigene Kreaturen und liefert ihre grpIds.
+    /// Removes dead own creatures and returns their grpIds.
     fn remove_mine(&mut self, dead: &[u32]) -> Vec<GrpId> {
         let died = self
             .mine
@@ -309,16 +309,16 @@ impl Board {
         died
     }
 
-    /// Zug des Gegners: angreifen, blocken, dann die nächste Kreatur spielen.
-    /// Liefert die grpIds der eigenen Kreaturen, die dabei gestorben sind.
+    /// The opponent's turn: attack, block, then play the next creature.
+    /// Returns the grpIds of the own creatures that died in it.
     #[cfg(test)]
     pub fn opp_turn(&mut self, turn: usize) -> Vec<GrpId> {
         self.opp_turn_with(Some(OPP_CURVE[(turn - 1).min(TURNS - 1)]), false, false)
     }
 
-    /// Zug des Gegners mit vorgegebener neuer Kreatur (Kraft, Widerstand).
-    /// `removal`: entfernt zuerst die stärkste eigene Kreatur; `trick`:
-    /// Kampftrick für einen Angreifer.
+    /// The opponent's turn with a given new creature (power, toughness).
+    /// `removal`: first removes the strongest own creature; `trick`: combat
+    /// trick for an attacker.
     pub fn opp_turn_with(
         &mut self,
         new: Option<(i32, i32)>,
@@ -339,13 +339,13 @@ impl Board {
         {
             died.push(self.mine.remove(i).card);
         }
-        // Was schon zu Beginn des Zuges liegt, enttappt und darf angreifen.
+        // Whatever was there at the start of the turn untaps and may attack.
         for u in &mut self.opp {
             u.tapped = false;
             u.ready = true;
         }
         let attackers: Vec<LiveCreature> = self.opp.iter().map(|u| u.c.clone()).collect();
-        // Wer im eigenen Zug angegriffen hat, ist noch getappt.
+        // Whoever attacked in the own turn is still tapped.
         let blockers: Vec<LiveCreature> = self
             .mine
             .iter()

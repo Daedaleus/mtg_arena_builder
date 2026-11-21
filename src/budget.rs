@@ -1,11 +1,10 @@
-//! Budget-Version eines Decks: Was mit den vorhandenen Wildcards hergestellt
-//! wird und was durch ähnliche Karten aus der eigenen Sammlung ersetzt wird.
+//! Budget version of a deck: what is crafted with the available wildcards
+//! and what is replaced by similar cards from the own collection.
 //!
-//! Vorgehen: Fehlende Karten werden nach Wichtigkeit sortiert (Vierer-Sets von
-//! Nichtland-Karten zuerst, dann Länder, dann Einzelkarten). Solange die
-//! Wildcards der jeweiligen Seltenheit reichen, wird hergestellt. Der Rest wird
-//! durch die ähnlichste eigene Karte ersetzt; fehlende Länder notfalls durch
-//! Standardländer.
+//! Approach: missing cards are sorted by importance (playsets of non-land
+//! cards first, then lands, then single cards). As long as the wildcards of
+//! the respective rarity last, cards are crafted. The rest is replaced by the
+//! most similar own card; missing lands by basic lands if necessary.
 
 use std::collections::{HashMap, HashSet};
 
@@ -15,13 +14,13 @@ use crate::similar;
 
 #[derive(Clone, Debug, Default)]
 pub struct BudgetPlan {
-    /// (Kartenschlüssel, Ersatz-Schlüssel)
+    /// (card key, replacement key)
     pub replacements: Vec<(String, String)>,
-    /// Mit Wildcards herzustellen (Common, Uncommon, Rare, Mythic).
+    /// To craft with wildcards (common, uncommon, rare, mythic).
     pub crafted: [u32; 4],
-    /// Durch eigene Karten ersetzte Exemplare.
+    /// Copies replaced by own cards.
     pub replaced: u32,
-    /// Karten ohne passenden Ersatz, für die auch die Wildcards nicht reichen.
+    /// Cards without a fitting replacement for which the wildcards don't suffice either.
     pub unresolved: Vec<String>,
 }
 
@@ -46,7 +45,7 @@ impl Need {
     }
 }
 
-/// Fehlende Karten (Haupt- und ggf. Nebendeck zusammengefasst), wichtigste zuerst.
+/// Missing cards (main deck and sideboard if any combined), most important first.
 fn needs(eval: &DeckEval, db: &CardDb, include_side: bool) -> Vec<Need> {
     let mut needs: Vec<Need> = Vec::new();
     for l in eval
@@ -85,13 +84,13 @@ fn needs(eval: &DeckEval, db: &CardDb, include_side: bool) -> Vec<Need> {
 }
 
 impl Need {
-    /// Wildcard-Fach (0 = Common … 3 = Mythic).
+    /// Wildcard slot (0 = common … 3 = mythic).
     fn slot(&self) -> usize {
         self.rarity.wildcard_slot()
     }
 }
 
-/// Plant die Budget-Version. `wildcards` = vorhandene Wildcards (C, U, R, M).
+/// Plans the budget version. `wildcards` = available wildcards (C, U, R, M).
 pub fn plan(
     eval: &DeckEval,
     db: &CardDb,
@@ -107,7 +106,7 @@ pub fn plan(
         .collect();
     let needs = needs(eval, db, include_side);
 
-    // 1. Herstellen, solange die Wildcards reichen
+    // 1. Craft as long as the wildcards last
     let mut plan = BudgetPlan::default();
     let mut budget = wildcards;
     let mut to_replace: Vec<&Need> = Vec::new();
@@ -121,14 +120,14 @@ pub fn plan(
         }
     }
 
-    // 2. Den Rest durch eigene Karten ersetzen
+    // 2. Replace the rest with own cards
     let in_deck: HashSet<String> = lines.iter().filter_map(|l| l.key.clone()).collect();
     let colors = in_deck
         .iter()
         .filter_map(|k| db.representative(k))
         .filter(|c| !c.is_land())
         .fold(0u8, |m, c| m | c.colors);
-    // Von eigenen Karten schon verplante Exemplare (inkl. derer, die das Deck selbst nutzt)
+    // Copies of own cards already planned (including those the deck itself uses)
     let mut used: HashMap<String, u32> = HashMap::new();
     for l in &lines {
         if let Some(key) = &l.key {
@@ -142,7 +141,7 @@ pub fn plan(
             .unwrap_or(0)
             .saturating_sub(used.get(key).copied().unwrap_or(0))
     };
-    // Häufigste Farbe in den Manakosten – für Standardland-Ersatz
+    // Most frequent color in the mana costs – for basic land replacements
     let costs: String = in_deck
         .iter()
         .filter_map(|k| db.representative(k))
@@ -187,8 +186,8 @@ pub fn plan(
     plan
 }
 
-/// Wie viele fehlende Exemplare deckt die Ersatzkarte `rep` ab?
-/// Standardländer gibt es in Arena unbegrenzt.
+/// How many missing copies does the replacement `rep` cover?
+/// Basic lands are unlimited in Arena.
 pub fn replaced_qty(db: &CardDb, owned: &HashMap<String, u32>, rep: &str, missing: u32) -> u32 {
     if db.representative(rep).is_some_and(|c| c.basic) {
         missing
@@ -197,7 +196,7 @@ pub fn replaced_qty(db: &CardDb, owned: &HashMap<String, u32>, rep: &str, missin
     }
 }
 
-/// Zusammenfassung einer Budget-Version für die Statuszeile.
+/// Summary of a budget version for the status line.
 pub fn plan_text(plan: &BudgetPlan) -> String {
     let c = plan.crafted;
     let mut text = tr!(
@@ -221,34 +220,34 @@ pub fn plan_text(plan: &BudgetPlan) -> String {
 #[path = "tests/budget.rs"]
 mod tests;
 
-/// Ein Schritt des Wildcard-Plans.
+/// One step of the wildcard plan.
 #[derive(Clone, Debug, PartialEq)]
 pub struct CraftStep {
     pub name: String,
     pub qty: u32,
-    /// Wildcard-Fach (0 = Common … 3 = Mythic).
+    /// Wildcard slot (0 = common … 3 = mythic).
     pub slot: usize,
-    /// Nach diesem Schritt insgesamt noch fehlende Wildcards (C, U, R, M).
+    /// Wildcards still missing in total after this step (C, U, R, M).
     pub short: [u32; 4],
-    /// Anteil des Decks in Prozent, der danach vorhanden ist.
+    /// Share of the deck in percent that is owned afterwards.
     pub complete: f32,
 }
 
-/// Weg zum fertigen Deck: was jetzt herstellbar ist und in welcher
-/// Reihenfolge der Rest folgen sollte.
+/// Way to the finished deck: what is craftable now and in which order the
+/// rest should follow.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct WildcardPlan {
     pub now: Vec<CraftStep>,
     pub later: Vec<CraftStep>,
-    /// Karten, die es in Arena nicht gibt.
+    /// Cards that don't exist in Arena.
     pub unavailable: Vec<String>,
-    /// Anteil des Decks in Prozent, der schon vorhanden ist.
+    /// Share of the deck in percent that is already owned.
     pub complete: f32,
 }
 
-/// Wildcard-Plan für ein Deck: Wichtigste Karten zuerst (wie die
-/// Budget-Version). Was mit den vorhandenen Wildcards geht, kommt in `now`,
-/// der Rest in der empfohlenen Reihenfolge in `later`.
+/// Wildcard plan for a deck: most important cards first (like the budget
+/// version). What works with the available wildcards goes into `now`, the
+/// rest into `later` in the recommended order.
 pub fn wildcard_plan(
     eval: &DeckEval,
     db: &CardDb,
@@ -293,7 +292,7 @@ pub fn wildcard_plan(
     }
     for n in later {
         let slot = n.slot();
-        // Reste der jetzigen Wildcards zuerst verbrauchen.
+        // Use up the rest of the current wildcards first.
         let from_stock = budget[slot].min(n.missing);
         budget[slot] -= from_stock;
         short[slot] += n.missing - from_stock;

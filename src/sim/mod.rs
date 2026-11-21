@@ -1,15 +1,15 @@
-//! Probehände: spielt ein Deck viele Male durch und misst, wie oft Länder oder
-//! Farben fehlen, wie viel des verfügbaren Manas genutzt wird und wie das Deck
-//! gegen einen Gegner besteht.
+//! Sample hands: plays a deck many times and measures how often lands or
+//! colors are missing, how much of the available mana is used and how the
+//! deck holds up against an opponent.
 //!
-//! Gespielt wird mit demselben Zugvorschlag wie im Begleitfenster
-//! ([`crate::turnplan`]): Land legen, dann das Mana möglichst gut nutzen.
-//! Mulligan: Starthände mit 0–1 oder 6–7 Ländern werden einmal auf 6 Karten
-//! getauscht (London-Mulligan: 7 ziehen, eine Karte unter die Bibliothek).
+//! It plays with the same turn suggestion as the companion
+//! ([`crate::turnplan`]): play a land, then use the mana as well as possible.
+//! Mulligan: opening hands with 0–1 or 6–7 lands are swapped once for 6
+//! cards (London mulligan: draw 7, one card to the bottom of the library).
 //!
-//! Aufbau: `game` (eine simulierte Partie und die Summen), `pressure`
-//! (Spielfeld, Kampf und Rennen), `profile` (Gegner und Gewohnheiten aus den
-//! eigenen Partien), `advice` (Empfehlungen aus den Kennzahlen).
+//! Layout: `game` (one simulated game and the totals), `pressure`
+//! (battlefield, combat and race), `profile` (opponents and habits from the
+//! own games), `advice` (recommendations from the key figures).
 
 use crate::carddb::{Card, CardDb, GrpId};
 use crate::turnplan;
@@ -27,49 +27,49 @@ pub use profile::{
     Habits, MIN_HABIT_TURNS, MIN_PROFILE_GAMES, Opponent, Trial, habits_from, opponent_from, trial,
 };
 
-/// Simulierte Züge je Partie.
+/// Simulated turns per game.
 pub const TURNS: usize = 10;
-/// Zug, nach dem die Länderflut gemessen wird.
+/// Turn after which flooding is measured.
 pub const FLOOD_TURN: usize = 6;
-/// Der feste schnelle Gegner prüft nur den Start: so viele Züge.
+/// The fixed fast opponent only tests the start: this many turns.
 pub const FAST_TURNS: usize = 6;
-/// Standardzahl der simulierten Partien.
+/// Default number of simulated games.
 pub const DEFAULT_GAMES: usize = 1000;
 
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct SimReport {
     pub games: usize,
-    /// Gespielte Züge (Werte in den Feldern je Zug danach sind 0).
+    /// Turns played (values in the per-turn fields after that are 0).
     pub turns: usize,
     pub size: usize,
     pub lands: usize,
-    /// Anteil der Partien mit Mulligan.
+    /// Share of games with a mulligan.
     pub mulligan: f32,
-    /// Anteil der Partien mit mindestens T Ländern im Spiel in Zug T (T = 1..4).
+    /// Share of games with at least T lands in play on turn T (T = 1..4).
     pub on_curve: [f32; 4],
-    /// Anteil der Partien, in denen in Zug 2–4 eine Karte nur wegen der
-    /// Farben nicht bezahlbar war.
+    /// Share of games in which a card on turns 2–4 was unaffordable only
+    /// because of its colors.
     pub color_screw: f32,
-    /// Farbe, die dabei am häufigsten fehlte (Index W, U, B, R, G).
+    /// Color missing most often then (index W, U, B, R, G).
     pub missing_color: Option<usize>,
-    /// Anteil der Partien mit Länderflut (nach Zug 6: 5+ Länder im Spiel, 2+ auf der Hand).
+    /// Share of games with flooding (after turn 6: 5+ lands in play, 2+ in hand).
     pub flood: f32,
-    /// Durchschnittlich genutztes und verfügbares Mana je Zug.
+    /// Average mana used and available per turn.
     pub mana_used: [f32; TURNS],
     pub mana_avail: [f32; TURNS],
-    /// Wie gut das Deck einem schnellen Gegner standhält.
+    /// How well the deck holds up against a fast opponent.
     pub pressure: Pressure,
-    /// Gegen wen gespielt wurde (z. B. „schneller Gegner“).
+    /// Who it played against (e.g. "fast opponent").
     pub opponent: String,
-    /// Mit den eigenen Spielgewohnheiten gespielt?
+    /// Played with the own play habits?
     pub with_habits: bool,
-    /// Kurze Empfehlungen, wichtigste zuerst.
+    /// Short recommendations, most important first.
     pub advice: Vec<String>,
-    /// Keine Probleme gefunden (dann steht in `advice` nur ein Lob).
+    /// No problems found (then `advice` only contains praise).
     pub smooth: bool,
 }
 
-/// Kleiner, reproduzierbarer Zufallsgenerator (xorshift64*).
+/// Small, reproducible random number generator (xorshift64*).
 struct Rng(u64);
 
 impl Rng {
@@ -82,13 +82,13 @@ impl Rng {
         x.wrapping_mul(0x2545_F491_4F6C_DD1D)
     }
 
-    /// Zufällige Rundung: 2,3 wird in 30 % der Fälle zu 3, sonst zu 2.
+    /// Random rounding: 2.3 becomes 3 in 30 % of cases, otherwise 2.
     fn round(&mut self, x: f32) -> i32 {
         let base = x.max(0.0).floor();
         base as i32 + self.chance(x.max(0.0) - base) as i32
     }
 
-    /// `true` mit Wahrscheinlichkeit `p`.
+    /// `true` with probability `p`.
     fn chance(&mut self, p: f32) -> bool {
         (self.next() % 10_000) as f32 / 10_000.0 < p
     }
@@ -109,13 +109,13 @@ fn lands_in(db: &CardDb, cards: &[GrpId]) -> usize {
     cards.iter().filter(|g| is_land(db, **g)).count()
 }
 
-/// Spielt `games` Partien und wertet sie aus. `deck` = grpIds mit Wiederholung.
+/// Plays `games` games and evaluates them. `deck` = grpIds with repetition.
 pub fn simulate(deck: &[GrpId], db: &CardDb, games: usize, seed: u64) -> SimReport {
     simulate_with(deck, db, games, seed, &Opponent::fast(), None)
 }
 
-/// Wie [`simulate`], aber gegen `opponent` und – falls angegeben – mit den
-/// eigenen Spielgewohnheiten (bessere Züge auslassen, Angriffe auslassen).
+/// Like [`simulate`], but against `opponent` and – if given – with the own
+/// play habits (skipping better plays, skipping attacks).
 pub fn simulate_with(
     deck: &[GrpId],
     db: &CardDb,
@@ -161,7 +161,7 @@ pub fn simulate_with(
     r
 }
 
-/// Deckliste (Namen) in grpIds umwandeln; unbekannte Karten fallen weg.
+/// Convert a decklist (names) into grpIds; unknown cards drop out.
 pub fn deck_from_entries<'a>(
     entries: impl IntoIterator<Item = (&'a str, u32)>,
     db: &CardDb,

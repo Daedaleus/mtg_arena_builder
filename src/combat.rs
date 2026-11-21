@@ -1,5 +1,5 @@
-//! Kampfhilfen für das Begleitfenster: Blockvorschlag im Zug des Gegners und
-//! Warnung vor typischen Tricks des gegnerischen Decks.
+//! Combat help for the companion: block suggestion in the opponent's turn
+//! and warning about typical tricks of the opposing deck.
 
 use std::collections::HashSet;
 
@@ -7,25 +7,25 @@ use crate::carddb::{Card, CardDb, GrpId, keyword};
 use crate::games::LiveCreature;
 use crate::opponents::ArchShare;
 
-/// Schlüsselwort-Fähigkeit „Aufblitzen“ in der Arena-Datenbank.
-/// Ab diesem Anteil der Turnierlisten gilt eine Karte als „oft gespielt“.
+/// Keyword ability "flash" in the Arena database.
+/// From this share of tournament lists on, a card counts as "played often".
 const MIN_SHARE: f32 = 0.25;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum BlockKind {
-    /// Blocker überlebt und tötet den Angreifer.
+    /// Blocker survives and kills the attacker.
     Win,
-    /// Blocker überlebt, Angreifer auch.
+    /// Blocker survives, attacker too.
     Safe,
-    /// Beide sterben, der Blocker ist nicht wertvoller.
+    /// Both die, the blocker isn't more valuable.
     Trade,
-    /// Blocker stirbt allein – nur, weil der Schaden sonst tödlich wäre.
+    /// Blocker dies alone – only because the damage would otherwise be lethal.
     Chump,
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Block {
-    /// Ein Blocker, bei Bedrohlichkeit zwei.
+    /// One blocker, two with menace.
     pub blockers: Vec<u32>,
     pub attacker: u32,
     pub kind: BlockKind,
@@ -34,11 +34,11 @@ pub struct Block {
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct BlockPlan {
     pub blocks: Vec<Block>,
-    /// Schaden, der trotz dieser Blocks durchkommt.
+    /// Damage that gets through despite these blocks.
     pub damage: i32,
-    /// Ohne Blocks käme so viel Schaden durch.
+    /// Without blocks this much damage would get through.
     pub damage_unblocked: i32,
-    /// Auch mit allen sinnvollen Blocks tödlich.
+    /// Lethal even with all sensible blocks.
     pub lethal: bool,
 }
 
@@ -46,7 +46,7 @@ fn kills(src: &LiveCreature, dst: &LiveCreature) -> bool {
     src.power > 0 && !dst.indestructible && (src.power >= dst.toughness || src.deathtouch)
 }
 
-/// (Blocker stirbt, Angreifer stirbt) – mit Erstschlag.
+/// (blocker dies, attacker dies) – with first strike.
 fn outcome(blocker: &LiveCreature, attacker: &LiveCreature) -> (bool, bool) {
     let a = kills(attacker, blocker);
     let b = kills(blocker, attacker);
@@ -59,9 +59,9 @@ fn outcome(blocker: &LiveCreature, attacker: &LiveCreature) -> (bool, bool) {
     }
 }
 
-/// Ergebnis eines Kampfes: (stirbt der Angreifer, stirbt welcher Blocker).
-/// Der Angreifer verteilt seinen Schaden der Reihe nach auf die Blocker;
-/// Erstschlag tötet Blocker, bevor sie zurückschlagen.
+/// Result of a combat: (does the attacker die, which blocker dies).
+/// The attacker assigns its damage to the blockers in order; first strike
+/// kills blockers before they strike back.
 pub fn fight(attacker: &LiveCreature, blockers: &[&LiveCreature]) -> (bool, Vec<bool>) {
     if let [b] = blockers {
         let (b_dies, a_dies) = outcome(b, attacker);
@@ -103,7 +103,7 @@ fn worth(c: &LiveCreature) -> i32 {
     c.power + c.toughness + if c.deathtouch || c.first_strike { 2 } else { 0 }
 }
 
-/// Schaden, den ein Angreifer trotz Block (oder ohne) anrichtet.
+/// Damage an attacker deals despite a block (or without one).
 fn through(attacker: &LiveCreature, blockers: &[&LiveCreature]) -> i32 {
     if blockers.is_empty() {
         attacker.power
@@ -115,16 +115,16 @@ fn through(attacker: &LiveCreature, blockers: &[&LiveCreature]) -> i32 {
     }
 }
 
-/// Welche der gefahrlosen Angreifer lohnt es wirklich, anzugreifen?
-/// Kreaturen mit Tapp-Fähigkeit bleiben für ihre Fähigkeit stehen. Hat der
-/// Gegner genug Kraft im Spiel, um mich im nächsten Zug zu besiegen, bleiben
-/// Blocker zurück. Wachsamkeit tappt beim Angriff nicht – solche Kreaturen
-/// können immer angreifen.
+/// Which of the safe attackers are really worth attacking with?
+/// Creatures with a tap ability stay home for their ability. If the opponent
+/// has enough power in play to defeat me next turn, blockers stay back.
+/// Vigilance doesn't tap when attacking – such creatures can always
+/// attack.
 pub fn worth_attacking(db: &CardDb, safe: &[GrpId], life_me: i32, opp_power: i32) -> Vec<GrpId> {
     let lethal_threat = opp_power >= life_me;
     safe.iter()
         .filter(|g| {
-            // Unbekannte Karten gelten als gewöhnliche Kreatur.
+            // Unknown cards count as an ordinary creature.
             let card = db.cards.get(g);
             let vigilance = card.is_some_and(|c| c.abilities.contains(&keyword::VIGILANCE));
             let tapper = card.is_some_and(|c| c.tap_ability);
@@ -134,14 +134,14 @@ pub fn worth_attacking(db: &CardDb, safe: &[GrpId], life_me: i32, opp_power: i32
         .collect()
 }
 
-/// Berechnet einen Blockvorschlag. Angreifer mit Bedrohlichkeit brauchen zwei
-/// Blocker: Sie werden nur aufgehalten, wenn zwei Blocker sie gemeinsam töten
-/// und dabei keiner stirbt, oder als Opfer, wenn der Schaden sonst tödlich wäre.
+/// Computes a block suggestion. Attackers with menace need two blockers:
+/// they are only stopped when two blockers kill them together and none of
+/// them dies, or as a chump block when the damage would otherwise be lethal.
 pub fn plan_blocks(attackers: &[LiveCreature], blockers: &[LiveCreature], life: i32) -> BlockPlan {
     let mut atk: Vec<usize> = (0..attackers.len()).collect();
     atk.sort_by_key(|i| std::cmp::Reverse(attackers[*i].power));
     let mut free: Vec<usize> = (0..blockers.len()).collect();
-    // Bevorzugt die „billigsten“ Blocker einsetzen.
+    // Prefer using the "cheapest" blockers.
     free.sort_by_key(|i| worth(&blockers[*i]));
     let mut assigned: Vec<Option<(Vec<usize>, BlockKind)>> = vec![None; attackers.len()];
 
@@ -195,7 +195,7 @@ pub fn plan_blocks(attackers: &[LiveCreature], blockers: &[LiveCreature], life: 
             })
             .sum()
     };
-    // Nur wenn es sonst tödlich wäre: Kreaturen opfern, größte Angreifer zuerst.
+    // Only if it would otherwise be lethal: sacrifice creatures, biggest attackers first.
     if damage(&assigned) >= life {
         for &a in &atk {
             if damage(&assigned) < life {
@@ -236,8 +236,8 @@ pub fn plan_blocks(attackers: &[LiveCreature], blockers: &[LiveCreature], life: 
     }
 }
 
-/// Zwei Blocker, die einen Angreifer mit Bedrohlichkeit gemeinsam töten, ohne
-/// dass einer von ihnen stirbt (die billigsten passenden zuerst).
+/// Two blockers that kill an attacker with menace together without one of
+/// them dying (the cheapest fitting ones first).
 fn menace_pair(
     att: &LiveCreature,
     blockers: &[LiveCreature],
@@ -266,9 +266,9 @@ fn is_trick(c: &Card) -> bool {
     !c.is_land() && c.cmc > 0 && (c.is_instant() || c.has_ability(keyword::FLASH))
 }
 
-/// Spontane Karten, die der Gegner mit seinem offenen Mana spielen könnte:
-/// schon gesehene zuerst, dann die im erkannten Archetyp häufigen.
-/// Ergebnis: (Name, Anteil der Turnierlisten oder `None` = schon gesehen).
+/// Instant-speed cards the opponent could play with their open mana: already
+/// seen ones first, then those common in the recognised archetype.
+/// Result: (name, share of tournament lists, or `None` = already seen).
 pub fn likely_tricks(
     db: &CardDb,
     arch: Option<&ArchShare>,
@@ -300,9 +300,9 @@ pub fn likely_tricks(
     out
 }
 
-/// Schaden, der beim Angriff mit allen Kreaturen mindestens durchkommt, wenn
-/// der Gegner bestmöglich blockt (er blockt die stärksten Angreifer, die er
-/// blocken kann). Zaubertricks und Trampelschaden bleiben unberücksichtigt.
+/// Damage that gets through at least when attacking with all creatures, if
+/// the opponent blocks as well as possible (they block the strongest
+/// attackers they can). Spell tricks and trample damage are not considered.
 pub fn unblocked_damage(attackers: &[LiveCreature], blockers: &[LiveCreature]) -> i32 {
     let mut atk: Vec<&LiveCreature> = attackers.iter().collect();
     atk.sort_by_key(|a| std::cmp::Reverse(a.power));
@@ -312,7 +312,7 @@ pub fn unblocked_damage(attackers: &[LiveCreature], blockers: &[LiveCreature]) -
     for a in atk {
         let need = if a.menace { 2 } else { 1 };
         let blocked = if a.flying {
-            // Flieger können nur Kreaturen mit Fliegend/Reichweite blocken.
+            // Flyers can only be blocked by creatures with flying/reach.
             if air >= need {
                 air -= need;
                 true
@@ -320,7 +320,7 @@ pub fn unblocked_damage(attackers: &[LiveCreature], blockers: &[LiveCreature]) -
                 false
             }
         } else if ground + air >= need {
-            // Erst Bodenblocker einsetzen, Luftabwehr für Flieger aufheben.
+            // Use ground blockers first, keep air defense for flyers.
             let g = need.min(ground);
             ground -= g;
             air -= need - g;

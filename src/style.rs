@@ -1,15 +1,15 @@
-//! Spielstil: Welche Art Deck spielst du, womit gewinnst du – und welche
-//! Turnierdecks passen deshalb zu dir?
+//! Play style: what kind of deck do you play, what do you win with – and
+//! which tournament decks therefore suit you?
 //!
-//! Decks werden grob in drei Typen eingeteilt (Aggro, Midrange, Control),
-//! anhand von Manakurve, Kreaturenanteil und Interaktion (Entfernung,
-//! Konter, Kartenziehen). Dazu kommen Gewohnheiten aus den eigenen Partien.
+//! Decks are roughly split into three types (aggro, midrange, control) by
+//! mana curve, share of creatures and interaction (removal, counterspells,
+//! card draw). Habits from the own games are added.
 
 use crate::carddb::{Card, CardDb, GrpId, ROLE_COUNTER, ROLE_DRAW, ROLE_REMOVAL};
 use crate::deck::Deck;
 use crate::games::{GameRecord, Mistake, Report, TurnStat};
 
-/// Mindestens so viele Partien je Typ, bevor die Siegquote zählt.
+/// At least this many games per type before the win rate counts.
 pub const MIN_GAMES: usize = 3;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -30,7 +30,7 @@ impl Style {
         }
     }
 
-    /// Kurze Beschreibung für Einsteiger.
+    /// Short description for beginners.
     pub fn description(self) -> String {
         match self {
             Style::Aggro => {
@@ -46,13 +46,13 @@ impl Style {
     }
 }
 
-/// Kennzahlen der Nichtland-Karten eines Decks.
+/// Key figures of the non-land cards of a deck.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct DeckProfile {
     pub avg_cmc: f32,
-    /// Anteil Kreaturen (0..1).
+    /// Share of creatures (0..1).
     pub creatures: f32,
-    /// Anteil Entfernung, Konter und Kartenziehen (0..1).
+    /// Share of removal, counterspells and card draw (0..1).
     pub interaction: f32,
 }
 
@@ -76,7 +76,7 @@ impl DeckProfile {
         }
     }
 
-    /// Profil einer Deckliste (Hauptdeck, nach Namen).
+    /// Profile of a decklist (main deck, by names).
     pub fn of_deck(deck: &Deck, db: &CardDb) -> DeckProfile {
         let cards: Vec<&Card> = deck
             .main
@@ -90,7 +90,7 @@ impl DeckProfile {
         DeckProfile::of(&cards)
     }
 
-    /// Profil eines Decks aus grpIds (z. B. eigene Partien).
+    /// Profile of a deck from grpIds (e.g. own games).
     pub fn of_ids(deck: &[GrpId], db: &CardDb) -> DeckProfile {
         let cards: Vec<&Card> = deck.iter().filter_map(|g| db.cards.get(g)).collect();
         DeckProfile::of(&cards)
@@ -107,7 +107,7 @@ impl DeckProfile {
     }
 }
 
-/// Bilanz mit einem Decktyp.
+/// Record with one deck type.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct StyleRecord {
     pub style: Style,
@@ -125,26 +125,26 @@ impl StyleRecord {
     }
 }
 
-/// Ergebnis der Spielstil-Analyse.
+/// Result of the play style analysis.
 #[derive(Clone, Debug, PartialEq)]
 pub struct PlayerStyle {
     pub games: usize,
-    /// Bilanz je Decktyp (nur gespielte), meistgespielter zuerst.
+    /// Record per deck type (only played ones), most played first.
     pub records: Vec<StyleRecord>,
-    /// Anteil eigener Züge (ab Zug 3) mit Angriff.
+    /// Share of own turns (from turn 3) with an attack.
     pub attack_rate: f32,
     pub avg_turns: f32,
-    /// Auffällige Gewohnheiten in Worten.
+    /// Notable habits in words.
     pub traits: Vec<String>,
     pub recommended: Style,
-    /// Warum dieser Typ empfohlen wird.
+    /// Why this type is recommended.
     pub reason: String,
 }
 
-/// Ab diesem Anteil der eigenen Züge gilt ein Fehler als Gewohnheit.
+/// From this share of own turns on, a mistake counts as a habit.
 const HABIT_SHARE: f32 = 0.15;
 
-/// Wertet die Partien aus. `report` ist die Auswertung derselben Partien.
+/// Analyses the games. `report` is the analysis of the same games.
 pub fn analyze(games: &[GameRecord], db: &CardDb, report: &Report) -> PlayerStyle {
     let records = style_records(games, db);
     let attack_rate = attack_rate(games);
@@ -175,11 +175,11 @@ pub fn analyze(games: &[GameRecord], db: &CardDb, report: &Report) -> PlayerStyl
     }
 }
 
-/// Anteile eigener Züge mit typischen Fehlern.
+/// Shares of own turns with typical mistakes.
 struct Habits {
-    /// Mana ungenutzt, besserer Zug möglich oder Karte lange zurückgehalten.
+    /// Mana unused, better play possible or card held back for long.
     passive: f32,
-    /// Gefahrlosen Angriff ausgelassen.
+    /// Safe attack skipped.
     skipped_attacks: f32,
 }
 
@@ -189,7 +189,7 @@ impl Habits {
     }
 }
 
-/// Bilanz je Decktyp (Partien mit bekanntem Deck und Ergebnis), meistgespielter zuerst.
+/// Record per deck type (games with known deck and result), most played first.
 fn style_records(games: &[GameRecord], db: &CardDb) -> Vec<StyleRecord> {
     let mut records: Vec<StyleRecord> = Vec::new();
     for g in games
@@ -215,7 +215,7 @@ fn style_records(games: &[GameRecord], db: &CardDb) -> Vec<StyleRecord> {
     records
 }
 
-/// Anteil eigener Züge ab Zug 3 mit Angriff (`None` ohne solche Züge).
+/// Share of own turns from turn 3 with an attack (`None` without such turns).
 fn attack_rate(games: &[GameRecord]) -> Option<f32> {
     let turns: Vec<&TurnStat> = games
         .iter()
@@ -226,7 +226,7 @@ fn attack_rate(games: &[GameRecord]) -> Option<f32> {
         .then(|| turns.iter().filter(|t| t.attacked).count() as f32 / turns.len() as f32)
 }
 
-/// Auffällige Gewohnheiten in Worten.
+/// Notable habits in words.
 fn traits(attack_rate: Option<f32>, avg_turns: f32, habits: &Habits) -> Vec<String> {
     let mut traits = Vec::new();
     if let Some(rate) = attack_rate {
@@ -253,8 +253,8 @@ fn traits(attack_rate: Option<f32>, avg_turns: f32, habits: &Habits) -> Vec<Stri
     traits
 }
 
-/// Empfohlener Decktyp mit Begründung: der mit klar der besten Siegquote,
-/// sonst bei passiven Gewohnheiten Aggro, sonst der meistgespielte.
+/// Recommended deck type with reasoning: the one with a clearly best win
+/// rate, otherwise aggro for passive habits, otherwise the most played.
 fn recommend_style(records: &[StyleRecord], habits: &Habits) -> (Style, String) {
     let best = records
         .iter()
@@ -288,20 +288,20 @@ fn recommend_style(records: &[StyleRecord], habits: &Habits) -> (Style, String) 
     }
 }
 
-/// Ein Turnierdeck als Empfehlungskandidat.
+/// A tournament deck as a recommendation candidate.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Candidate {
     pub deck_id: u32,
-    /// Archetyp bzw. Bezeichnung.
+    /// Archetype or name.
     pub label: String,
-    /// Woher die Liste stammt, z. B. „Turnierdecks“.
+    /// Where the list comes from, e.g. "Tournament decks".
     pub source: String,
     pub style: Style,
     pub summary: crate::deck::Summary,
 }
 
-/// Bis zu `n` Decks des gewünschten Typs, für die eigene Sammlung günstigste
-/// zuerst; je Bezeichnung nur das günstigste.
+/// Up to `n` decks of the wanted type, cheapest for the own collection
+/// first; per name only the cheapest.
 pub fn recommend(
     cands: &[Candidate],
     style: Style,
