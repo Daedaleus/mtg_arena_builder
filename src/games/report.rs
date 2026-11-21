@@ -1,20 +1,20 @@
-//! Auswertung der Partien: typische Fehler, Schlüsselmomente, Gegnerkarten.
+//! Analysis of the games: typical mistakes, key moments, opponent cards.
 
 use super::*;
 
-/// Ein auffälliger Moment in einer Partie.
+/// A notable moment in a game.
 #[derive(Clone, Debug)]
 pub struct Finding {
-    /// Feste Partie-Nummer (siehe [`GameNumbers`]).
+    /// Fixed game number (see [`GameNumbers`]).
     pub game: usize,
-    /// Zug; 0 = vor dem ersten Zug (Starthand).
+    /// Turn; 0 = before the first turn (opening hand).
     pub turn: u32,
     pub text: String,
-    /// Karten, um die es geht – die Oberfläche zeigt ihre Bilder beim Überfahren.
+    /// Cards it is about – the interface shows their images on hover.
     pub cards: Vec<GrpId>,
 }
 
-/// Eine Art von Fehler mit allen Fundstellen.
+/// A kind of mistake with all its findings.
 #[derive(Clone, Debug)]
 pub struct Category {
     pub kind: Mistake,
@@ -26,7 +26,7 @@ impl Category {
         self.kind.title()
     }
 
-    /// Was man stattdessen tun sollte.
+    /// What to do instead.
     pub fn advice(&self) -> String {
         self.kind.advice()
     }
@@ -43,19 +43,19 @@ pub struct Report {
     pub avg_turns: f32,
     pub my_turns: u32,
     pub discards: u32,
-    /// Starthand mit 2–4 Ländern: (Siege, Partien); übrige Starthände ebenso.
+    /// Opening hands with 2–4 lands: (wins, games); other opening hands likewise.
     pub good_keeps: (usize, usize),
     pub bad_keeps: (usize, usize),
-    /// Fehlerarten, häufigste zuerst.
+    /// Kinds of mistakes, most frequent first.
     pub categories: Vec<Category>,
-    /// (Kartenname, Anzahl Partien)
+    /// (card name, number of games)
     pub opp_cards: Vec<(String, usize)>,
-    /// Was mir am meisten Schaden gemacht hat: (Kartenname, Schaden).
+    /// What dealt the most damage to me: (card name, damage).
     pub damage_sources: Vec<(String, u32)>,
 }
 
 impl Report {
-    /// Fundstellen einer Fehlerart.
+    /// Findings of one kind of mistake.
     pub fn count(&self, kind: Mistake) -> usize {
         self.categories
             .iter()
@@ -79,10 +79,10 @@ pub(super) fn names(db: &CardDb, grps: &[GrpId]) -> String {
     list.join(", ")
 }
 
-/// Starthände mit so vielen Ländern gelten als gut.
+/// Opening hands with this many lands count as good.
 pub const GOOD_KEEP_LANDS: std::ops::RangeInclusive<usize> = 2..=4;
 
-/// Wertet die Partien aus. Fundstellen tragen die feste Nummer aus `numbers`.
+/// Analyses the games. Findings carry the fixed number from `numbers`.
 pub fn report(games: &[GameRecord], numbers: &GameNumbers, db: &CardDb) -> Report {
     let mut r = Report {
         games: games.len(),
@@ -97,8 +97,8 @@ pub fn report(games: &[GameRecord], numbers: &GameNumbers, db: &CardDb) -> Repor
         count_opponent(&mut opp, &mut damage, g, db);
         check_concede(&mut r, &mut found, g, nr);
         check_keep(&mut r, &mut found, g, db, nr);
-        // Zug-Auswertungen nur für vollständig mitgeschriebene Partien:
-        // Teil-Mitschnitte kennen Hand und Feld nicht vollständig.
+        // Turn analyses only for completely recorded games: partial
+        // recordings don't know the hand and battlefield completely.
         if g.complete {
             check_turns(&mut r, &mut found, g, db, nr);
         }
@@ -113,7 +113,7 @@ pub fn report(games: &[GameRecord], numbers: &GameNumbers, db: &CardDb) -> Repor
     r
 }
 
-/// Fundstellen je Fehlerart (Index = [`Mistake`]), während der Auswertung gesammelt.
+/// Findings per kind of mistake (index = [`Mistake`]), collected during the analysis.
 #[derive(Default)]
 struct Findings([Vec<Finding>; Mistake::ALL.len()]);
 
@@ -122,7 +122,7 @@ impl Findings {
         self.0[kind as usize].push(f);
     }
 
-    /// Fehlerarten mit Erklärung, häufigste zuerst; Fundstellen nach Partie und Zug.
+    /// Kinds of mistakes with explanation, most frequent first; findings by game and turn.
     fn into_categories(self) -> Vec<Category> {
         let mut cats: Vec<Category> = Mistake::ALL
             .into_iter()
@@ -137,7 +137,7 @@ impl Findings {
     }
 }
 
-/// Die `n` häufigsten Einträge, bei Gleichstand nach Name.
+/// The `n` most frequent entries, ties by name.
 fn most_common<N: Ord + Copy>(counts: HashMap<String, N>, n: usize) -> Vec<(String, N)> {
     let mut list: Vec<(String, N)> = counts.into_iter().collect();
     list.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
@@ -145,7 +145,7 @@ fn most_common<N: Ord + Copy>(counts: HashMap<String, N>, n: usize) -> Vec<(Stri
     list
 }
 
-/// Siege, Niederlagen, Anfangen/Ziehen und abgeworfene Karten.
+/// Wins, losses, play/draw and discarded cards.
 fn count_result(r: &mut Report, g: &GameRecord) {
     match g.won {
         Some(true) => r.wins += 1,
@@ -160,7 +160,7 @@ fn count_result(r: &mut Report, g: &GameRecord) {
     r.discards += g.discards_me;
 }
 
-/// Gegnerkarten (Partien, in denen sie vorkamen) und Schaden je Quelle.
+/// Opponent cards (games they appeared in) and damage per source.
 fn count_opponent(
     opp: &mut HashMap<String, usize>,
     damage: &mut HashMap<String, u32>,
@@ -184,7 +184,7 @@ fn count_opponent(
     }
 }
 
-/// Aufgegeben, obwohl noch genug Leben übrig war.
+/// Conceded although enough life was left.
 fn check_concede(r: &mut Report, found: &mut Findings, g: &GameRecord, nr: usize) {
     if g.won != Some(false) || !g.conceded() {
         return;
@@ -208,7 +208,7 @@ fn check_concede(r: &mut Report, found: &mut Findings, g: &GameRecord, nr: usize
     }
 }
 
-/// Starthand: gut mit [`GOOD_KEEP_LANDS`] Ländern, sonst riskant.
+/// Opening hand: good with [`GOOD_KEEP_LANDS`] lands, otherwise risky.
 fn check_keep(r: &mut Report, found: &mut Findings, g: &GameRecord, db: &CardDb, nr: usize) {
     let hand: Vec<&Card> = g
         .opening_hand
@@ -244,7 +244,7 @@ fn check_keep(r: &mut Report, found: &mut Findings, g: &GameRecord, db: &CardDb,
     }
 }
 
-/// Alle Züge einer vollständig mitgeschriebenen Partie.
+/// All turns of a completely recorded game.
 fn check_turns(r: &mut Report, found: &mut Findings, g: &GameRecord, db: &CardDb, nr: usize) {
     let mut prev_life = START_LIFE;
     let last = g.turns.len().saturating_sub(1);
@@ -253,8 +253,8 @@ fn check_turns(r: &mut Report, found: &mut Findings, g: &GameRecord, db: &CardDb
         prev_life = t.life_me;
         if t.mine {
             r.my_turns += 1;
-            // Im letzten Zug endete die Partie (Sieg, Niederlage, Aufgabe) –
-            // oft bevor ich etwas tun konnte. Nichts als verpasst werten.
+            // The game ended in the last turn (win, loss, concession) –
+            // often before I could do anything. Judge nothing as missed.
             if i < last {
                 check_my_turn(found, t, db, nr);
             }
@@ -279,7 +279,7 @@ fn check_turns(r: &mut Report, found: &mut Findings, g: &GameRecord, db: &CardDb
     }
 }
 
-/// Gegnerzug: viel Schaden bei wenig Leben genommen, ohne zu blocken.
+/// Opponent's turn: took a lot of damage at low life without blocking.
 fn check_opp_turn(found: &mut Findings, t: &TurnStat, lost: i32, nr: usize) {
     let before = t.life_me + lost;
     if !t.blocked && t.my_untapped_creatures > 0 && lost >= 3 && before <= 10 {
@@ -300,7 +300,7 @@ fn check_opp_turn(found: &mut Findings, t: &TurnStat, lost: i32, nr: usize) {
     }
 }
 
-/// Eigener Zug: Land, Angriff, Mana und Feld.
+/// Own turn: land, attack, mana and battlefield.
 fn check_my_turn(found: &mut Findings, t: &TurnStat, db: &CardDb, nr: usize) {
     let hand: Vec<&Card> = t.hand.iter().filter_map(|grp| card(db, *grp)).collect();
     let find = |text: String, cards: Vec<GrpId>| Finding {
@@ -337,7 +337,7 @@ fn check_my_turn(found: &mut Findings, t: &TurnStat, db: &CardDb, nr: usize) {
     if let Some(moment) = key_moment(t, db) {
         found.push(Mistake::BetterTurn, find(moment.text, moment.cards));
     } else if t.lands.is_empty() && t.untapped_lands >= 1 {
-        // Ältere Aufzeichnung ohne Länder: einfache Prüfung ohne Farben.
+        // Older recording without lands: simple check without colors.
         let castable = hand
             .iter()
             .filter(|c| !c.is_land() && c.cmc > 0 && c.cmc <= t.untapped_lands && !c.is_instant())

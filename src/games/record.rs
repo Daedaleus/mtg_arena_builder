@@ -1,16 +1,16 @@
-//! Gespeicherte Daten einer Partie: Züge, Ergebnis und Rang.
+//! Stored data of a game: turns, result and rank.
 
 use super::*;
 
-/// Lebenspunkte zu Beginn einer Partie.
+/// Life at the start of a game.
 pub const START_LIFE: i32 = 20;
 
-/// Stand am Ende eines Zuges.
+/// State at the end of a turn.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct TurnStat {
     pub turn: u32,
-    /// Mein Zug?
+    /// My turn?
     pub mine: bool,
     pub life_me: i32,
     pub life_opp: i32,
@@ -18,32 +18,32 @@ pub struct TurnStat {
     pub lands_opp: u32,
     pub creatures_me: u32,
     pub creatures_opp: u32,
-    /// Ungetappte eigene Länder am Zugende.
+    /// Own untapped lands at the end of the turn.
     pub untapped_lands: u32,
-    /// Eigene Handkarten (grpIds) am Zugende.
+    /// Own hand cards (grpIds) at the end of the turn.
     pub hand: Vec<GrpId>,
     pub land_played: bool,
-    /// Vom aktiven Spieler gewirkte Zauber.
+    /// Spells cast by the active player.
     pub spells: u32,
-    /// Hat der aktive Spieler angegriffen?
+    /// Did the active player attack?
     pub attacked: bool,
-    /// Eigene Kreaturen, die zu Beginn dieses Zuges schon auf dem Feld waren.
+    /// Own creatures that were already on the battlefield at the start of this turn.
     pub creatures_at_start: u32,
-    /// Mein Zug: einsatzbereite Kreaturen (grpIds), die gefahrlos hätten
-    /// angreifen können, es aber nicht taten.
+    /// My turn: ready creatures (grpIds) that could have attacked safely but
+    /// didn't.
     pub safe_idle: Vec<GrpId>,
-    /// Gegnerzug: habe ich geblockt?
+    /// Opponent's turn: did I block?
     pub blocked: bool,
-    /// Gegnerzug: meine ungetappten Kreaturen vor dem Kampf.
+    /// Opponent's turn: my untapped creatures before combat.
     pub my_untapped_creatures: u32,
-    /// Von mir in diesem Zug gewirkte Karten (grpIds), auch im Gegnerzug.
+    /// Cards cast by me this turn (grpIds), also in the opponent's turn.
     pub cast: Vec<GrpId>,
-    /// Meine Länder im Spiel am Zugende (grpIds, für die Farben).
+    /// My lands in play at the end of the turn (grpIds, for the colors).
     pub lands: Vec<GrpId>,
-    /// Kreaturen des Gegners am Zugende: (grpId, Kraft).
+    /// The opponent's creatures at the end of the turn: (grpId, power).
     pub opp_creatures: Vec<(GrpId, i32)>,
-    /// Eigene bleibende Karten außer Ländern am Zugende (für die
-    /// Legendary-Regel).
+    /// Own permanents except lands at the end of the turn (for the legend
+    /// rule).
     #[serde(default)]
     pub board: Vec<GrpId>,
 }
@@ -51,52 +51,52 @@ pub struct TurnStat {
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct GameRecord {
-    /// `matchId#Spielnummer`
+    /// `matchId#game number`
     pub id: String,
     pub started_ms: u64,
-    /// Arena-Event, z. B. „Ladder“ (Rangliste) oder „Play“.
+    /// Arena event, e.g. "Ladder" (ranked) or "Play".
     pub event: String,
     pub my_seat: u32,
-    /// Habe ich angefangen? `None`, wenn der Anfang nicht im Log steht.
+    /// Did I start? `None` if the start isn't in the log.
     pub on_play: Option<bool>,
     pub mulligans: u32,
-    /// `Some(true)` = gewonnen.
+    /// `Some(true)` = won.
     pub won: Option<bool>,
-    /// Warum die Partie endete (in `games.json` als Arena-Wert).
+    /// Why the game ended (in `games.json` as the Arena value).
     pub reason: EndReason,
-    /// Wurde die Partie von Anfang an mitgeschrieben?
+    /// Was the game recorded from the start?
     pub complete: bool,
     pub turns: Vec<TurnStat>,
-    /// Eigenes Deck (grpIds, Mehrfachnennung = Anzahl).
+    /// Own deck (grpIds, repeated = copies).
     pub deck: Vec<GrpId>,
-    /// Vom Gegner gesehene Karten (grpId -> Anzahl Exemplare).
+    /// Cards seen from the opponent (grpId -> copies).
     pub opp_cards: HashMap<GrpId, u32>,
     pub discards_me: u32,
-    /// Behaltene Starthand (grpIds).
+    /// Kept opening hand (grpIds).
     pub opening_hand: Vec<GrpId>,
-    /// Schaden an mir je Quelle (grpId -> Schaden).
+    /// Damage to me per source (grpId -> damage).
     pub damage_taken: HashMap<GrpId, u32>,
-    /// Schaden meiner Karten am Gegner (grpId -> Schaden).
+    /// Damage of my cards to the opponent (grpId -> damage).
     pub damage_dealt: HashMap<GrpId, u32>,
-    /// Constructed-Rang, den Arena nach dieser Partie gemeldet hat.
+    /// Constructed rank that Arena reported after this game.
     pub rank_after: Option<Rank>,
-    /// Version der Auswertung, mit der die Partie erstellt wurde (siehe
-    /// `PARSER_VERSION`); 0 = unbekannt (ältere Datei).
+    /// Version of the analysis that created the game (see `PARSER_VERSION`);
+    /// 0 = unknown (older file).
     pub parser: u32,
 }
 
-/// Warum eine Partie endete. In `games.json` steht der Arena-Wert
-/// (z. B. „ResultReason_Concede“), damit ältere Dateien gültig bleiben.
+/// Why a game ended. `games.json` holds the Arena value
+/// (e.g. "ResultReason_Concede"), so older files stay valid.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(from = "String", into = "String")]
 pub enum EndReason {
     #[default]
     Unknown,
-    /// Regulär entschieden (Leben auf 0, Bibliothek leer …).
+    /// Decided normally (life at 0, empty library …).
     Game,
     Concede,
     Timeout,
-    /// Anderer Arena-Wert, unverändert aufbewahrt.
+    /// Other Arena value, kept unchanged.
     Other(String),
 }
 
@@ -134,28 +134,28 @@ impl From<EndReason> for String {
     }
 }
 
-/// Constructed-Rang laut Arena (`RankGetCombinedRankInfo`).
+/// Constructed rank according to Arena (`RankGetCombinedRankInfo`).
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Rank {
     pub season: u32,
-    /// Klasse wie „Bronze“, „Silver“ … „Mythic“.
+    /// Class like "Bronze", "Silver" … "Mythic".
     pub class: String,
-    /// Stufe innerhalb der Klasse: 4 (Einstieg) bis 1.
+    /// Tier within the class: 4 (entry) to 1.
     pub level: u32,
-    /// Fortschritt innerhalb der Stufe.
+    /// Progress within the tier.
     pub step: u32,
     pub won: u32,
     pub lost: u32,
-    /// Limited-Rang (Draft, Sealed) – gleiche Einteilung wie oben.
+    /// Limited rank (draft, sealed) – same structure as above.
     pub limited_class: String,
     pub limited_level: u32,
     pub limited_step: u32,
 }
 
 impl Rank {
-    /// Liest die Antwort von `RankGetCombinedRankInfo`. Arena lässt die Klasse
-    /// weg, solange sie den Standardwert hat (Bronze).
+    /// Reads the answer of `RankGetCombinedRankInfo`. Arena leaves out the
+    /// class as long as it has the default value (Bronze).
     pub fn parse(text: &str) -> Option<Rank> {
         let v: Value = serde_json::from_str(text.trim()).ok()?;
         let season = v["constructedSeasonOrdinal"].as_u64()? as u32;
@@ -177,8 +177,8 @@ impl Rank {
 }
 
 impl GameRecord {
-    /// Karten, die ich in dieser Partie gezogen bzw. gesehen habe (Starthand,
-    /// Hand an einem Zugende oder gewirkt).
+    /// Cards I drew or saw in this game (opening hand, hand at the end of a
+    /// turn, or cast).
     pub fn seen_cards(&self) -> HashSet<GrpId> {
         self.opening_hand
             .iter()

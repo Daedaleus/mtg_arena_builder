@@ -1,26 +1,26 @@
-//! Liest Logdateien Zeile für Zeile und sammelt die beendeten Partien.
+//! Reads log files line by line and collects the finished games.
 
 use super::*;
 
-/// Liest eine Logdatei Zeile für Zeile – für das komplette Einlesen ebenso
-/// wie für das Mitlesen während einer laufenden Partie.
+/// Reads a log file line by line – for reading it completely as well as for
+/// following a running game.
 #[derive(Default)]
 pub struct LogParser {
     out: Vec<GameRecord>,
     events: HashMap<String, String>,
     deck: Vec<GrpId>,
     cur: Option<Tracker>,
-    /// Zuletzt beendete Partie (für die Anzeige „Partie vorbei“).
+    /// Last finished game (for the "game over" display).
     pub last_finished: Option<GameRecord>,
-    /// Zuletzt gemeldeter Rang.
+    /// Last reported rank.
     pub rank: Option<Rank>,
-    /// Die zuletzt beendete Partie wartet noch auf den Rang danach.
+    /// The last finished game is still waiting for the rank after it.
     rank_pending: bool,
 }
 
 impl LogParser {
-    /// Verarbeitet eine Zeile der `Player.log`. Ausgewertet werden nur
-    /// JSON-Zeilen: Rang, Spielraum (Event) und Nachrichten der Spiel-Engine.
+    /// Processes one line of `Player.log`. Only JSON lines are evaluated:
+    /// rank, game room (event) and messages of the game engine.
     pub fn feed(&mut self, line: &[u8]) {
         if line.first() != Some(&b'{') {
             return;
@@ -55,7 +55,7 @@ impl LogParser {
         }
     }
 
-    /// Rang laut Arena; nach einer Partie gehört er zu ihr.
+    /// Rank according to Arena; after a game it belongs to that game.
     fn on_rank(&mut self, text: &str) {
         let Some(rank) = Rank::parse(text) else {
             return;
@@ -69,7 +69,7 @@ impl LogParser {
         self.rank = Some(rank);
     }
 
-    /// Spielraum: Event der Partie (z. B. Rangliste) für den eigenen Sitz merken.
+    /// Game room: remember the event of the game (e.g. ranked) for the own seat.
     fn on_room(&mut self, o: &Value) {
         let cfg = &o["matchGameRoomStateChangedEvent"]["gameRoomInfo"]["gameRoomConfig"];
         let Some(match_id) = cfg["matchId"].as_str() else {
@@ -85,7 +85,7 @@ impl LogParser {
         }
     }
 
-    /// Eine Nachricht der Spiel-Engine (GRE).
+    /// A message of the game engine (GRE).
     fn on_message(&mut self, m: &Value, ts: u64) {
         let seat = m["systemSeatIds"][0].as_u64().unwrap_or(1) as u32;
         match m["type"].as_str().unwrap_or("") {
@@ -100,7 +100,7 @@ impl LogParser {
             message::MULLIGAN_REQ => {
                 if let Some(t) = self.cur.as_mut() {
                     t.mulligan_reqs += 1;
-                    // Die zuletzt angebotene Hand ist die behaltene.
+                    // The hand offered last is the one kept.
                     t.rec.opening_hand = t.hand();
                 }
             }
@@ -112,14 +112,14 @@ impl LogParser {
         }
     }
 
-    /// Neuer Spielstand: Partie zuordnen (oder neu beginnen) und anwenden.
+    /// New game state: assign the game (or start a new one) and apply it.
     fn on_game_state(&mut self, g: &Value, seat: u32, ts: u64) {
         let info = &g["gameInfo"];
         let known = info["matchID"]
             .as_str()
             .map(|m| format!("{m}#{}", info["gameNumber"].as_u64().unwrap_or(1)));
         if self.is_new_game(g, known.as_deref(), seat) {
-            // Eine vorige Partie ohne Ergebnis wird verworfen.
+            // A previous game without a result is dropped.
             let mut t = Tracker::new(seat, ts);
             t.rec.deck = std::mem::take(&mut self.deck);
             self.cur = Some(t);
@@ -134,16 +134,16 @@ impl LogParser {
         }
     }
 
-    /// Gehört der Spielstand zu einer neuen Partie? Arena schickt die
-    /// Partie-Kennung nicht in jeder Nachricht mit. Beginnt das Log mitten in
-    /// einer Partie, steht sie erst am Ende fest.
+    /// Does the game state belong to a new game? Arena doesn't send the game
+    /// id with every message. If the log starts in the middle of a game, it
+    /// is only known at the end.
     fn is_new_game(&self, g: &Value, known: Option<&str>, seat: u32) -> bool {
         match (&self.cur, known) {
             (None, _) => true,
             (Some(t), Some(_)) if t.rec.id.is_empty() => {
-                // Nach Spielende schickt Arena noch Nachrichten ohne Kennung; der
-                // daraus entstandene Tracker trägt den hohen Zählerstand der alten
-                // Partie. Springt der Zähler zurück, beginnt eine neue Partie.
+                // After the end of a game Arena still sends messages without an
+                // id; the tracker created from them carries the old game's high
+                // counter. If the counter jumps back, a new game begins.
                 g["gameStateId"].as_u64().unwrap_or(0) < t.last_state_id
             }
             (Some(t), Some(id)) => t.rec.id != id,
@@ -151,7 +151,7 @@ impl LogParser {
         }
     }
 
-    /// Spielende: Ergebnis bestimmen und die Partie abschließen.
+    /// End of the game: determine the result and finish the game.
     fn on_game_over(&mut self, g: &Value, info: &Value) {
         let Some(r) = info["results"]
             .as_array()
@@ -174,7 +174,7 @@ impl LogParser {
             Some(message::RESULT_WIN_LOSS) => Some(u(&r["winningTeamId"]) == my_team),
             _ => None,
         };
-        // Ohne Kennung (Log begann mitten in einer Partie) wird sie verworfen.
+        // Without an id (the log began in the middle of a game) it is dropped.
         if done.rec.id.is_empty() {
             return;
         }
@@ -187,7 +187,7 @@ impl LogParser {
         self.rank_pending = true;
     }
 
-    /// Zustand der laufenden Partie, falls gerade eine läuft.
+    /// State of the running game, if one is running.
     pub fn live(&self) -> Option<LiveState> {
         self.cur
             .as_ref()
@@ -195,19 +195,19 @@ impl LogParser {
             .map(|t| t.live())
     }
 
-    /// Bisher beendete Partien abholen (das Mitlesen braucht sie nicht aufzuheben).
+    /// Collect the games finished so far (following doesn't need to keep them).
     pub fn take_finished(&mut self) -> Vec<GameRecord> {
         std::mem::take(&mut self.out)
     }
 
-    /// Alle beendeten Partien, je Partie nur die beste Aufzeichnung.
+    /// All finished games, only the best recording per game.
     pub fn finish(mut self) -> Vec<GameRecord> {
         for rec in &mut self.out {
             let match_id = rec.id.split('#').next().unwrap_or("");
             rec.event = self.events.get(match_id).cloned().unwrap_or_default();
         }
-        // Arena meldet das Spielende oft doppelt; die zweite Meldung erzeugt eine
-        // leere Kopie derselben Partie. Pro Partie nur die beste Aufzeichnung behalten.
+        // Arena often reports the end of a game twice; the second report creates
+        // an empty copy of the same game. Keep only the best recording per game.
         let mut best: Vec<GameRecord> = Vec::new();
         for rec in self.out {
             match best.iter_mut().find(|b| b.id == rec.id) {
@@ -233,7 +233,7 @@ impl LogParser {
     }
 }
 
-/// Liest alle (abgeschlossenen) Partien aus einer Logdatei.
+/// Reads all (finished) games from a log file.
 pub fn parse_log(path: &Path) -> Vec<GameRecord> {
     let Ok(file) = File::open(path) else {
         return Vec::new();
@@ -245,7 +245,7 @@ pub fn parse_log(path: &Path) -> Vec<GameRecord> {
     parser.finish()
 }
 
-/// Wie vollständig ist eine Aufzeichnung? Höher = besser.
+/// How complete is a recording? Higher = better.
 pub(super) fn quality(g: &GameRecord) -> (bool, usize, bool, bool) {
     (
         g.complete,
@@ -255,7 +255,7 @@ pub(super) fn quality(g: &GameRecord) -> (bool, usize, bool, bool) {
     )
 }
 
-/// Steht im Log, dass „Detaillierte Logs“ ausgeschaltet sind?
+/// Does the log say that "Detailed Logs" are turned off?
 pub fn detailed_logs_disabled(path: &Path) -> bool {
     let Ok(file) = File::open(path) else {
         return false;

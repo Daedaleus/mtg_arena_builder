@@ -1,14 +1,14 @@
-//! Verfolgt den Spielzustand einer laufenden Partie aus den Lognachrichten.
+//! Follows the game state of a running game from the log messages.
 
 use super::*;
 
-/// Verfolgt den Spielzustand einer laufenden Partie.
+/// Follows the game state of a running game.
 #[derive(Default)]
 pub(super) struct Tracker {
     pub(super) rec: GameRecord,
-    /// Spielobjekte nach Instanz-Kennung (sortiert: feste Reihenfolge in Anzeigen).
+    /// Game objects by instance id (sorted: fixed order in displays).
     pub(super) objects: BTreeMap<u32, Obj>,
-    /// zoneId -> (Typ, Besitzer, Objekte)
+    /// zoneId -> (type, owner, objects)
     pub(super) zones: HashMap<u32, (String, u32, Vec<u32>)>,
     pub(super) life: HashMap<u32, i32>,
     pub(super) turn: u32,
@@ -20,9 +20,9 @@ pub(super) struct Tracker {
     pub(super) cur: TurnStat,
     pub(super) mulligan_reqs: u32,
     pub(super) seen_cards: HashMap<GrpId, HashSet<u32>>,
-    /// Instanzen, die in diesem Zug angegriffen haben.
+    /// Instances that attacked this turn.
     pub(super) attacked_ids: HashSet<u32>,
-    /// Vor dem Kampf: (Instanz, grpId) meiner gefahrlos angreifbaren Kreaturen.
+    /// Before combat: (instance, grpId) of my creatures that can attack safely.
     pub(super) safe_snapshot: Vec<(u32, GrpId)>,
 }
 
@@ -83,7 +83,7 @@ impl Tracker {
             .unwrap_or_default()
     }
 
-    /// Vor dem Angriff: Welche meiner Kreaturen könnten gefahrlos angreifen?
+    /// Before the attack: which of my creatures could attack safely?
     pub(super) fn snapshot_attack(&mut self) {
         let (me, opp) = (self.seat(), self.opponent());
         let blockers: Vec<&Obj> = self
@@ -106,7 +106,7 @@ impl Tracker {
             .collect();
     }
 
-    /// Schließt den laufenden Zug mit dem aktuellen Zustand ab.
+    /// Closes the running turn with the current state.
     pub(super) fn close_turn(&mut self) {
         if self.turn == 0 {
             return;
@@ -147,7 +147,7 @@ impl Tracker {
         self.rec.turns.push(t);
     }
 
-    /// Eigene bleibende Karten außer Ländern.
+    /// Own permanents except lands.
     pub(super) fn my_board(&self) -> Vec<GrpId> {
         let me = self.seat();
         self.battlefield()
@@ -175,7 +175,7 @@ impl Tracker {
         };
     }
 
-    /// Liegt der Zug noch vor der Angriffserklärung?
+    /// Is the turn still before the declaration of attackers?
     pub(super) fn before_attacks(&self) -> bool {
         self.attacked_ids.is_empty()
             && (self.phase == Phase::Main1
@@ -214,7 +214,7 @@ impl Tracker {
     pub(super) fn apply(&mut self, g: &Value) {
         let state_id = g["gameStateId"].as_u64().unwrap_or(0);
         if state_id < self.last_state_id {
-            return; // veraltete (nachgereichte) Nachricht
+            return; // outdated (late) message
         }
         self.last_state_id = state_id;
 
@@ -222,7 +222,7 @@ impl Tracker {
             self.objects.clear();
             self.zones.clear();
         }
-        // Zugwechsel zuerst: der alte Zug wird mit dem bisherigen Zustand abgeschlossen.
+        // Change of turn first: the old turn is closed with the previous state.
         let ti = &g["turnInfo"];
         if let Some(turn) = ti["turnNumber"].as_u64().map(|t| t as u32)
             && turn != self.turn
@@ -273,7 +273,7 @@ impl Tracker {
             if obj.blocking && obj.controller == me && self.active == opp {
                 self.cur.blocked = true;
             }
-            // Gegnerische Karten merken, sobald sie öffentlich sind.
+            // Remember opposing cards as soon as they are public.
             let public = matches!(
                 self.zone_type(obj.zone),
                 zone::BATTLEFIELD | zone::STACK | zone::GRAVEYARD | zone::EXILE | zone::REVEALED
@@ -289,7 +289,7 @@ impl Tracker {
         for a in g["annotations"].as_array().into_iter().flatten() {
             self.annotation(a);
         }
-        // Stand vor dem Kampf festhalten.
+        // Record the state before combat.
         if self.before_attacks() {
             if self.active == me {
                 self.snapshot_attack();
@@ -350,7 +350,7 @@ impl Tracker {
                 .get(&u(target))
                 .map(|o| (o.controller, o.grp_id))
                 .unwrap_or_default();
-            // Eigene Zauber merken – auch Spontanzauber im gegnerischen Zug.
+            // Remember own spells – also instants in the opponent's turn.
             if category == annotation::CAST_SPELL && controller == self.seat() && grp.is_known() {
                 self.cur.cast.push(grp);
             }

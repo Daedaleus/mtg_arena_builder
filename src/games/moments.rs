@@ -1,28 +1,28 @@
-//! Einzelne Züge bewerten: Schlüsselmomente (der Zugvorschlag hätte mehr aus
-//! dem Mana gemacht) und Karten, die lange bezahlbar auf der Hand lagen.
+//! Judging single turns: key moments (the turn suggestion would have made
+//! more of the mana) and cards that stayed affordable in hand for a long time.
 
 use super::*;
 
-/// Ab so vielen eigenen Zügen gilt eine bezahlbare Karte als „lange auf der Hand“.
+/// From this many own turns on, an affordable card counts as "long in hand".
 pub const HELD_TURNS: u32 = 3;
 
-/// Eine Karte, die lange bezahlbar auf der Hand lag.
+/// A card that stayed affordable in hand for a long time.
 #[derive(Clone, Debug)]
 pub struct HeldCard<'a> {
     pub card: &'a Card,
-    /// Eigene Züge, in denen sie bezahlbar war.
+    /// Own turns in which it was affordable.
     pub turns: u32,
-    /// Letzter dieser Züge.
+    /// Last of these turns.
     pub last_turn: u32,
 }
 
-/// Karten, die mindestens [`HELD_TURNS`] eigene Züge bezahlbar auf der Hand
-/// lagen (nach Kartenname). Spontanzauber (z. B. Schutz-Tricks) hält man oft
-/// bewusst zurück – die zählen nicht. Bezahlbar heißt: Manawert höchstens die
-/// Zahl der eigenen Länder (ohne Farben).
+/// Cards that were affordable in hand for at least [`HELD_TURNS`] own turns
+/// (by card name). Instants (e.g. protection tricks) are often held back on
+/// purpose – they don't count. Affordable means: mana value at most the
+/// number of own lands (without colors).
 pub fn held_cards<'a>(g: &GameRecord, db: &'a CardDb) -> Vec<HeldCard<'a>> {
     let mut held: Vec<HeldCard> = Vec::new();
-    // Der letzte Zug zählt nicht: Die Partie endete darin.
+    // The last turn doesn't count: the game ended in it.
     let done = g.turns.len().saturating_sub(1);
     for t in g.turns[..done].iter().filter(|t| t.mine) {
         let mut counted = HashSet::new();
@@ -49,25 +49,25 @@ pub fn held_cards<'a>(g: &GameRecord, db: &'a CardDb) -> Vec<HeldCard<'a>> {
     held
 }
 
-/// Mindestens so viel Mana mehr hätte der Zugvorschlag nutzen müssen,
-/// damit ein Zug als „besserer Zug möglich“ gilt.
+/// The turn suggestion must have used at least this much more mana for a
+/// turn to count as "better play possible".
 pub(super) const KEY_MOMENT_MANA: u32 = 2;
 
-/// Ein Zug, in dem der Zugvorschlag deutlich mehr Mana genutzt hätte.
+/// A turn in which the turn suggestion would have used clearly more mana.
 #[derive(Clone, Debug, PartialEq)]
 pub struct KeyMoment {
     pub text: String,
-    /// Die vorgeschlagenen Karten.
+    /// The suggested cards.
     pub cards: Vec<GrpId>,
 }
 
-/// Vergleicht einen eigenen Zug mit dem Zugvorschlag: Hand zu Zugbeginn
-/// (Hand am Ende plus gewirkte Karten) und Länder am Zugende.
+/// Compares an own turn with the turn suggestion: hand at the start of the
+/// turn (hand at the end plus cast cards) and lands at the end of the turn.
 pub fn key_moment(t: &TurnStat, db: &CardDb) -> Option<KeyMoment> {
     if !t.mine || t.lands.is_empty() {
         return None;
     }
-    // Hand zu Zugbeginn; legendäre Karten, die schon im Spiel sind, fallen weg.
+    // Hand at the start of the turn; legendary cards already in play drop out.
     let mut hand = crate::turnplan::without_legend_duplicates(db, &t.hand, &t.board);
     hand.extend(&t.cast);
     let plan = crate::turnplan::plan(
