@@ -33,7 +33,7 @@ const ARCH_HTML: &str = "<tr><td><a href=/event?e=1&d=912128&f=ST>Jund Sacrifice
 #[test]
 fn parses_archetypes() {
     let list = parse_archetypes(FORMAT_HTML);
-    assert_eq!(list.len(), 2, "doppelte Kennungen nur einmal");
+    assert_eq!(list.len(), 2, "duplicate ids only once");
     assert_eq!((list[0].id, list[0].meta, list[0].share), (271, 50, 11));
     assert_eq!(list[0].name, "Jund Aggro");
     assert_eq!(list[1].name, "Azorius & Friends");
@@ -175,7 +175,7 @@ fn old_archetype_pages_are_restored() {
     assert_eq!(f.cached_decks("ST", &arch).unwrap().len(), 2);
     assert!(
         f.cached("arch_ST_271.html", Some(12 * HOUR)).is_none(),
-        "für Abrufe veraltet"
+        "outdated for fetches"
     );
 }
 
@@ -183,7 +183,10 @@ fn old_archetype_pages_are_restored() {
 fn restores_opened_gg_events() {
     let dir = TempDir::new("gg");
     let f = Fetcher::new(dir.0.clone());
-    assert!(f.cached_gg("standard").is_empty(), "ohne Übersicht nichts");
+    assert!(
+        f.cached_gg("standard").is_empty(),
+        "nothing without an overview"
+    );
     std::fs::write(dir.path("gg_index.html"), crate::testutil::GG_INDEX_HTML).unwrap();
     let slug = "arena-championship-13-standard-decklists-a-k";
     std::fs::write(
@@ -212,7 +215,7 @@ fn downloads_once_then_uses_cache() {
     let mut f = Fetcher::with_http(dir.0.clone(), std::sync::Arc::new(http.clone()));
     assert_eq!(f.top8("seite", "seite.html", None).unwrap(), "Café");
     assert_eq!(f.top8("seite", "seite.html", None).unwrap(), "Café");
-    assert_eq!(http.calls(), 1, "zweites Mal aus dem Cache");
+    assert_eq!(http.calls(), 1, "second time from the cache");
     // Errors and missing pages come back with the address and don't land in the cache.
     for page in ["fehler", "fehlt"] {
         let file = format!("{page}.html");

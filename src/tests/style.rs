@@ -98,7 +98,7 @@ fn recommends_what_wins() {
     games.extend((0..3).map(|_| game(aggro(), true)));
     let s = analyze(&games, &db, &report(40, &[]));
     assert_eq!(s.games, 10);
-    assert_eq!(s.records[0].style, Style::Control, "meistgespielt zuerst");
+    assert_eq!(s.records[0].style, Style::Control, "most played first");
     assert_eq!((s.records[0].games, s.records[0].wins), (7, 4));
     assert_eq!(s.recommended, Style::Aggro);
     assert!(s.reason.contains("3 von 3"), "{}", s.reason);
@@ -172,7 +172,7 @@ fn recommends_cheapest_decks_of_style() {
     assert_eq!(
         ids,
         vec![2, 3],
-        "günstigste zuerst, je Archetyp einmal, höchstens 2"
+        "cheapest first, once per archetype, at most 2"
     );
     assert!(recommend(&cands, Style::Midrange, [0; 4], 5).is_empty());
 }

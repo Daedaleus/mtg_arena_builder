@@ -185,13 +185,13 @@ fn replaced_lists_drop_old_trials() {
         },
     );
     s.list_replaced(DeckId::Top8(7));
-    assert!(s.decks.is_empty(), "alte Probehände weg");
+    assert!(s.decks.is_empty(), "old sample hands gone");
     assert_eq!(
         s.list_gen(DeckId::Top8(7)),
         1,
-        "laufende Rechnung mit Stand 0 wird verworfen"
+        "running computation with state 0 is discarded"
     );
-    assert_eq!(s.list_gen(DeckId::Top8(8)), 0, "andere Decks unberührt");
+    assert_eq!(s.list_gen(DeckId::Top8(8)), 0, "other decks untouched");
 }
 
 #[test]

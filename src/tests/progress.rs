@@ -33,7 +33,7 @@ fn rank_names_and_points() {
     assert_eq!(rank_points(&rank("Silver", 4, 3)), 4.5);
     assert!(
         rank_points(&rank("Bronze", 4, 99)) < 1.0,
-        "Schritt bleibt in der Stufe"
+        "step stays within the tier"
     );
     assert_eq!(rank_points(&rank("Unbekannt", 9, 0)), 0.0);
     // Ascending over all classes
@@ -100,10 +100,10 @@ fn rolling_window_and_decks() {
         },
     ];
     let decks = deck_series(&games, &groups, 10, 3);
-    assert_eq!(decks.len(), 1, "Deck B hat zu wenige Partien");
+    assert_eq!(decks.len(), 1, "deck B has too few games");
     assert_eq!(decks[0].0, "A");
     let xs: Vec<f64> = decks[0].1.iter().map(|p| p[0]).collect();
-    assert_eq!(xs, vec![1.0, 3.0, 5.0], "x = Nummer über alle Partien");
+    assert_eq!(xs, vec![1.0, 3.0, 5.0], "x = number over all games");
 }
 
 #[test]
@@ -117,7 +117,7 @@ fn trend_compares_recent_games() {
     };
     let games = mk(&[false, false, true, true]);
     assert_eq!(trend(&games, 2), Some((100.0, 0.0)));
-    assert_eq!(trend(&games, 3), None, "zu wenige Partien");
+    assert_eq!(trend(&games, 3), None, "too few games");
     assert_eq!(trend(&games, 0), None);
 }
 

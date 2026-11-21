@@ -85,5 +85,5 @@ fn pages() {
     // A page that is too large (e.g. after filtering) is limited to the last one.
     assert_eq!(page_range(25, 9, 10), (20, 25, 3, 2));
     assert_eq!(page_range(10, 1, 10), (0, 10, 1, 0));
-    assert_eq!(page_range(3, 0, 0), (0, 1, 3, 0), "mindestens 1 je Seite");
+    assert_eq!(page_range(3, 0, 0), (0, 1, 3, 0), "at least 1 per page");
 }

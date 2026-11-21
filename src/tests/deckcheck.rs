@@ -61,7 +61,7 @@ fn groups_games_by_deck() {
     let main = &groups[0];
     assert_eq!(main.games, vec![0, 2, 4]);
     assert_eq!(main.wins, 2);
-    assert!(!main.fixed, "nicht nur vorgegebene Events");
+    assert!(!main.fixed, "not only fixed events");
     assert!(
         main.label.starts_with("RG Rangliste – Stone Giant"),
         "{}",

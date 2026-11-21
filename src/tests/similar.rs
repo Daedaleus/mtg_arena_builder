@@ -110,7 +110,7 @@ fn lands_are_replaced_by_lands() {
     );
     let names: Vec<&str> = s.iter().map(|x| x.name.as_str()).collect();
     assert_eq!(names, vec!["Gate"]);
-    assert_eq!(s[0].info, "", "Länder haben keine Manakosten");
+    assert_eq!(s[0].info, "", "lands have no mana costs");
 }
 
 #[test]

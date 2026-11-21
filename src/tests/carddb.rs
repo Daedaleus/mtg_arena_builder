@@ -91,7 +91,7 @@ fn pips_and_types() {
     assert_eq!(
         Rarity::from_arena(9).label(),
         "Land",
-        "unbekannt wie Spielstein"
+        "unknown like a token"
     );
 }
 
@@ -164,7 +164,7 @@ fn abilities_set_roles_burn_tapped_and_mana() {
     let mut land = card(3, "Gate").land("UG").abilities(&[200, 300]).build();
     apply_abilities(&mut land, &info);
     assert!(land.enters_tapped);
-    assert_eq!(land.mana, None, "Länder liefern Farben über colors");
+    assert_eq!(land.mana, None, "lands provide colors via colors");
 }
 
 #[test]
@@ -233,7 +233,7 @@ fn loads_arena_database() {
     assert!(shock.has_role(ROLE_REMOVAL));
     assert_eq!(shock.burn, 2);
     let maze = &db.cards[&GrpId(101)];
-    assert_eq!(maze.name_de, None, "Platzhalter werden ignoriert");
+    assert_eq!(maze.name_de, None, "placeholders are ignored");
     assert!(maze.is_land() && maze.enters_tapped);
     assert_eq!(maze.colors, 0b10010);
     assert_eq!(maze.subtypes, vec![10, 11]);
@@ -293,7 +293,7 @@ fn display_names_follow_language() {
     assert_eq!(
         db.display_name("Island"),
         "Island",
-        "ohne deutschen Namen englisch"
+        "without a German name English"
     );
     assert_eq!(db.display_name("Unbekannte Karte"), "Unbekannte Karte");
 }

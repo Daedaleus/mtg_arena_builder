@@ -95,7 +95,7 @@ fn replacement_quantities() {
     assert_eq!(
         replaced_qty(&db, &mine, "mountain", 7),
         7,
-        "Standardländer unbegrenzt"
+        "basic lands are unlimited"
     );
     assert_eq!(replaced_qty(&db, &mine, "hill ogre", 3), 2);
     assert_eq!(replaced_qty(&db, &mine, "hill ogre", 1), 1);

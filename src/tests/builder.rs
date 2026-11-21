@@ -96,7 +96,7 @@ fn builds_decks_for_owned_colors() {
     assert!(labels.contains(&"Rot-Grün"), "{labels:?}");
     assert!(
         !labels.iter().any(|l| l.contains("Blau")),
-        "zu wenig blaue Karten"
+        "too few blue cards"
     );
     assert!(built.windows(2).all(|w| w[0].score >= w[1].score));
 
