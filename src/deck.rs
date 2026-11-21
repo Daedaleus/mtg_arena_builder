@@ -12,8 +12,19 @@ pub struct DeckEntry {
 
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Deck {
+    /// Main deck, including the commander (it needs wildcards too).
     pub main: Vec<DeckEntry>,
     pub side: Vec<DeckEntry>,
+    /// Names of the main deck entries that are the commander (Brawl); empty
+    /// for decks without a commander.
+    pub commander: Vec<String>,
+}
+
+impl Deck {
+    /// A Brawl deck: it has a commander.
+    pub fn is_brawl(&self) -> bool {
+        !self.commander.is_empty()
+    }
 }
 
 /// Splits a line like `4 Watery Grave` or `4 Watery Grave (EOE) 261`.
@@ -41,6 +52,7 @@ fn parse_entry(line: &str) -> Option<DeckEntry> {
 pub fn parse(text: &str) -> Deck {
     let mut deck = Deck::default();
     let mut in_side = false;
+    let mut in_commander = false;
     let mut saw_blank_after_main = false;
     for raw in text.lines() {
         let line = raw.trim();
@@ -49,13 +61,15 @@ pub fn parse(text: &str) -> Deck {
             continue;
         }
         match line.to_lowercase().trim_end_matches(':') {
-            "deck" | "commander" | "mainboard" | "main" => {
+            heading @ ("deck" | "commander" | "mainboard" | "main") => {
                 in_side = false;
+                in_commander = heading == "commander";
                 saw_blank_after_main = false;
                 continue;
             }
             "sideboard" | "companion" | "side" => {
                 in_side = true;
+                in_commander = false;
                 continue;
             }
             _ => {}
@@ -63,6 +77,11 @@ pub fn parse(text: &str) -> Deck {
         let Some(entry) = parse_entry(line) else {
             continue;
         };
+        if in_commander {
+            deck.commander.push(entry.name.clone());
+            deck.main.push(entry);
+            continue;
+        }
         // MTGO export without a heading: an empty line separates the sideboard.
         if saw_blank_after_main {
             in_side = true;
@@ -84,6 +103,8 @@ pub struct LineEval {
     /// Key in the card database; `None` = the card doesn't exist in Arena.
     pub key: Option<String>,
     pub side: bool,
+    /// The commander of a Brawl deck.
+    pub commander: bool,
     pub rarity: Rarity,
     /// Owned in total (all printings).
     pub owned: u32,
@@ -140,6 +161,7 @@ pub fn evaluate(deck: &Deck, db: &CardDb, owned: &HashMap<String, u32>) -> DeckE
             name: entry.name.clone(),
             key: key.clone(),
             side,
+            commander: !side && deck.commander.contains(&entry.name),
             rarity: Rarity::Token,
             owned: 0,
             missing: entry.qty,

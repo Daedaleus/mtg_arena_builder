@@ -30,6 +30,15 @@ pub fn connect(seat: u32, deck: &[GrpId]) -> Value {
     })
 }
 
+/// Like [`connect`] for Brawl: with the commander.
+pub fn connect_brawl(seat: u32, deck: &[GrpId], commander: GrpId) -> Value {
+    json!({
+        "type": "GREMessageType_ConnectResp",
+        "systemSeatIds": [seat],
+        "connectResp": { "deckMessage": { "deckCards": deck, "commanderCards": [commander] } }
+    })
+}
+
 pub fn mulligan(seat: u32) -> Value {
     json!({ "type": "GREMessageType_MulliganReq", "systemSeatIds": [seat] })
 }
@@ -155,6 +164,8 @@ pub const Z_STACK: u32 = 27;
 pub const Z_HAND_1: u32 = 31;
 pub const Z_HAND_2: u32 = 35;
 pub const Z_GRAVE_2: u32 = 37;
+pub const Z_COMMAND_1: u32 = 26;
+pub const Z_COMMAND_2: u32 = 25;
 
 /// Zone list: battlefield, stack, both hands and the opponent's graveyard.
 pub fn zones(hand1: &[u32], hand2: &[u32], battlefield: &[u32]) -> Value {

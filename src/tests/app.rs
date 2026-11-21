@@ -45,7 +45,7 @@ fn sim_page_renders() {
     let deck: Vec<GrpId> = std::iter::repeat_n(FOREST, 24)
         .chain(std::iter::repeat_n(BEAR, 36))
         .collect();
-    let report = crate::sim::trial(&deck, &db, &[], 50, 1);
+    let report = crate::sim::trial(&deck, &db, &[], 50, 1, crate::sim::Rules::default());
     let ctx = egui::Context::default();
     let _ = ctx.run(egui::RawInput::default(), |ctx| {
         egui::CentralPanel::default().show(ctx, |ui| super::widgets::sim_view(ui, &report));
@@ -113,7 +113,7 @@ fn personal_sim_renders() {
     let deck: Vec<GrpId> = std::iter::repeat_n(FOREST, 24)
         .chain(std::iter::repeat_n(BEAR, 36))
         .collect();
-    let base = crate::sim::trial(&deck, &db, &[], 30, 1);
+    let base = crate::sim::trial(&deck, &db, &[], 30, 1, crate::sim::Rules::default());
     let habits = crate::sim::Habits {
         weaker_turn: 0.2,
         skip_attack: 0.1,

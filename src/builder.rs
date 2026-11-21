@@ -363,7 +363,7 @@ fn build_one(
         score: sel.score / SPELLS as f32,
         deck: Deck {
             main,
-            side: Vec::new(),
+            ..Default::default()
         },
         creatures: sel.creatures,
         removal: sel.removal,

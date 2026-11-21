@@ -46,6 +46,7 @@ pub fn group_decks(games: &[GameRecord], db: &CardDb) -> Vec<DeckGroup> {
                 groups.push(DeckGroup {
                     label: String::new(),
                     deck: g.deck.clone(),
+                    commander: g.commander.first().copied(),
                     games: vec![i],
                     wins: won,
                     fixed: is_fixed_event(&g.event),

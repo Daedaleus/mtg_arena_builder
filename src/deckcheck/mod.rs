@@ -33,6 +33,8 @@ pub struct DeckGroup {
     pub label: String,
     /// Decklist (grpIds, repeated = copies).
     pub deck: Vec<GrpId>,
+    /// Brawl: the commander of the most recent game.
+    pub commander: Option<GrpId>,
     /// Indices into the game list.
     pub games: Vec<usize>,
     pub wins: usize,

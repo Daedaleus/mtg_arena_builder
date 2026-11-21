@@ -37,14 +37,25 @@ pub(super) struct Game<'a> {
     board: Board,
     /// Mana of the turn suggestion left unused this turn.
     mana_left: u32,
+    /// Brawl: the commander, its tax and whether it is in play.
+    commander: Option<GrpId>,
+    tax: u32,
+    commander_out: bool,
     stats: GameStats,
 }
 
 impl<'a> Game<'a> {
     /// Shuffles, draws seven cards and takes one mulligan with too few or too
     /// many lands (London: draw 7, put one card on the bottom of the library –
-    /// a land with many lands, otherwise the most expensive card).
-    pub(super) fn deal(deck: &[GrpId], db: &'a CardDb, on_play: bool, rng: &mut Rng) -> Game<'a> {
+    /// a land with many lands, otherwise the most expensive card; in Brawl the
+    /// first mulligan is free).
+    pub(super) fn deal(
+        deck: &[GrpId],
+        db: &'a CardDb,
+        on_play: bool,
+        rules: Rules,
+        rng: &mut Rng,
+    ) -> Game<'a> {
         let mut library = deck.to_vec();
         rng.shuffle(&mut library);
         let mut hand: Vec<GrpId> = library.drain(..7).collect();
@@ -53,7 +64,9 @@ impl<'a> Game<'a> {
             library.append(&mut hand);
             rng.shuffle(&mut library);
             hand = library.drain(..7).collect();
-            let bottom = if lands_in(db, &hand) >= 4 {
+            let bottom = if rules.is_brawl() {
+                None
+            } else if lands_in(db, &hand) >= 4 {
                 hand.iter().position(|g| is_land(db, *g))
             } else {
                 hand.iter()
@@ -73,8 +86,11 @@ impl<'a> Game<'a> {
             hand,
             lands: Vec::new(),
             mana_sources: Vec::new(),
-            board: Board::new(),
+            board: Board::with_life(rules.start_life()),
             mana_left: 0,
+            commander: rules.commander,
+            tax: 0,
+            commander_out: false,
             stats: GameStats {
                 mulligan,
                 ..Default::default()
@@ -135,16 +151,31 @@ impl<'a> Game<'a> {
         }
         // Legend rule: only one copy per name in play.
         let board: Vec<GrpId> = self.board.mine.iter().map(|u| u.card).collect();
-        let hand = turnplan::without_legend_duplicates(db, &self.hand, &board);
-        let plan = turnplan::plan(
-            db,
-            &hand,
-            &self.lands,
-            &self.mana_sources,
-            false,
-            &self.board.opp_creatures(),
-            self.board.mine.len() as u32,
-        );
+        let mut hand = turnplan::without_legend_duplicates(db, &self.hand, &board);
+        let commander = self.commander_ready(&board);
+        hand.extend(commander);
+        let opp_creatures = self.board.opp_creatures();
+        let my_creatures = self.board.mine.len() as u32;
+        let plan_for = |hand: &[GrpId]| {
+            turnplan::plan(
+                db,
+                hand,
+                &self.lands,
+                &self.mana_sources,
+                false,
+                &opp_creatures,
+                my_creatures,
+            )
+        };
+        let mut plan = plan_for(&hand);
+        let with_commander = commander.is_some_and(|c| plan.spells.contains(&c));
+        if with_commander && plan.mana_used + self.tax > plan.mana_total {
+            // The commander tax doesn't fit: plan without the commander.
+            hand.pop();
+            plan = plan_for(&hand);
+        } else if with_commander {
+            plan.mana_used += self.tax;
+        }
         if let Some(land) = plan.land
             && let Some(i) = self.hand.iter().position(|g| *g == land)
         {
@@ -174,8 +205,29 @@ impl<'a> Game<'a> {
         self.lose_mana_sources(&died);
     }
 
-    /// Plays a card from the hand.
+    /// Brawl: the commander if it waits in the command zone. A commander that
+    /// left the battlefield returns there, and the tax rises.
+    fn commander_ready(&mut self, board: &[GrpId]) -> Option<GrpId> {
+        let commander = self.commander?;
+        if self.commander_out && !board.contains(&commander) {
+            self.commander_out = false;
+            self.tax += COMMANDER_TAX;
+        }
+        (!self.commander_out).then_some(commander)
+    }
+
+    /// Plays a card from the hand (or the commander from the command zone).
     fn cast(&mut self, grp: GrpId) {
+        if self.commander == Some(grp) && !self.commander_out {
+            if let Some(c) = self.db.cards.get(&grp) {
+                self.commander_out = true;
+                if c.mana.is_some() {
+                    self.mana_sources.push(grp);
+                }
+                self.board.cast(c);
+            }
+            return;
+        }
         let Some(i) = self.hand.iter().position(|h| *h == grp) else {
             return;
         };
@@ -230,6 +282,21 @@ impl<'a> Game<'a> {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+impl Game<'_> {
+    pub(super) fn hand_len(&self) -> usize {
+        self.hand.len()
+    }
+
+    pub(super) fn board(&mut self) -> &mut Board {
+        &mut self.board
+    }
+
+    pub(super) fn tax(&self) -> u32 {
+        self.tax
     }
 }
 

@@ -43,6 +43,8 @@ pub mod zone {
     pub const GRAVEYARD: &str = "ZoneType_Graveyard";
     pub const EXILE: &str = "ZoneType_Exile";
     pub const REVEALED: &str = "ZoneType_Revealed";
+    /// Brawl: where the commander waits.
+    pub const COMMAND: &str = "ZoneType_Command";
 }
 
 /// Kinds of messages and game states.

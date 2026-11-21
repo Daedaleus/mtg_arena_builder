@@ -37,6 +37,10 @@ fn parse_edge_cases() {
     );
     assert_eq!(d.side.len(), 1);
     assert_eq!(d.side[0].name, "Lurrus");
+    // The commander stays in the main deck and is marked.
+    assert_eq!(d.commander, vec!["Atraxa".to_string()]);
+    assert!(d.is_brawl());
+    assert!(!parse("4 Shock\n").is_brawl());
     // "Deck" after an empty line starts the main deck again.
     let d = parse("Deck\n4 Shock\n\nDeck\n2 Opt\n");
     assert_eq!((d.main.len(), d.side.len()), (2, 0));
@@ -145,4 +149,13 @@ fn usage_counts_count_lists_not_copies() {
     let counts = usage_counts([&a, &b]);
     assert_eq!(counts["shock"], 2);
     assert_eq!(counts["hill ogre"], 1);
+}
+
+#[test]
+fn commander_line_is_marked() {
+    let db = crate::testutil::std_db();
+    let deck = parse("Commander\n1 Isamaru, Hound of Konda\n\nDeck\n10 Plains\n");
+    let eval = evaluate(&deck, &db, &HashMap::new());
+    let marks: Vec<(bool, bool)> = eval.lines.iter().map(|l| (l.commander, l.side)).collect();
+    assert_eq!(marks, vec![(true, false), (false, false)]);
 }

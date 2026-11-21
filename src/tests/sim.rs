@@ -339,13 +339,16 @@ fn opponent_profile_from_history() {
     let db = std_db();
     let ok = my_turn(&[], &[FOREST], true, &[]);
     let few: Vec<GameRecord> = (0..2).map(|_| history_game(&[1, 2], ok.clone())).collect();
-    assert!(opponent_from(&few, &db).is_none(), "too few games");
+    assert!(
+        opponent_from(&few, &db, Rules::default()).is_none(),
+        "too few games"
+    );
     let mut games: Vec<GameRecord> = (0..6)
         .map(|_| history_game(&[0, 2, 2, 5, 5, 6], ok.clone()))
         .collect();
     // One outlier with a huge battlefield on turn 2 hardly distorts the average.
     games[0] = history_game(&[0, 30, 2, 5, 5, 6], ok.clone());
-    let o = opponent_from(&games, &db).unwrap();
+    let o = opponent_from(&games, &db, Rules::default()).unwrap();
     assert_eq!(o.games, 6);
     // Turn 2: the outlier only counts as 6 instead of 30 – (6 + 5 × 2) / 6.
     assert!((o.power[1] - 16.0 / 6.0).abs() < 0.01, "{:?}", o.power);
@@ -362,13 +365,13 @@ fn opponent_profile_from_history() {
     assert!((o.removal - 1.0 / 6.0).abs() < 0.01, "{}", o.removal);
     assert_eq!(o.tricks, 0.0);
     games[1].opp_cards.insert(GROWTH, 1);
-    let o = opponent_from(&games, &db).unwrap();
+    let o = opponent_from(&games, &db, Rules::default()).unwrap();
     assert!((o.tricks - 1.0 / 36.0).abs() < 0.01, "{}", o.tricks);
     assert_eq!(o.flying, 0.0);
     // Share of flying creatures among the opposing creature cards seen.
     games[2].opp_cards.insert(ANGEL, 1);
     games[2].opp_cards.insert(BEAR, 3);
-    let o = opponent_from(&games, &db).unwrap();
+    let o = opponent_from(&games, &db, Rules::default()).unwrap();
     assert!((o.flying - 0.25).abs() < 0.01, "{}", o.flying);
     // Fixed opponent for comparison
     let fast = Opponent::fast();
@@ -392,11 +395,14 @@ fn habits_from_history() {
         games.push(history_game(&[1, 1, 1], lazy.clone()));
         games.push(history_game(&[1, 1, 1], good.clone()));
     }
-    let h = habits_from(&games, &db).unwrap();
+    let h = habits_from(&games, &db, Rules::default()).unwrap();
     assert_eq!(h.turns, 24);
     assert!((h.weaker_turn - 0.5).abs() < 0.01, "{h:?}");
     assert!((h.skip_attack - 0.5).abs() < 0.01, "{h:?}");
-    assert!(habits_from(&games[..2], &db).is_none(), "too few turns");
+    assert!(
+        habits_from(&games[..2], &db, Rules::default()).is_none(),
+        "too few turns"
+    );
 }
 
 #[test]
@@ -406,23 +412,31 @@ fn profile_ignores_brawl_and_limited() {
     let mut games: Vec<GameRecord> = (0..6)
         .map(|_| history_game(&[2, 2, 2, 2], ok.clone()))
         .collect();
-    let constructed = opponent_from(&games, &db).unwrap();
+    let constructed = opponent_from(&games, &db, Rules::default()).unwrap();
     assert_eq!(constructed.games, 6);
-    let habits = habits_from(&games, &db).unwrap();
+    let habits = habits_from(&games, &db, Rules::default()).unwrap();
     // Brawl and draft games with a much faster opponent change nothing.
     for (i, event) in ["Play_Brawl", "QuickDraft_FDN_20261101"].iter().enumerate() {
         let mut g = history_game(&[6, 6, 6, 6], ok.clone());
         g.event = (*event).into();
         games.push(g);
-        assert_eq!(opponent_from(&games, &db), Some(constructed.clone()), "{i}");
-        assert_eq!(habits_from(&games, &db), Some(habits), "{i}");
+        assert_eq!(
+            opponent_from(&games, &db, Rules::default()),
+            Some(constructed.clone()),
+            "{i}"
+        );
+        assert_eq!(
+            habits_from(&games, &db, Rules::default()),
+            Some(habits),
+            "{i}"
+        );
     }
     // Only Brawl games: no profile at all.
     for g in &mut games {
         g.event = "Play_Brawl".into();
     }
-    assert!(opponent_from(&games, &db).is_none());
-    assert!(habits_from(&games, &db).is_none());
+    assert!(opponent_from(&games, &db, Rules::default()).is_none());
+    assert!(habits_from(&games, &db, Rules::default()).is_none());
 }
 
 #[test]
@@ -440,7 +454,7 @@ fn personal_simulation() {
         flying: 0.0,
     };
     let fast = simulate(&d, &db, 300, 3);
-    let best = simulate_with(&d, &db, 300, 3, &slow, None);
+    let best = simulate_with(&d, &db, 300, 3, &slow, None, Rules::default());
     assert_eq!(best.opponent, "langsam");
     assert!(!best.with_habits);
     assert!(
@@ -455,7 +469,7 @@ fn personal_simulation() {
         skip_attack: 0.9,
         turns: 100,
     };
-    let yours = simulate_with(&d, &db, 300, 3, &slow, Some(&bad));
+    let yours = simulate_with(&d, &db, 300, 3, &slow, Some(&bad), Rules::default());
     assert!(yours.with_habits);
     assert!(
         yours.pressure.opp_life[5] > best.pressure.opp_life[5],
@@ -470,7 +484,7 @@ fn personal_simulation() {
         tricks: 0.5,
         ..slow.clone()
     };
-    let tough = simulate_with(&d, &db, 300, 3, &hard, None);
+    let tough = simulate_with(&d, &db, 300, 3, &hard, None, Rules::default());
     assert!(
         tough.pressure.ahead < best.pressure.ahead,
         "{:?} / {:?}",
@@ -648,7 +662,7 @@ fn trial_runs_all_variants() {
     let db = std_db();
     let d = deck(&[(FOREST, 24), (BEAR, 20), (ELF, 16)]);
     // Without history: only the fixed opponent.
-    let t = trial(&d, &db, &[], 50, 1);
+    let t = trial(&d, &db, &[], 50, 1, Rules::default());
     assert!(t.mine.is_none() && t.mine_habits.is_none() && t.habits.is_none());
     assert_eq!(t.profile_games, 0);
     assert_eq!(t.fast.opponent, "schneller Gegner");
@@ -664,7 +678,7 @@ fn trial_runs_all_variants() {
     let history: Vec<GameRecord> = (0..8)
         .map(|_| history_game(&[1, 1, 2], lazy.clone()))
         .collect();
-    let t = trial(&d, &db, &history, 50, 1);
+    let t = trial(&d, &db, &history, 50, 1, Rules::default());
     assert_eq!(t.profile_games, 8);
     assert!(t.opponent.as_ref().unwrap().removal > 0.0, "Shock gesehen");
     assert!(
@@ -681,4 +695,55 @@ fn trial_runs_all_variants() {
         "own opponents up to turn 10"
     );
     assert!(t.habits.is_some());
+}
+
+#[test]
+fn brawl_rules() {
+    let constructed = Rules::default();
+    let brawl = Rules::brawl(OGRE);
+    assert!(!constructed.is_brawl() && brawl.is_brawl());
+    assert_eq!((constructed.start_life(), brawl.start_life()), (20, 25));
+    use crate::games::GameMode;
+    assert!(brawl.plays_like(GameMode::Brawl) && !brawl.plays_like(GameMode::Ranked));
+    assert!(constructed.plays_like(GameMode::Ranked) && !constructed.plays_like(GameMode::Brawl));
+}
+
+#[test]
+fn brawl_commander_from_the_command_zone() {
+    let db = std_db();
+    let lands = vec![MOUNTAIN; 60];
+    let opponent = Opponent::fast();
+    let mut rng = Rng(3);
+    let mut g = game::Game::deal(&lands, &db, true, Rules::brawl(OGRE), &mut rng);
+    // Seven lands: the free mulligan keeps seven cards.
+    assert_eq!(g.hand_len(), 7);
+    assert_eq!(g.board().life, BRAWL_START_LIFE);
+    for turn in 1..=3 {
+        g.my_turn(turn, &opponent, None, &mut rng);
+    }
+    let on_board = |g: &mut game::Game| g.board().mine.iter().any(|u| u.card == OGRE);
+    assert!(on_board(&mut g), "cast on turn 3");
+    // The commander dies: back to the command zone, now 2 more expensive.
+    g.board().mine.clear();
+    g.my_turn(4, &opponent, None, &mut rng);
+    assert_eq!(g.tax(), COMMANDER_TAX);
+    assert!(!on_board(&mut g), "5 mana needed, 4 lands");
+    g.my_turn(5, &opponent, None, &mut rng);
+    assert!(on_board(&mut g));
+    // Without Brawl rules the same lands do nothing.
+    let mut g = game::Game::deal(&lands, &db, true, Rules::default(), &mut rng);
+    assert_eq!(g.hand_len(), 6, "mulligan to six");
+    for turn in 1..=3 {
+        g.my_turn(turn, &opponent, None, &mut rng);
+    }
+    assert!(g.board().mine.is_empty());
+}
+
+#[test]
+fn brawl_simulation_keeps_the_commander_out_of_the_library() {
+    let db = std_db();
+    let d = deck(&[(MOUNTAIN, 40), (BEAR, 59), (OGRE, 1)]);
+    let r = simulate_with(&d, &db, 100, 1, &Opponent::fast(), None, Rules::brawl(OGRE));
+    assert_eq!(r.size, 100);
+    assert_eq!(r.pressure.life[0], BRAWL_START_LIFE as f32);
 }

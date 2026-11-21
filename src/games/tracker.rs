@@ -69,10 +69,19 @@ impl Tracker {
     }
 
     pub(super) fn hand(&self) -> Vec<GrpId> {
+        self.my_cards_in(zone::HAND)
+    }
+
+    /// Brawl: own commander in the command zone (castable from there).
+    pub(super) fn command_zone(&self) -> Vec<GrpId> {
+        self.my_cards_in(zone::COMMAND)
+    }
+
+    fn my_cards_in(&self, zone_type: &str) -> Vec<GrpId> {
         let me = self.seat();
         self.zones
             .values()
-            .find(|z| z.0 == zone::HAND && z.1 == me)
+            .find(|z| z.0 == zone_type && z.1 == me)
             .map(|z| {
                 z.2.iter()
                     .filter_map(|id| self.objects.get(id))
@@ -276,7 +285,12 @@ impl Tracker {
             // Remember opposing cards as soon as they are public.
             let public = matches!(
                 self.zone_type(obj.zone),
-                zone::BATTLEFIELD | zone::STACK | zone::GRAVEYARD | zone::EXILE | zone::REVEALED
+                zone::BATTLEFIELD
+                    | zone::STACK
+                    | zone::GRAVEYARD
+                    | zone::EXILE
+                    | zone::REVEALED
+                    | zone::COMMAND
             );
             if public && obj.owner == opp && obj.grp_id.is_known() {
                 self.seen_cards.entry(obj.grp_id).or_default().insert(id);

@@ -68,7 +68,10 @@ impl App {
         let deck_text = clicks.adopt.then(|| deckcheck::deck_text(&group.deck, &db));
         let match_id = r.meta.as_ref().map(|m| m.id);
         if clicks.simulate {
-            self.start_trial(target, group.deck.clone());
+            let rules = sim::Rules {
+                commander: group.commander,
+            };
+            self.start_trial(target, group.deck.clone(), rules);
         }
         self.sel_deck_group = sel;
         self.deck_cache = Some(a);

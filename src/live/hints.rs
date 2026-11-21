@@ -77,7 +77,9 @@ pub(super) fn card_name(db: &CardDb, grp: GrpId) -> String {
 
 /// Turn suggestion: land, spells and what to hold back.
 pub(super) fn turn_hints(v: &mut CompanionView, ls: &LiveState, db: &CardDb) {
-    let hand = crate::turnplan::without_legend_duplicates(db, &ls.hand, &ls.board);
+    // Brawl: the commander can be cast from the command zone like a hand card.
+    let castable: Vec<GrpId> = ls.hand.iter().chain(&ls.command).copied().collect();
+    let hand = crate::turnplan::without_legend_duplicates(db, &castable, &ls.board);
     let plan = crate::turnplan::plan(
         db,
         &hand,

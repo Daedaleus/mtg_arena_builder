@@ -247,8 +247,8 @@ pub fn replay(path: &str, limit: usize) -> anyhow::Result<()> {
 pub fn sim() -> anyhow::Result<()> {
     let db = carddb::CardDb::load(&paths::find_card_db(None)?)?;
     let games = games::sync(&paths::data_dir().join("games.json"), &paths::player_logs()).games;
-    let opponent = sim::opponent_from(&games, &db);
-    let habits = sim::habits_from(&games, &db);
+    let opponent = sim::opponent_from(&games, &db, sim::Rules::default());
+    let habits = sim::habits_from(&games, &db, sim::Rules::default());
     match &opponent {
         Some(o) => println!(
             "Gegnerprofil aus {} Partien: {} · neue Kraft je Zug {:.1?} · Entfernung {:.0} % der Züge · Tricks {:.0} %",
@@ -270,11 +270,13 @@ pub fn sim() -> anyhow::Result<()> {
     }
     for g in deckcheck::group_decks(&games, &db) {
         let start = std::time::Instant::now();
-        let r = sim::simulate(&g.deck, &db, sim::DEFAULT_GAMES, 1);
+        let rules = sim::Rules {
+            commander: g.commander,
+        };
+        let trial = sim::trial(&g.deck, &db, &games, sim::DEFAULT_GAMES, 1, rules);
+        let r = trial.fast;
         println!("##### {} ({} ms)", g.label, start.elapsed().as_millis());
-        if let Some(o) = &opponent {
-            let best = sim::simulate_with(&g.deck, &db, sim::DEFAULT_GAMES, 1, o, None);
-            let yours = sim::simulate_with(&g.deck, &db, sim::DEFAULT_GAMES, 1, o, habits.as_ref());
+        if let (Some(best), Some(yours)) = (&trial.mine, &trial.mine_habits) {
             println!(
                 "   gegen deine Gegner – mit Zugvorschlag: vorne {:.0} %, verloren {:.0} % · so wie du spielst: vorne {:.0} %, verloren {:.0} %",
                 best.pressure.ahead * 100.0,
