@@ -78,7 +78,7 @@ impl App {
                     self.save_settings();
                 }
                 if self.games.logs_disabled {
-                    ui.label(RichText::new(tr!("chrome.detailed_logs_off_arena")).color(YELLOW));
+                    toned(ui, Tone::Warn, tr!("chrome.detailed_logs_off_arena"));
                 }
                 ui.separator();
                 ui.strong(tr!("chrome.mtg_arena"));
@@ -86,7 +86,7 @@ impl App {
                 ui.text_edit_singleline(&mut self.settings.mtga_dir);
                 ui.horizontal(|ui| {
                     reload_db = ui.button(tr!("chrome.reload_card_data")).clicked();
-                    ui.label(RichText::new(self.db_status()).weak());
+                    note(ui, self.db_status());
                 });
                 ui.separator();
                 if ui

@@ -42,7 +42,10 @@ Compute nothing expensive per frame: cache evaluations in `app/compute.rs`
 (generation counter `data_gen`); long computations (sample hands, deck
 building) run on the task thread (`app/tasks.rs`) and report back as `Msg`.
 Interface state per area in `app/parts.rs` (tournament decks, games, magic.gg,
-images, sample hands, built decks). egui only in `src/app/` and `main.rs` –
+images, sample hands, built decks). Interface design follows Atomic Design:
+design tokens (colours for dark and light mode, spacing, image sizes) only in
+`app/theme.rs` – never hard-code a colour, use `theme::Tone` –, atoms in
+`app/atoms.rs`, larger building blocks in `app/widgets.rs`. egui only in `src/app/` and `main.rs` –
 domain modules return their own types (e.g. `images::Picture`) and take
 callbacks. Network access via the trait `http::Http` (in tests
 `testutil::FakeHttp`).

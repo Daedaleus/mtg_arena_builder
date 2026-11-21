@@ -87,22 +87,22 @@ impl App {
         ui.horizontal_wrapped(|ui| {
             if self.collection.is_none() {
                 ui.label(
-                    RichText::new(tr!("deck_view.without_read_collection_everything")).color(YELLOW),
+                    RichText::new(tr!("deck_view.without_read_collection_everything")).color(theme::tone(ui.ctx(), Tone::Warn)),
                 );
             } else if summary.complete() {
                 ui.label(
                     RichText::new(tr!("deck_view.build_deck_completely"))
-                        .color(GREEN)
+                        .color(theme::tone(ui.ctx(), Tone::Good))
                         .strong(),
                 );
             } else if summary.craftable(wc) {
                 ui.label(
                     RichText::new(tr!("deck_view.buildable_wildcards"))
-                        .color(YELLOW)
+                        .color(theme::tone(ui.ctx(), Tone::Warn))
                         .strong(),
                 );
             } else {
-                ui.label(RichText::new(tr!("deck_view.buildable_yet")).color(RED).strong());
+                ui.label(RichText::new(tr!("deck_view.buildable_yet")).color(theme::tone(ui.ctx(), Tone::Bad)).strong());
             }
             ui.label(tr!("deck_view.cards_owned", missing = summary.total - summary.missing, total = summary.total, v = summary.percent().floor() : {:.0}));
         });
@@ -119,7 +119,11 @@ impl App {
                                 rarity_names = Rarity::WILDCARDS[i].label(),
                                 wc = wc[i]
                             ))
-                            .color(if enough { GREEN } else { RED }),
+                            .color(if enough {
+                                theme::tone(ui.ctx(), Tone::Good)
+                            } else {
+                                theme::tone(ui.ctx(), Tone::Bad)
+                            }),
                         );
                     }
                 }
@@ -129,7 +133,7 @@ impl App {
                             "deck_view.cards_available_arena",
                             unavailable = summary.unavailable
                         ))
-                        .color(RED),
+                        .color(theme::tone(ui.ctx(), Tone::Bad)),
                     );
                 }
             });
@@ -315,7 +319,7 @@ impl App {
         });
         row.col(|ui| {
             if line.key.is_some() {
-                ui.label(RichText::new(line.rarity.label()).color(rarity_color(line.rarity)));
+                rarity_label(ui, line.rarity);
             }
         });
         row.col(|ui| {
@@ -327,7 +331,11 @@ impl App {
         });
         row.col(|ui| {
             if line.missing > 0 {
-                ui.label(RichText::new(line.missing.to_string()).color(RED).strong());
+                ui.label(
+                    RichText::new(line.missing.to_string())
+                        .color(theme::tone(ui.ctx(), Tone::Bad))
+                        .strong(),
+                );
             }
         });
         row.col(|ui| {
@@ -335,13 +343,13 @@ impl App {
                 return;
             }
             let Some(key) = &line.key else {
-                ui.label(RichText::new(tr!("deck_view.available_arena")).color(RED));
+                toned(ui, Tone::Bad, tr!("deck_view.available_arena"));
                 return;
             };
             let slot = (deck_id, key.clone());
             let options = self.subs.get(&slot).map(Vec::as_slice).unwrap_or(&[]);
             if options.is_empty() {
-                ui.label(RichText::new(tr!("deck_view.no_suggestion")).weak());
+                note(ui, tr!("deck_view.no_suggestion"));
                 return;
             }
             let current = self.repl.get(&slot);

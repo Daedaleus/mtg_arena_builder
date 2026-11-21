@@ -117,10 +117,12 @@ fn game_row(
     });
     row.col(|ui| {
         let (text, color) = match g.won {
-            Some(true) => (tr!("game_list.win"), GREEN),
-            Some(false) if g.conceded() => (tr!("game_list.conceded"), RED),
-            Some(false) => (tr!("game_list.loss"), RED),
-            None => ("?".to_string(), Color32::GRAY),
+            Some(true) => (tr!("game_list.win"), theme::tone(ui.ctx(), Tone::Good)),
+            Some(false) if g.conceded() => {
+                (tr!("game_list.conceded"), theme::tone(ui.ctx(), Tone::Bad))
+            }
+            Some(false) => (tr!("game_list.loss"), theme::tone(ui.ctx(), Tone::Bad)),
+            None => ("?".to_string(), theme::tone(ui.ctx(), Tone::Muted)),
         };
         ui.label(RichText::new(text).color(color));
     });
@@ -184,10 +186,10 @@ impl App {
                     "game_list.only_logged_turn_lands",
                     v = g.turns.first().map(|t| t.turn).unwrap_or(0)
                 ))
-                .color(YELLOW),
+                .color(theme::tone(ui.ctx(), Tone::Warn)),
             );
         }
-        ui.label(RichText::new(tr!("game_list.state_end_each_turn")).weak());
+        note(ui, tr!("game_list.state_end_each_turn"));
         turn_table(ui, numbers.of(g), g, db);
     }
 
@@ -207,7 +209,7 @@ impl App {
             .collect();
         if found.is_empty() {
             if g.complete {
-                ui.label(RichText::new(tr!("game_list.app_found_no_typical")).color(GREEN));
+                toned(ui, Tone::Good, tr!("game_list.app_found_no_typical"));
             }
         } else {
             ui.strong(tr!("game_list.what_do_better_game"));
@@ -259,7 +261,7 @@ fn biggest_threat(ui: &mut egui::Ui, g: &GameRecord, db: &CardDb) {
         .max_by_key(|(grp, dmg)| (**dmg, std::cmp::Reverse(**grp)))
         .and_then(|(grp, dmg)| db.cards.get(grp).map(|c| (c.display_name(), *dmg)));
     if let Some((name, dmg)) = top {
-        ui.label(RichText::new(tr!("game_list.most_damage", name = name, dmg = dmg)).weak());
+        note(ui, tr!("game_list.most_damage", name = name, dmg = dmg));
     }
 }
 

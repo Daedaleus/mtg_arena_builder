@@ -18,7 +18,7 @@ impl App {
         ui.separator();
         let overview = self.games.view == 0;
         if self.games.logs_disabled {
-            ui.label(RichText::new(tr!("games_tab.detailed_logs_turned_off")).color(YELLOW));
+            toned(ui, Tone::Warn, tr!("games_tab.detailed_logs_turned_off"));
         }
         let Some(db) = self.db.clone() else { return };
         // Zwischengespeichert; neu nur bei neuen Daten, Filter oder Sprache.
